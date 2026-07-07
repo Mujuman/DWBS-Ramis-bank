@@ -78,7 +78,7 @@ const AppShell = ({ children }) => {
       {user && <Sidebar open={sidebarOpen} />}
       <motion.main
         className="min-h-screen"
-        style={{ paddingTop: '72px' }}
+        style={{ paddingTop: '80px' }}
         animate={{ marginLeft: user && sidebarOpen ? '260px' : 0 }}
         transition={{ duration: 0.3, ease: 'easeInOut' }}
       >
@@ -92,7 +92,7 @@ const AppShell = ({ children }) => {
 const FullWidthShell = ({ children }) => (
   <>
     <NavBar />
-    <div style={{ paddingTop: '72px' }}>{children}</div>
+    <div style={{ paddingTop: '80px' }}>{children}</div>
   </>
 );
 
