@@ -12,7 +12,7 @@ const createNote = async (req, res) => {
   const { body, is_internal_only } = req.body;
 
   try {
-    const [cases] = await pool.execute(`SELECT id FROM Cases WHERE id = ?`, [caseId]);
+    const [cases] = await pool.execute(`SELECT case_id FROM cases WHERE case_id = ?`, [caseId]);
     if (cases.length === 0) {
       return res.status(404).json({ error: 'Case not found' });
     }
@@ -20,20 +20,20 @@ const createNote = async (req, res) => {
     // Anonymous reporters cannot post internal notes
     const isInternal = identity.type === 'staff' ? (is_internal_only === true || is_internal_only === 'true') : false;
 
-    // Staff get their user ID; anonymous reporters get NULL
-    const authorId = identity.type === 'staff' ? identity.id : null;
+    // Determine sender_type: 'Investigator' for staff, 'Reporter' for anonymous
+    const senderType = identity.type === 'staff' ? 'Investigator' : 'Reporter';
 
     await pool.execute(
-      `INSERT INTO InvestigationNotes (case_id, author_id, author_type, body, is_internal_only)
-       VALUES (?, ?, ?, ?, ?)`,
-      [caseId, authorId, identity.type, body, isInternal ? 1 : 0]
+      `INSERT INTO investigationnotes (case_id, sender_type, note_text, is_internal_only)
+       VALUES (?, ?, ?, ?)`,
+      [caseId, senderType, body, isInternal ? 1 : 0]
     );
 
     // Update case status to Awaiting_Response if reporter replied
     if (identity.type === 'anonymous') {
       await pool.execute(
-        `UPDATE Cases SET status = 'Awaiting_Response', updated_at = NOW()
-         WHERE id = ? AND status = 'Investigation_In_Progress'`,
+        `UPDATE cases SET status = 'Awaiting_Response', updated_at = NOW()
+         WHERE case_id = ? AND status = 'Investigation_In_Progress'`,
         [caseId]
       );
     }
@@ -64,7 +64,7 @@ const getNotes = async (req, res) => {
   const identity = req.identity;
 
   try {
-    const [cases] = await pool.execute(`SELECT id FROM Cases WHERE id = ?`, [caseId]);
+    const [cases] = await pool.execute(`SELECT case_id FROM cases WHERE case_id = ?`, [caseId]);
     if (cases.length === 0) {
       return res.status(404).json({ error: 'Case not found' });
     }
@@ -78,21 +78,19 @@ const getNotes = async (req, res) => {
 
     if (identity.type === 'anonymous' || !highPriv) {
       // Reporter or low-privilege staff: only public notes
-      query = `SELECT n.id, n.author_type, n.body, n.is_internal_only, n.created_at,
-                      u.display_name AS author_name
-               FROM InvestigationNotes n
-               LEFT JOIN Users u ON n.author_id = u.id
-               WHERE n.case_id = ? AND n.is_internal_only = 0
-               ORDER BY n.created_at ASC`;
+      query = `SELECT note_id as id, sender_type as author_type, note_text as body, 
+                      is_internal_only, created_at
+               FROM investigationnotes
+               WHERE case_id = ? AND is_internal_only = 0
+               ORDER BY created_at ASC`;
       params = [caseId];
     } else {
       // High-privilege staff: see all notes including internal
-      query = `SELECT n.id, n.author_type, n.body, n.is_internal_only, n.created_at,
-                      u.display_name AS author_name
-               FROM InvestigationNotes n
-               LEFT JOIN Users u ON n.author_id = u.id
-               WHERE n.case_id = ?
-               ORDER BY n.created_at ASC`;
+      query = `SELECT note_id as id, sender_type as author_type, note_text as body, 
+                      is_internal_only, created_at
+               FROM investigationnotes
+               WHERE case_id = ?
+               ORDER BY created_at ASC`;
       params = [caseId];
     }
 

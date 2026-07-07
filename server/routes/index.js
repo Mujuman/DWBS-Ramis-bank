@@ -39,6 +39,15 @@ router.post('/auth/login',
   authController.staffLogin
 );
 
+// Development-only registration endpoint
+if (process.env.NODE_ENV === 'development') {
+  router.post('/auth/register',
+    authLimiter,
+    sanitizeRequestBody,
+    authController.registerUser
+  );
+}
+
 router.post('/auth/refresh',
   sanitizeRequestBody,
   authController.refreshToken
@@ -141,7 +150,7 @@ router.get('/users',
   async (req, res) => {
     const { pool } = require('../config/db');
     const [users] = await pool.execute(
-      `SELECT user_id as id, ad_username, display_name, role, is_active, last_login, created_at
+      `SELECT user_id as id, username, email, role, department, is_active, created_at
        FROM Users ORDER BY created_at DESC`
     );
     res.json({ users });
@@ -154,7 +163,7 @@ router.patch('/users/:id/role',
   async (req, res) => {
     const { pool } = require('../config/db');
     const { role } = req.body;
-    const validRoles = ['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO', 'System_Admin'];
+    const validRoles = ['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO', 'System_Admin', 'Auditor'];
     if (!validRoles.includes(role)) {
       return res.status(422).json({ error: 'Invalid role' });
     }
@@ -178,19 +187,56 @@ router.patch('/users/:id/active',
 
 router.get('/audit',
   authenticateStaff,
-  requireRole('System_Admin', 'Compliance_Officer', 'CEO'),
+  requireRole('System_Admin', 'Compliance_Officer', 'CEO', 'Auditor'),
   async (req, res) => {
     const { pool } = require('../config/db');
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(100, parseInt(req.query.limit) || 50);
     const offset = (page - 1) * limit;
 
+    // Build filter conditions
+    const filters = [];
+    const params = [];
+    
+    if (req.query.action) {
+      filters.push('action LIKE ?');
+      params.push(`%${req.query.action}%`);
+    }
+    
+    if (req.query.case_id) {
+      filters.push('target_case_id = ?');
+      params.push(parseInt(req.query.case_id));
+    }
+    
+    if (req.query.user_id) {
+      filters.push('user_id = ?');
+      params.push(parseInt(req.query.user_id));
+    }
+    
+    if (req.query.from_date) {
+      filters.push('timestamp >= ?');
+      params.push(req.query.from_date);
+    }
+    
+    if (req.query.to_date) {
+      filters.push('timestamp <= ?');
+      params.push(req.query.to_date);
+    }
+
+    const whereClause = filters.length > 0 ? `WHERE ${filters.join(' AND ')}` : '';
+    
     const [logs] = await pool.execute(
-      `SELECT id, case_id, action, performed_by, performed_by_type, metadata, created_at
-       FROM AuditLogs ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-      [limit, offset]
+      `SELECT log_id as id, target_case_id, action, user_id as performed_by, 
+              'staff' as performed_by_type, details as metadata, timestamp as created_at
+       FROM AuditLogs ${whereClause} ORDER BY timestamp DESC LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
     );
-    const [[count]] = await pool.execute(`SELECT COUNT(*) AS total FROM AuditLogs`);
+    
+    const [[count]] = await pool.execute(
+      `SELECT COUNT(*) AS total FROM AuditLogs ${whereClause}`,
+      params
+    );
+    
     res.json({ logs, pagination: { total: count.total, page, limit } });
   }
 );

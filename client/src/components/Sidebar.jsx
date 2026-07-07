@@ -28,7 +28,7 @@ const navItems = [
     path: '/audit',
     label: 'Audit Logs',
     icon: ClipboardList,
-    roles: ['System_Admin', 'Compliance_Officer', 'CEO'],
+    roles: ['Auditor', 'System_Admin', 'Compliance_Officer', 'CEO'],
   },
   {
     path: '/admin',

@@ -21,6 +21,7 @@ export default function StaffLoginPage() {
       toast.success(`Welcome, ${user.display_name}`);
       if (user.role === 'CEO') navigate('/executive');
       else if (user.role === 'System_Admin') navigate('/admin');
+      else if (user.role === 'Auditor') navigate('/audit');
       else navigate('/dashboard');
     } catch (err) {
       toast.error(err.response?.data?.error || 'Invalid credentials. Please try again.');
@@ -177,10 +178,22 @@ export default function StaffLoginPage() {
             </div>
 
             <div className="mt-4 pt-4 border-t border-slate-100 text-center">
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-400 mb-2">
                 Forgot your password? Contact IT Support<br />
                 or the Active Directory administrator.
               </p>
+              {process.env.NODE_ENV === 'development' && (
+                <div className="mt-3">
+                  <p className="text-xs text-gray-500 mb-2">Development Mode:</p>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/register')}
+                    className="text-sm text-indigo-600 hover:text-indigo-700 font-medium transition-colors underline"
+                  >
+                    Create Test Account for Any Role →
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

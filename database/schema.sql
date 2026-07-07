@@ -129,7 +129,7 @@ CREATE TABLE `users` (
   `username` varchar(50) NOT NULL,
   `email` varchar(100) NOT NULL,
   `password_hash` varchar(255) DEFAULT NULL COMMENT 'Local password hash (bcrypt) - only for initial sysadmin, NULL for AD users',
-  `role` enum('Employee','Branch_Manager','Investigator','Compliance_Officer','CEO','System_Admin') NOT NULL,
+  `role` enum('Employee','Branch_Manager','Investigator','Compliance_Officer','CEO','System_Admin','Auditor') NOT NULL,
   `department` varchar(100) NOT NULL,
   `is_active` tinyint(1) DEFAULT 1,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
@@ -289,6 +289,14 @@ VALUES
     NULL,
     'CEO',
     'Executive',
+    1
+  ),
+  (
+    'auditor',
+    'auditor@rammisbank.et',
+    '$2b$12$KIXuMCWkMqCovUFvBn5m8.QzHVxvWPTfI.0W5ylQb2FZXmZsDI6/K',
+    'Auditor',
+    'Internal_Audit',
     1
   );
 
