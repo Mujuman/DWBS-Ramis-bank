@@ -12,46 +12,49 @@ import {
 import { useDropzone } from 'react-dropzone';
 
 const CATEGORIES = [
-  { value: 'Fraud', label: 'Fraud', icon: '💳' },
-  { value: 'Bribery', label: 'Bribery', icon: '💰' },
-  { value: 'Corruption', label: 'Corruption', icon: '⚖️' },
-  { value: 'Harassment', label: 'Harassment', icon: '🚫' },
-  { value: 'AML_Violation', label: 'AML Violation', icon: '🏦' },
-  { value: 'Data_Breach', label: 'Data Breach', icon: '🔐' },
+  { value: 'Fraud',            label: 'Fraud',            icon: '💳' },
+  { value: 'Bribery',          label: 'Bribery',          icon: '💰' },
+  { value: 'Corruption',       label: 'Corruption',       icon: '⚖️' },
+  { value: 'Harassment',       label: 'Harassment',       icon: '🚫' },
+  { value: 'AML_Violation',    label: 'AML Violation',    icon: '🏦' },
+  { value: 'Data_Breach',      label: 'Data Breach',      icon: '🔐' },
   { value: 'Policy_Violation', label: 'Policy Violation', icon: '📋' },
-  { value: 'Other', label: 'Other', icon: '⚠️' },
+  { value: 'Other',            label: 'Other',            icon: '⚠️' },
 ];
 
 const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
-
 const STEPS = ['Privacy Shield', 'Incident Details', 'Evidence', 'Review & Submit'];
 
 export default function SubmitReportPage() {
   const { anonToken, initAnonymousSession } = useAuth();
   const navigate = useNavigate();
 
-  const [step, setStep] = useState(0);
+  const [step, setStep]               = useState(0);
   const [captchaLoading, setCaptchaLoading] = useState(false);
-  const [sessionToken, setSessionToken] = useState(anonToken || null);
-  const [files, setFiles] = useState([]);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(null);
+  const [captchaToken, setCaptchaToken]     = useState(null);
+  const [sessionToken, setSessionToken]     = useState(anonToken || null);
+  const [files, setFiles]             = useState([]);
+  const [submitting, setSubmitting]   = useState(false);
+  const [submitted, setSubmitted]     = useState(null);
+  const captchaRef = useRef(null);
 
   const { register, handleSubmit, watch, formState: { errors }, getValues } = useForm({
-    defaultValues: { category: '', description: '', priority: 'Medium', incident_date: '', incident_location: '' }
+    defaultValues: { category: '', description: '', priority: 'Medium', incident_date: '', incident_location: '' },
   });
 
-  // ── Step 0: Init anonymous session (mock CAPTCHA for dev) ──
-  const handleCaptchaVerify = async () => {
+  // ── hCaptcha verified → create anonymous session ──────────
+  const onCaptchaVerify = async (token) => {
+    setCaptchaToken(token);
     setCaptchaLoading(true);
     try {
-      // In dev, pass a mock captcha token
-      const token = await initAnonymousSession('dev-mock-captcha-token');
-      setSessionToken(token);
+      const anonSessionToken = await initAnonymousSession(token);
+      setSessionToken(anonSessionToken);
       toast.success('Privacy shield activated — you are now anonymous');
       setStep(1);
     } catch (err) {
-      toast.error(err.response?.data?.error || 'CAPTCHA verification failed');
+      toast.error(err.response?.data?.error || 'Verification failed. Please try again.');
+      captchaRef.current?.resetCaptcha();
+      setCaptchaToken(null);
     } finally {
       setCaptchaLoading(false);
     }
@@ -83,18 +86,15 @@ export default function SubmitReportPage() {
       const token = sessionToken || anonToken;
 
       const caseRes = await api.post('/cases', {
-        category: data.category,
-        description: data.description,
-        priority: data.priority,
-        incident_date: data.incident_date || undefined,
+        category:          data.category,
+        description:       data.description,
+        priority:          data.priority,
+        incident_date:     data.incident_date || undefined,
         incident_location: data.incident_location || undefined,
       }, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 
-      const { reference_id } = caseRes.data;
-
-      // Upload evidence files (if any)
       for (const file of files) {
         const formData = new FormData();
         formData.append('file', file);
@@ -103,10 +103,10 @@ export default function SubmitReportPage() {
             'Content-Type': 'multipart/form-data',
             Authorization: `Bearer ${token}`,
           },
-        }).catch(() => {}); // Non-blocking
+        }).catch(() => {});
       }
 
-      setSubmitted({ reference_id, created_at: new Date().toISOString() });
+      setSubmitted({ reference_id: caseRes.data.reference_id, created_at: new Date().toISOString() });
       toast.success('Report submitted successfully!');
     } catch (err) {
       toast.error(err.response?.data?.error || 'Submission failed. Please try again.');
@@ -131,8 +131,7 @@ export default function SubmitReportPage() {
             Your report has been received and encrypted. Use this reference code to track your case.
           </p>
 
-          <div className="rounded-xl p-5 mb-6"
-            style={{ background: 'var(--color-navy-900)' }}>
+          <div className="rounded-xl p-5 mb-6" style={{ background: 'var(--color-navy-900)' }}>
             <p className="text-xs font-semibold uppercase tracking-wider mb-2"
               style={{ color: 'var(--color-gold-500)' }}>
               Your Secure Reference Code
@@ -187,19 +186,22 @@ export default function SubmitReportPage() {
           {STEPS.map((label, i) => (
             <div key={label} className="flex items-center flex-1 gap-2">
               <div className="flex flex-col items-center flex-1">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                  i < step ? 'text-white' : i === step ? 'text-navy-900' : 'bg-slate-200 text-slate-400'
-                }`}
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                    i < step ? 'text-white' : i === step ? '' : 'bg-slate-200 text-slate-400'
+                  }`}
                   style={
                     i < step
                       ? { background: '#16a34a' }
                       : i === step
                       ? { background: 'var(--color-gold-500)', color: 'var(--color-navy-900)' }
                       : {}
-                  }>
+                  }
+                >
                   {i < step ? <CheckCircle size={16} /> : i + 1}
                 </div>
-                <span className={`text-xs mt-1 font-medium hidden sm:block ${i === step ? 'text-navy-900' : 'text-slate-400'}`}>
+                <span className={`text-xs mt-1 font-medium hidden sm:block ${i === step ? '' : 'text-slate-400'}`}
+                  style={i === step ? { color: 'var(--color-navy-900)' } : {}}>
                   {label}
                 </span>
               </div>
@@ -210,7 +212,7 @@ export default function SubmitReportPage() {
           ))}
         </div>
 
-        {/* ── Step 0: Privacy Shield / CAPTCHA ──────────────── */}
+        {/* ── Step 0: Privacy Shield / hCaptcha ─────────────── */}
         {step === 0 && (
           <div className="card p-8 fade-in-up">
             <div className="flex items-center gap-3 mb-6">
@@ -224,11 +226,11 @@ export default function SubmitReportPage() {
               </div>
             </div>
 
-            <div className="space-y-4 mb-6">
+            <div className="space-y-3 mb-6">
               {[
-                ['No IP Logging', 'Your IP address is never stored or logged'],
+                ['No IP Logging',     'Your IP address is never stored or logged'],
                 ['No Fingerprinting', 'No browser fingerprint or device ID is collected'],
-                ['30-Min Session', 'Your anonymous session expires after submission'],
+                ['30-Min Session',    'Your anonymous session expires after submission'],
               ].map(([title, desc]) => (
                 <div key={title} className="flex items-start gap-3 p-3 rounded-lg"
                   style={{ background: 'var(--color-slate-50)' }}>
@@ -241,23 +243,60 @@ export default function SubmitReportPage() {
               ))}
             </div>
 
-            {/* hCaptcha widget placeholder */}
-            <div className="rounded-xl border-2 border-dashed p-6 text-center mb-6"
-              style={{ borderColor: 'var(--color-slate-300)', background: 'var(--color-slate-50)' }}>
-              <p className="text-sm text-slate-500 mb-2">hCaptcha Verification</p>
-              <p className="text-xs text-slate-400">
-                In production, the hCaptcha widget renders here.<br />
-                Configure your site key in the frontend .env file.
-              </p>
-            </div>
+            {/* ── hCaptcha / Dev bypass ── */}
+            <div className="flex flex-col items-center gap-3 py-4">
 
-            <button
-              onClick={handleCaptchaVerify}
-              disabled={captchaLoading}
-              className="btn btn-primary w-full"
-            >
-              {captchaLoading ? <><span className="spinner" /> Verifying...</> : <><Shield size={16} /> Activate Privacy Shield & Continue</>}
-            </button>
+              {/* Only render the real widget in production */}
+              {!import.meta.env.DEV ? (
+                <HCaptcha
+                  ref={captchaRef}
+                  sitekey={import.meta.env.VITE_HCAPTCHA_SITE_KEY}
+                  onVerify={onCaptchaVerify}
+                  onExpire={() => {
+                    setCaptchaToken(null);
+                    toast.error('CAPTCHA expired. Please verify again.');
+                  }}
+                  onError={(err) => {
+                    console.error('[hCaptcha] error:', err);
+                    setCaptchaToken(null);
+                  }}
+                  theme="light"
+                  size="normal"
+                />
+              ) : (
+                /* Dev mode: skip widget entirely */
+                <div className="rounded-xl p-4 text-center w-full"
+                  style={{ background: 'var(--color-slate-50)', border: '1px dashed var(--color-slate-300)' }}>
+                  <p className="text-xs font-semibold text-slate-500 mb-1">Development Mode</p>
+                  <p className="text-xs text-slate-400">hCaptcha widget disabled in dev. Use the button below.</p>
+                </div>
+              )}
+
+              {captchaLoading && (
+                <div className="flex items-center gap-2 text-sm text-slate-500">
+                  <span className="spinner spinner-navy" />
+                  Activating privacy shield...
+                </div>
+              )}
+
+              {!captchaToken && !captchaLoading && !import.meta.env.DEV && (
+                <p className="text-xs text-slate-400">Complete the verification above to proceed.</p>
+              )}
+
+              {/* Dev bypass button — only in development */}
+              {import.meta.env.DEV && (
+                <button
+                  type="button"
+                  onClick={() => onCaptchaVerify('dev-bypass-token')}
+                  disabled={captchaLoading}
+                  className="btn btn-primary w-full"
+                >
+                  {captchaLoading
+                    ? <><span className="spinner" /> Activating...</>
+                    : <><Shield size={16} /> Activate Privacy Shield & Continue</>}
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -274,15 +313,12 @@ export default function SubmitReportPage() {
                 <div className="grid grid-cols-2 gap-2">
                   {CATEGORIES.map(cat => (
                     <label key={cat.value}
-                      className={`flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                        watch('category') === cat.value
-                          ? 'border-gold-500'
-                          : 'border-slate-200 hover:border-slate-300'
-                      }`}
+                      className="flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all"
                       style={watch('category') === cat.value
                         ? { borderColor: 'var(--color-gold-500)', background: 'rgba(249,168,38,0.06)' }
-                        : {}}>
-                      <input type="radio" value={cat.value} {...register('category', { required: 'Please select a category' })}
+                        : { borderColor: 'var(--color-slate-200)' }}>
+                      <input type="radio" value={cat.value}
+                        {...register('category', { required: 'Please select a category' })}
                         className="sr-only" />
                       <span className="text-lg">{cat.icon}</span>
                       <span className="text-sm font-medium text-slate-700">{cat.label}</span>
@@ -354,10 +390,11 @@ export default function SubmitReportPage() {
               Optional. All files are AES-256 encrypted and EXIF metadata is stripped from images before storage.
             </p>
 
-            <div {...getRootProps()} className={`rounded-xl border-2 border-dashed p-8 text-center cursor-pointer transition-all ${
-              isDragActive ? 'border-gold-500 bg-amber-50' : 'border-slate-300 hover:border-slate-400'
-            }`}
-              style={isDragActive ? { borderColor: 'var(--color-gold-500)', background: 'rgba(249,168,38,0.05)' } : {}}>
+            <div {...getRootProps()}
+              className="rounded-xl border-2 border-dashed p-8 text-center cursor-pointer transition-all"
+              style={isDragActive
+                ? { borderColor: 'var(--color-gold-500)', background: 'rgba(249,168,38,0.05)' }
+                : { borderColor: 'var(--color-slate-300)' }}>
               <input {...getInputProps()} />
               <Upload size={32} className="mx-auto mb-3 text-slate-400" />
               <p className="text-sm font-medium text-slate-600">
@@ -437,12 +474,15 @@ export default function SubmitReportPage() {
                   <ChevronLeft size={16} /> Back
                 </button>
                 <button type="submit" disabled={submitting} className="btn btn-gold flex-1">
-                  {submitting ? <><span className="spinner spinner-navy" /> Submitting...</> : <><CheckCircle size={16} /> Submit Report</>}
+                  {submitting
+                    ? <><span className="spinner spinner-navy" /> Submitting...</>
+                    : <><CheckCircle size={16} /> Submit Report</>}
                 </button>
               </div>
             </div>
           </form>
         )}
+
       </div>
     </div>
   );

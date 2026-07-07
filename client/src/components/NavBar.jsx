@@ -49,7 +49,7 @@ export default function NavBar({ onMenuToggle, sidebarOpen }) {
         boxShadow: scrolled
           ? '0 4px 24px rgba(26,58,107,0.18)'
           : '0 2px 12px rgba(26,58,107,0.08)',
-        height: '72px',
+        height: '80px',
         transition: 'box-shadow 0.3s ease',
       }}
     >
@@ -86,7 +86,7 @@ export default function NavBar({ onMenuToggle, sidebarOpen }) {
               <img
                 src={rammisLogo}
                 alt="Rammis Bank"
-                style={{ height: '56px', width: 'auto', objectFit: 'contain' }}
+                style={{ height: '64px', width: 'auto', objectFit: 'contain' }}
               />
             </Link>
           </motion.div>
@@ -187,7 +187,7 @@ export default function NavBar({ onMenuToggle, sidebarOpen }) {
               <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
                 <Link
                   to="/report"
-                  className="text-sm font-semibold py-2 px-5 rounded-lg inline-block"
+                  className="text-xs sm:text-sm font-semibold py-1.5 sm:py-2 px-3 sm:px-5 rounded-lg inline-block"
                   style={{ background: BRAND_GOLD, color: BRAND_NAVY }}
                 >
                   Submit Report
@@ -196,7 +196,7 @@ export default function NavBar({ onMenuToggle, sidebarOpen }) {
               <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
                 <Link
                   to="/login"
-                  className="text-sm font-semibold py-2 px-5 rounded-lg inline-block transition-colors"
+                  className="text-xs sm:text-sm font-semibold py-1.5 sm:py-2 px-3 sm:px-5 rounded-lg inline-block transition-colors"
                   style={{ color: BRAND_NAVY, border: `2px solid ${BRAND_NAVY}`, background: 'transparent' }}
                   onMouseEnter={e => { e.currentTarget.style.background = BRAND_NAVY; e.currentTarget.style.color = 'white'; }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = BRAND_NAVY; }}

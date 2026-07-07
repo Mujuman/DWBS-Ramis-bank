@@ -141,7 +141,7 @@ router.get('/users',
   async (req, res) => {
     const { pool } = require('../config/db');
     const [users] = await pool.execute(
-      `SELECT id, ad_username, display_name, role, is_active, last_login, created_at
+      `SELECT user_id as id, ad_username, display_name, role, is_active, last_login, created_at
        FROM Users ORDER BY created_at DESC`
     );
     res.json({ users });
@@ -158,7 +158,7 @@ router.patch('/users/:id/role',
     if (!validRoles.includes(role)) {
       return res.status(422).json({ error: 'Invalid role' });
     }
-    await pool.execute(`UPDATE Users SET role = ? WHERE id = ?`, [role, req.params.id]);
+    await pool.execute(`UPDATE Users SET role = ? WHERE user_id = ?`, [role, req.params.id]);
     res.json({ message: 'Role updated' });
   }
 );
@@ -169,7 +169,7 @@ router.patch('/users/:id/active',
   async (req, res) => {
     const { pool } = require('../config/db');
     const { is_active } = req.body;
-    await pool.execute(`UPDATE Users SET is_active = ? WHERE id = ?`, [is_active ? 1 : 0, req.params.id]);
+    await pool.execute(`UPDATE Users SET is_active = ? WHERE user_id = ?`, [is_active ? 1 : 0, req.params.id]);
     res.json({ message: `User ${is_active ? 'activated' : 'deactivated'}` });
   }
 );

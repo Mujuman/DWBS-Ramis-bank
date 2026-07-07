@@ -17,18 +17,23 @@ const initAnonymousSession = async (req, res) => {
   const { captcha_token } = req.body;
 
   try {
-    // Verify hCaptcha
-    const captchaRes = await axios.post(
-      process.env.HCAPTCHA_VERIFY_URL || 'https://hcaptcha.com/siteverify',
-      new URLSearchParams({
-        secret: process.env.HCAPTCHA_SECRET,
-        response: captcha_token,
-      }),
-      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-    );
+    // ── Dev bypass: skip hCaptcha verification in development ──
+    if (process.env.NODE_ENV === 'development' && captcha_token === 'dev-bypass-token') {
+      console.warn('[AUTH] Dev CAPTCHA bypass used — disable in production');
+    } else {
+      // Verify hCaptcha
+      const captchaRes = await axios.post(
+        process.env.HCAPTCHA_VERIFY_URL || 'https://hcaptcha.com/siteverify',
+        new URLSearchParams({
+          secret:   process.env.HCAPTCHA_SECRET,
+          response: captcha_token,
+        }),
+        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+      );
 
-    if (!captchaRes.data.success) {
-      return res.status(400).json({ error: 'CAPTCHA verification failed. Please try again.' });
+      if (!captchaRes.data.success) {
+        return res.status(400).json({ error: 'CAPTCHA verification failed. Please try again.' });
+      }
     }
   } catch (captchaErr) {
     console.error('[AUTH] CAPTCHA verification error:', captchaErr.message);
