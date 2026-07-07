@@ -100,7 +100,8 @@ const listCases = async (req, res) => {
 
     // Role-based filtering
     if (user.role === 'Investigator') {
-      whereConditions.push('c.assigned_investigator = ?');
+      // Investigators can see cases assigned to them OR unassigned cases
+      whereConditions.push('(c.assigned_investigator = ? OR c.assigned_investigator IS NULL)');
       params.push(user.userId);
     } else if (user.role === 'Employee' || user.role === 'Branch_Manager') {
       whereConditions.push('c.user_id = ?');
@@ -206,8 +207,11 @@ const getCaseById = async (req, res) => {
         return res.status(403).json({ error: 'Access denied' });
       }
     }
-    if (user.role === 'Investigator' && caseData.assigned_investigator !== user.userId) {
-      return res.status(403).json({ error: 'This case is not assigned to you' });
+    if (user.role === 'Investigator') {
+      // Investigators can view cases assigned to them OR unassigned cases
+      if (caseData.assigned_investigator !== null && caseData.assigned_investigator !== user.userId) {
+        return res.status(403).json({ error: 'This case is assigned to another investigator' });
+      }
     }
 
     // Map to client format

@@ -11,11 +11,13 @@ import LandingPage from './pages/LandingPage';
 import SubmitReportPage from './pages/SubmitReportPage';
 import TrackCasePage from './pages/TrackCasePage';
 import StaffLoginPage from './pages/StaffLoginPage';
+import RegistrationPage from './pages/RegistrationPage';
 import DashboardPage from './pages/DashboardPage';
 import CaseListPage from './pages/CaseListPage';
 import CaseDetailPage from './pages/CaseDetailPage';
 import ExecutiveDashboard from './pages/ExecutiveDashboard';
 import AdminPage from './pages/AdminPage';
+import AuditDashboard from './pages/AuditDashboard';
 
 // ── Page transition variants ──────────────────────────────────
 const pageVariants = {
@@ -122,6 +124,12 @@ function AppRoutes() {
         <Route path="/login" element={
           <PageWrapper><StaffLoginPage /></PageWrapper>
         } />
+        <Route path="/staff-login" element={
+          <PageWrapper><StaffLoginPage /></PageWrapper>
+        } />
+        <Route path="/register" element={
+          <PageWrapper><RegistrationPage /></PageWrapper>
+        } />
 
         {/* Staff-protected routes */}
         <Route path="/dashboard" element={
@@ -156,6 +164,13 @@ function AppRoutes() {
           <ProtectedRoute roles={['System_Admin']}>
             <AppShell>
               <PageWrapper><AdminPage /></PageWrapper>
+            </AppShell>
+          </ProtectedRoute>
+        } />
+        <Route path="/audit" element={
+          <ProtectedRoute roles={['Auditor', 'System_Admin', 'Compliance_Officer', 'CEO']}>
+            <AppShell>
+              <PageWrapper><AuditDashboard /></PageWrapper>
             </AppShell>
           </ProtectedRoute>
         } />

@@ -257,4 +257,69 @@ const getMe = async (req, res) => {
   return res.status(200).json({ user: req.user });
 };
 
-module.exports = { initAnonymousSession, staffLogin, refreshToken, getMe };
+/**
+ * POST /api/auth/register (DEV ONLY)
+ * Registers a new user account for testing purposes.
+ * In production, users should be managed via LDAP or by System Admins.
+ */
+const registerUser = async (req, res) => {
+  const { username, email, password, role, department } = req.body;
+
+  if (!username || !email || !password || !role || !department) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
+
+  const validRoles = ['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO', 'System_Admin', 'Auditor'];
+  if (!validRoles.includes(role)) {
+    return res.status(400).json({ error: 'Invalid role' });
+  }
+
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  }
+
+  try {
+    // Check if username or email already exists
+    const [existing] = await pool.execute(
+      'SELECT user_id FROM users WHERE username = ? OR email = ?',
+      [username, email]
+    );
+
+    if (existing.length > 0) {
+      return res.status(409).json({ error: 'Username or email already exists' });
+    }
+
+    // Hash password
+    const password_hash = await bcrypt.hash(password, 12);
+
+    // Insert new user
+    const [result] = await pool.execute(
+      `INSERT INTO users (username, email, password_hash, role, department, is_active)
+       VALUES (?, ?, ?, ?, ?, 1)`,
+      [username, email, password_hash, role, department]
+    );
+
+    await writeAuditLog({
+      action: 'USER_REGISTERED',
+      performedBy: result.insertId,
+      performedByType: 'system',
+      metadata: { username, role, department, method: 'dev_registration' },
+    });
+
+    return res.status(201).json({
+      message: 'User registered successfully',
+      user: {
+        id: result.insertId,
+        username,
+        email,
+        role,
+        department,
+      },
+    });
+  } catch (err) {
+    console.error('[AUTH] Registration error:', err.message);
+    return res.status(500).json({ error: 'Registration failed' });
+  }
+};
+
+module.exports = { initAnonymousSession, staffLogin, refreshToken, getMe, registerUser };

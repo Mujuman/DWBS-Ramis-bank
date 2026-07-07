@@ -10,7 +10,7 @@ const features = [
     desc: 'Zero IP tracking or browser fingerprinting. Your identity is cryptographically protected.',
     color: 'var(--color-gold-500)',
   },
-  
+
   {
     icon: Shield,
     title: 'Bank-Grade Security',
@@ -359,6 +359,7 @@ export default function LandingPage() {
           <p className="mt-1 text-xs opacity-60">Baankii Raammis • ራሚስ ባንከ • Flow to the highest!</p>
         </div>
       </footer>
+      
     </div>
   );
 }
