@@ -98,10 +98,9 @@ const listCases = async (req, res) => {
     let whereConditions = [];
     let params = [];
 
-    // Role-based filtering
+    // Role-based filtering — per spec: Investigators see ONLY cases assigned to them
     if (user.role === 'Investigator') {
-      // Investigators can see cases assigned to them OR unassigned cases
-      whereConditions.push('(c.assigned_investigator = ? OR c.assigned_investigator IS NULL)');
+      whereConditions.push('c.assigned_investigator = ?');
       params.push(user.userId);
     } else if (user.role === 'Employee' || user.role === 'Branch_Manager') {
       whereConditions.push('c.user_id = ?');
@@ -208,9 +207,9 @@ const getCaseById = async (req, res) => {
       }
     }
     if (user.role === 'Investigator') {
-      // Investigators can view cases assigned to them OR unassigned cases
-      if (caseData.assigned_investigator !== null && caseData.assigned_investigator !== user.userId) {
-        return res.status(403).json({ error: 'This case is assigned to another investigator' });
+      // Investigators can ONLY open cases assigned directly to them
+      if (caseData.assigned_investigator !== user.userId) {
+        return res.status(403).json({ error: 'Access denied. This case is not assigned to you.' });
       }
     }
 
@@ -312,9 +311,10 @@ const trackCase = async (req, res) => {
 /**
  * PATCH /api/cases/:id/status
  * Updates case status, priority, or assignment.
+ * Rule: Investigators can ONLY update cases assigned to them.
  */
 const updateCaseStatus = async (req, res) => {
-  const user = req.user;
+  const user   = req.user;
   const caseId = parseInt(req.params.id);
   const { status, priority, assigned_to } = req.body;
 
@@ -329,12 +329,29 @@ const updateCaseStatus = async (req, res) => {
     }
 
     const prev = existing[0];
-    const updates = [];
-    const params = [];
 
-    if (status) { updates.push('status = ?'); params.push(status); }
-    if (priority) { updates.push('severity_level = ?'); params.push(priority); } // maps priority to severity_level
-    if (assigned_to !== undefined) { updates.push('assigned_investigator = ?'); params.push(assigned_to); }
+    // ── Investigator restriction: can only update their own assigned cases ──
+    if (user.role === 'Investigator') {
+      if (prev.assigned_investigator !== user.userId) {
+        return res.status(403).json({
+          error: 'You can only update cases that are assigned to you.',
+        });
+      }
+      // Investigators cannot reassign cases to others
+      if (assigned_to !== undefined) {
+        return res.status(403).json({
+          error: 'Investigators cannot reassign cases. Contact a Compliance Officer.',
+        });
+      }
+    }
+
+    const updates = [];
+    const params  = [];
+
+    if (status)                         { updates.push('status = ?');             params.push(status); }
+    if (priority)                       { updates.push('severity_level = ?');     params.push(priority); }
+    if (assigned_to !== undefined &&
+        user.role !== 'Investigator')   { updates.push('assigned_investigator = ?'); params.push(assigned_to); }
 
     if (updates.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
@@ -348,16 +365,16 @@ const updateCaseStatus = async (req, res) => {
       caseId,
       action: 'CASE_UPDATED',
       metadata: {
-        prev_status: prev.status,
-        new_status: status || prev.status,
-        prev_priority: prev.severity_level,
-        new_priority: priority || prev.severity_level,
+        prev_status:    prev.status,
+        new_status:     status   || prev.status,
+        prev_priority:  prev.severity_level,
+        new_priority:   priority || prev.severity_level,
         assigned_investigator: assigned_to,
       },
     });
 
     // Notify newly assigned investigator
-    if (assigned_to && assigned_to !== prev.assigned_investigator) {
+    if (assigned_to !== undefined && assigned_to !== prev.assigned_investigator) {
       try {
         const [invRows] = await pool.execute(
           `SELECT email FROM users WHERE user_id = ? AND is_active = 1`,

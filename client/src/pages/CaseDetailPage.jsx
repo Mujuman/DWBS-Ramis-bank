@@ -51,14 +51,18 @@ export default function CaseDetailPage() {
   const [updating,    setUpdating]    = useState(false);
 
   // ── Per-spec permission flags ─────────────────────────────
-  // Investigators can edit ONLY their own assigned cases
-  const isInvestigator   = user?.role === 'Investigator';
-  const isSenior         = ['Compliance_Officer', 'System_Admin'].includes(user?.role);
-  const isCEO            = user?.role === 'CEO';
-  const canEdit          = isSenior || (isInvestigator && caseData?.assigned_to === user?.id);
-  const canViewEvidence  = ['Investigator', 'Compliance_Officer', 'CEO', 'System_Admin'].includes(user?.role);
+  // JWT payload uses `userId` (not `id`)
+  const myUserId       = user?.userId;
+  const isInvestigator = user?.role === 'Investigator';
+  const isSenior       = ['Compliance_Officer', 'System_Admin'].includes(user?.role);
+  const isCEO          = user?.role === 'CEO';
+  const canViewEvidence = ['Investigator', 'Compliance_Officer', 'CEO', 'System_Admin'].includes(user?.role);
   // Only Compliance_Officer / System_Admin can reassign cases
-  const canAssign        = isSenior;
+  const canAssign      = isSenior;
+
+  // Investigators can ONLY edit cases explicitly assigned to them (assigned_to = their userId)
+  const isAssignedToMe = caseData ? (caseData.assigned_to === myUserId) : false;
+  const canEditNow     = isSenior || (isInvestigator && isAssignedToMe);
 
   useEffect(() => {
     loadCase();
@@ -107,10 +111,6 @@ export default function CaseDetailPage() {
     }
     setLoading(false);
   };
-
-  // Re-check canEdit once caseData is loaded (Investigator case-level check)
-  const canEditNow = isSenior ||
-    (isInvestigator && (caseData?.assigned_to === user?.id || caseData?.assigned_to === null));
 
   const sendNote = async () => {
     if (!noteBody.trim()) return;
@@ -237,11 +237,13 @@ export default function CaseDetailPage() {
             )}
 
             {/* Investigator restriction notice */}
-            {isInvestigator && caseData.assigned_to !== user?.id && caseData.assigned_to !== null && (
+            {isInvestigator && !isAssignedToMe && (
               <div className="mt-4 p-3 rounded-lg flex items-start gap-2 bg-amber-50 border border-amber-200">
                 <Info size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-amber-800">
-                  This case is assigned to another investigator. You can view it but cannot edit it.
+                  {caseData.assigned_to === null
+                    ? 'This case is unassigned. A Compliance Officer must assign it to you before you can make changes.'
+                    : 'This case belongs to another investigator. You can view it but cannot make changes.'}
                 </p>
               </div>
             )}
