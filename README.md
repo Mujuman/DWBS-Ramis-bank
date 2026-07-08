@@ -65,7 +65,7 @@ npm run dev
 | `Employee` | Submit reports, view own submissions |
 | `Branch_Manager` | Same as Employee |
 | `Investigator` | View/manage assigned cases, add notes |
-| `Compliance_Officer` | Full case access, stats, audit logs |
+| `Compliance_Officer` | Full case access, stats,  |
 | `CEO` | Executive dashboard, all stats |
 | `System_Admin` | Full system access, user management |
 
