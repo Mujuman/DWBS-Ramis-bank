@@ -298,8 +298,9 @@ const getCaseById = async (req, res) => {
       is_escalated: caseData.is_escalated === 1 || caseData.is_escalated === true,
     };
 
-    // Allow request owners and Compliance Officers to view full description. System Admins and CEO are blocked from detailed case data per BRD.
-    const canViewDescription = user.role === 'Compliance_Officer' || caseData.user_id === user.userId;
+    // Allow request owners, assigned Investigators, and Compliance Officers to view full description.
+    const isAssignedInvestigator = user.role === 'Investigator' && caseData.assigned_investigator === user.userId;
+    const canViewDescription = user.role === 'Compliance_Officer' || isAssignedInvestigator || caseData.user_id === user.userId;
     if (!canViewDescription) {
       delete formattedCase.description;
     }

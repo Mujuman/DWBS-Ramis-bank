@@ -134,6 +134,37 @@ describe('staff case workflow', () => {
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Compliance Officers may only update status during assignment and review stages.' }));
   });
 
+  it('allows an assigned investigator to view report description', async () => {
+    pool.execute
+      .mockResolvedValueOnce([[{
+        case_id: 99,
+        user_id: 11,
+        assigned_investigator: 5,
+        status: 'Assigned',
+        severity_level: 'Medium',
+        category: 'System_Misuse',
+        reference_id: 'REFDESC12345',
+        description: 'This is the report description visible to the assigned investigator.',
+        created_at: '2026-07-08T12:00:00.000Z',
+        updated_at: '2026-07-08T12:00:00.000Z',
+      }]]);
+
+    const req = {
+      user: { userId: 5, role: 'Investigator' },
+      params: { id: '99' },
+    };
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+    };
+
+    const { getCaseById } = require('../controllers/caseController');
+    await getCaseById(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ case: expect.objectContaining({ description: 'This is the report description visible to the assigned investigator.' }) }));
+  });
+
   it('notifies CEO when investigator escalates case priority to Critical', async () => {
     pool.execute
       .mockResolvedValueOnce([[{ case_id: 51, status: 'Under_Review', severity_level: 'Medium', assigned_investigator: 7, is_escalated: 0, reference_id: 'REFABCDEF123', category: 'Bribery' }]])

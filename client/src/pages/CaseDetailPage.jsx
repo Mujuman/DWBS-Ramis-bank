@@ -43,6 +43,7 @@ export default function CaseDetailPage() {
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState(null);
   const [noteBody,    setNoteBody]    = useState('');
+  const [showFullDescription, setShowFullDescription] = useState(false);
   const [isInternal,  setIsInternal]  = useState(false);
   const [sendingNote, setSendingNote] = useState(false);
   const [editMode,    setEditMode]    = useState(false);
@@ -339,9 +340,30 @@ export default function CaseDetailPage() {
                 <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-2">
                   Report Description
                 </p>
-                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line bg-slate-50 rounded-xl p-4">
-                  {caseData.description}
-                </p>
+
+                {/* Responsive description: wrap long words, allow pre-formatted newlines, and limit height on small screens */}
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <p
+                    className={`text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words ${
+                      showFullDescription ? 'max-h-[none]' : 'max-h-40'
+                    } overflow-auto`}
+                    style={{ wordBreak: 'break-word' }}
+                  >
+                    {caseData.description}
+                  </p>
+
+                  {/* Show more/less toggle for long descriptions */}
+                  {String(caseData.description).length > 300 && (
+                    <div className="mt-2 text-right">
+                      <button
+                        onClick={() => setShowFullDescription(s => !s)}
+                        className="text-xs font-semibold text-navy-900 underline"
+                      >
+                        {showFullDescription ? 'Show less' : 'Show more'}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

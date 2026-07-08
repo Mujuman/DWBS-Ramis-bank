@@ -18,8 +18,13 @@ const writeAuditLog = async ({
   caseId = null,
   metadata = null,
   rawIp = null,
+  performedByRole = null,
 }) => {
   try {
+    if (performedByRole !== 'CEO') {
+      return;
+    }
+
     const ipHash = rawIp ? hashIP(rawIp) : null;
 
     // Strip PII from metadata
