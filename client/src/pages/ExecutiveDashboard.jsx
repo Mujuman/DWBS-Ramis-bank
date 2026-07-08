@@ -30,6 +30,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 export default function ExecutiveDashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [fraudOnly, setFraudOnly] = useState(false);
 
   useEffect(() => {
     api.get('/cases/stats')
@@ -46,6 +47,11 @@ export default function ExecutiveDashboard() {
   }
 
   const o = stats?.overview || {};
+
+  const escalatedCases = stats?.escalated_cases || [];
+  const filteredEscalated = fraudOnly
+    ? escalatedCases.filter(c => ['Fraud', 'Corruption', 'Bribery'].includes(c.category))
+    : escalatedCases;
 
   const kpiCards = [
     { label: 'Total Reports', value: o.total || 0, icon: FileText, color: '#0A1D37', bg: '#e8edf5', change: 'All time' },
@@ -111,6 +117,17 @@ export default function ExecutiveDashboard() {
             Escalated Cases for Immediate CEO Action
           </h2>
         </div>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <label className="text-xs text-slate-500 flex items-center gap-2">
+              <input type="checkbox" id="fraudOnly" className="w-4 h-4" onChange={e => setFraudOnly(e.target.checked)} />
+              Show fraud/financial crime only
+            </label>
+          </div>
+          <div>
+            <span className="text-xs text-slate-400">Audit trail and executive view</span>
+          </div>
+        </div>
         {!stats?.escalated_cases || stats.escalated_cases.length === 0 ? (
           <p className="text-slate-400 text-xs py-4 text-center">No escalated cases pending action.</p>
         ) : (
@@ -128,7 +145,7 @@ export default function ExecutiveDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {stats.escalated_cases.map(c => (
+                {filteredEscalated.map(c => (
                   <tr key={c.id}>
                     <td>
                       <span className="font-mono text-xs font-bold" style={{ color: 'var(--color-navy-900)' }}>
@@ -149,9 +166,10 @@ export default function ExecutiveDashboard() {
                       {c.assigned_investigator || <span className="text-red-400 font-medium italic">Unassigned</span>}
                     </td>
                     <td>
-                      <a href={`/cases/${c.id}`} className="btn btn-ghost text-xs py-1 px-2">
-                        View Details
-                      </a>
+                      <div className="flex items-center gap-2">
+                        <a href={`/cases/${c.id}`} className="btn btn-ghost text-xs py-1 px-2">View Details</a>
+                        <a href={`/audit?case_id=${c.id}`} target="_blank" rel="noreferrer" className="btn btn-ghost text-xs py-1 px-2">Audit</a>
+                      </div>
                     </td>
                   </tr>
                 ))}
