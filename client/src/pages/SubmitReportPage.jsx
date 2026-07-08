@@ -277,31 +277,41 @@ export default function SubmitReportPage() {
             {/* ── hCaptcha / Dev bypass ── */}
             <div className="flex flex-col items-center gap-3 py-4">
 
-              {/* Only render the real widget in production */}
-              {!import.meta.env.DEV ? (
-                <HCaptcha
-                  ref={captchaRef}
-                  sitekey={import.meta.env.VITE_HCAPTCHA_SITE_KEY}
-                  onVerify={onCaptchaVerify}
-                  onExpire={() => {
-                    setCaptchaToken(null);
-                    toast.error('CAPTCHA expired. Please verify again.');
-                  }}
-                  onError={(err) => {
-                    console.error('[hCaptcha] error:', err);
-                    setCaptchaToken(null);
-                  }}
-                  theme="light"
-                  size="normal"
-                />
-              ) : (
-                /* Dev mode: skip widget entirely */
-                <div className="rounded-xl p-4 text-center w-full"
-                  style={{ background: 'var(--color-slate-50)', border: '1px dashed var(--color-slate-300)' }}>
-                  <p className="text-xs font-semibold text-slate-500 mb-1">Development Mode</p>
-                  <p className="text-xs text-slate-400">hCaptcha widget disabled in dev. Use the button below.</p>
-                </div>
-              )}
+              {/* Render real widget when not in dev, or when a real site key is configured in dev */}
+              {(() => {
+                const testSiteKey = '10000000-ffff-ffff-ffff-000000000000';
+                const siteKey = import.meta.env.VITE_HCAPTCHA_SITE_KEY;
+                const showRealWidget = !import.meta.env.DEV || (siteKey && siteKey !== testSiteKey);
+
+                if (showRealWidget) {
+                  return (
+                    <HCaptcha
+                      ref={captchaRef}
+                      sitekey={siteKey}
+                      onVerify={onCaptchaVerify}
+                      onExpire={() => {
+                        setCaptchaToken(null);
+                        toast.error('CAPTCHA expired. Please verify again.');
+                      }}
+                      onError={(err) => {
+                        console.error('[hCaptcha] error:', err);
+                        setCaptchaToken(null);
+                      }}
+                      theme="light"
+                      size="normal"
+                    />
+                  );
+                }
+
+                return (
+                  /* Dev mode: skip widget entirely */
+                  <div className="rounded-xl p-4 text-center w-full"
+                    style={{ background: 'var(--color-slate-50)', border: '1px dashed var(--color-slate-300)' }}>
+                    <p className="text-xs font-semibold text-slate-500 mb-1">Development Mode</p>
+                    <p className="text-xs text-slate-400">hCaptcha widget disabled in dev. Use the button below.</p>
+                  </div>
+                );
+              })()}
 
               {captchaLoading && (
                 <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -314,8 +324,8 @@ export default function SubmitReportPage() {
                 <p className="text-xs text-slate-400">Complete the verification above to proceed.</p>
               )}
 
-              {/* Dev bypass button — only in development */}
-              {import.meta.env.DEV && (
+              {/* Dev bypass button — only shown when widget is not rendered */}
+              {import.meta.env.DEV && import.meta.env.VITE_HCAPTCHA_SITE_KEY === '10000000-ffff-ffff-ffff-000000000000' && (
                 <button
                   type="button"
                   onClick={() => onCaptchaVerify('dev-bypass-token')}
