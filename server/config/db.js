@@ -55,6 +55,17 @@ const testConnection = async () => {
     } catch (migErr) {
       console.error('[DB] Schema migration check failed for deleted_at:', migErr.message);
     }
+
+    // Automatic schema migration: check and add encryption_iv to evidencefiles
+    try {
+      const [columns] = await pool.execute("SHOW COLUMNS FROM evidencefiles LIKE 'encryption_iv'");
+      if (columns.length === 0) {
+        await pool.execute("ALTER TABLE evidencefiles ADD COLUMN encryption_iv varchar(64) DEFAULT NULL");
+        console.log('[DB] Migration: Added encryption_iv column to evidencefiles table');
+      }
+    } catch (migErr) {
+      console.error('[DB] Schema migration check failed for evidencefiles.encryption_iv:', migErr.message);
+    }
   } catch (err) {
     console.error('[DB] Failed to connect to MySQL:', err.message);
     process.exit(1);

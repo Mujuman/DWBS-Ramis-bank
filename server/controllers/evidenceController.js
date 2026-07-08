@@ -36,11 +36,12 @@ const uploadEvidence = async (req, res) => {
     const uploadedBy = user?.userId || null;
     const fileName = req.processedFile?.originalFilename || req.file.originalname;
     const filePath = req.processedFile?.storedFilename || req.file.filename || req.file.path;
+    const encryptionIv = req.processedFile?.encryptionIv || null;
 
     await pool.execute(
-      `INSERT INTO evidencefiles (case_id, file_name, file_path, uploaded_by)
-       VALUES (?, ?, ?, ?)`,
-      [caseId, fileName, filePath, uploadedBy]
+      `INSERT INTO evidencefiles (case_id, file_name, file_path, encryption_iv, uploaded_by)
+       VALUES (?, ?, ?, ?, ?)`,
+      [caseId, fileName, filePath, encryptionIv, uploadedBy]
     );
 
     await writeAuditLog({
@@ -147,16 +148,16 @@ const downloadEvidence = async (req, res) => {
     
     // Decrypt using stored IV
     let decryptedBuffer;
-    if (file.encryption_iv) {
-      try {
-        decryptedBuffer = decryptBuffer(encryptedBuffer, file.encryption_iv);
-      } catch (decryptErr) {
-        console.error('[EVIDENCE] Decryption error:', decryptErr.message);
-        return res.status(500).json({ error: 'Failed to decrypt file' });
-      }
-    } else {
-      // Fallback: file might not be encrypted (for backwards compatibility)
-      decryptedBuffer = encryptedBuffer;
+    if (!file.encryption_iv) {
+      console.error('[EVIDENCE] Download error: missing encryption IV for file', file.file_id);
+      return res.status(500).json({ error: 'Evidence file cannot be decrypted because required metadata is missing. Please re-upload the file.' });
+    }
+
+    try {
+      decryptedBuffer = decryptBuffer(encryptedBuffer, file.encryption_iv);
+    } catch (decryptErr) {
+      console.error('[EVIDENCE] Decryption error:', decryptErr.message);
+      return res.status(500).json({ error: 'Failed to decrypt file' });
     }
 
     await writeAuditLog({

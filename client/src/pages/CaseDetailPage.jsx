@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import {
   ArrowLeft, FileText, Lock, Send, User,
-  Paperclip, Download, Edit3, Shield, AlertTriangle, Info
+  Paperclip, Download, Edit3, Shield, AlertTriangle, Info, Zap
 } from 'lucide-react';
 
 // ── Must match DB enum exactly ────────────────────────────────
@@ -501,7 +501,10 @@ export default function CaseDetailPage() {
                         </select>
                       </div>
                       <div>
-                        <label className="form-label text-xs">Severity / Priority</label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="form-label text-xs">Severity / Priority</label>
+                          <span className="text-xs text-slate-400">{isSenior ? '(Compliance Officer)' : '(Investigator)'}</span>
+                        </div>
                         <select
                           className="form-select text-sm"
                           value={newPriority}
@@ -511,6 +514,11 @@ export default function CaseDetailPage() {
                             <option key={p} value={p}>{p}</option>
                           ))}
                         </select>
+                        {newPriority === 'Critical' && !caseData.is_escalated && (
+                          <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+                            <Zap size={12} /> Setting to Critical will escalate to CEO
+                          </p>
+                        )}
                       </div>
                       {canAssign && (
                         <div>
@@ -545,6 +553,12 @@ export default function CaseDetailPage() {
                 </div>
               ) : (
                 <div className="space-y-2 text-sm">
+                  {caseData.is_escalated && (
+                    <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded-md mb-2">
+                      <Zap size={14} className="text-red-600" />
+                      <span className="text-xs font-semibold text-red-700">Escalated to CEO</span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center">
                     <span className="text-slate-500">Status</span>
                     <span className={`badge ${STATUS_BADGE[caseData.status] || 'badge-review'}`}>

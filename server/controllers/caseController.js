@@ -3,6 +3,21 @@ const { generateReferenceId, generateSecureToken } = require('../utils/tokenUtil
 const { writeAuditLog } = require('../services/auditService');
 const emailService = require('../services/emailService');
 
+// ── Severity Classification Matrix ────────────────────────────
+// Maps case category to initial automatic severity level
+const CATEGORY_SEVERITY_MAP = {
+  'Fraud': 'High',
+  'Corruption': 'Critical',
+  'Bribery': 'Critical',
+  'Abuse_of_Power': 'High',
+  'Procurement_Violation': 'Medium',
+  'System_Misuse': 'Medium',
+};
+
+const getInitialSeverity = (category) => {
+  return CATEGORY_SEVERITY_MAP[category] || 'Medium';
+};
+
 // ── Create Case ───────────────────────────────────────────────
 
 /**
@@ -30,12 +45,16 @@ const createCase = async (req, res) => {
     const reporterType = identity.type === 'staff' ? 'Authenticated' : 'Anonymous';
     const userId = identity.type === 'staff' ? identity.id : null;
     const verificationToken = generateSecureToken(32);
+    
+    // Automatic severity classification based on category
+    const initialSeverity = getInitialSeverity(category);
+    const isEscalated = initialSeverity === 'Critical';
 
     const [result] = await pool.execute(
       `INSERT INTO cases
         (reference_id, verification_token, reporter_type, user_id, category,
-         branch_or_dept, severity_level, description, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'New')`,
+         branch_or_dept, severity_level, description, status, is_escalated)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'New', ?)`,
       [
         referenceId,
         verificationToken,
@@ -43,8 +62,9 @@ const createCase = async (req, res) => {
         userId,
         category,
         branch_or_dept || 'General',
-        severity_level || 'Low',
+        initialSeverity,
         description,
+        isEscalated ? 1 : 0,
       ]
     );
 
@@ -55,8 +75,32 @@ const createCase = async (req, res) => {
       userId,
       caseId,
       action: 'CASE_CREATED',
-      metadata: { category, severity_level: severity_level || 'Low', status: 'New' },
+      metadata: { 
+        category, 
+        initial_severity: initialSeverity, 
+        auto_classified: true,
+        escalated: isEscalated,
+        status: 'New' 
+      },
     });
+
+    // If Critical, notify CEO immediately
+    if (isEscalated) {
+      try {
+        const [ceoRows] = await pool.execute(
+          `SELECT email FROM users WHERE role = 'CEO' AND is_active = 1 LIMIT 1`
+        );
+        if (ceoRows.length > 0) {
+          emailService.notifyAssignment(ceoRows[0].email, {
+            case_id: caseId,
+            reference_id: referenceId,
+            category,
+            severity: 'Critical',
+            message: 'Critical case escalated for immediate review',
+          }).catch(() => {});
+        }
+      } catch (_) {}
+    }
 
     // Notify compliance team
     try {
@@ -251,6 +295,7 @@ const getCaseById = async (req, res) => {
       description: caseData.description,
       owner_id: caseData.user_id,
       user_id: caseData.user_id,
+      is_escalated: caseData.is_escalated === 1 || caseData.is_escalated === true,
     };
 
     // Allow request owners to review and update their own descriptions.
@@ -299,7 +344,7 @@ const editCase = async (req, res) => {
 
   try {
     const [rows] = await pool.execute(
-      `SELECT case_id, user_id, status, severity_level, assigned_investigator FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
+      `SELECT case_id, user_id, status, severity_level, assigned_investigator, is_escalated FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
       [caseId]
     );
 
@@ -322,6 +367,7 @@ const editCase = async (req, res) => {
 
     const updates = [];
     const params = [];
+    let newEscalatedStatus = caseData.is_escalated;
 
     if (description !== undefined) {
       updates.push('description = ?');
@@ -333,9 +379,14 @@ const editCase = async (req, res) => {
       params.push(effectiveBranch);
     }
     const effectiveSeverity = severity_level ?? priority ?? newPriority;
-    if (effectiveSeverity !== undefined) {
+    if (effectiveSeverity !== undefined && (isInvestigator || isCompliance)) {
       updates.push('severity_level = ?');
       params.push(effectiveSeverity);
+      
+      // Escalate to Critical if severity is set to Critical
+      if (effectiveSeverity === 'Critical' && !caseData.is_escalated) {
+        newEscalatedStatus = 1;
+      }
     }
     const effectiveStatus = status ?? newStatus;
     if (effectiveStatus !== undefined) {
@@ -348,12 +399,34 @@ const editCase = async (req, res) => {
       params.push(effectiveAssignment);
     }
 
+    // Add is_escalated update if severity was changed to Critical
+    if (newEscalatedStatus !== caseData.is_escalated) {
+      updates.push('is_escalated = ?');
+      params.push(newEscalatedStatus);
+    }
+
     if (updates.length === 0) {
       return res.status(200).json({ message: 'No changes detected' });
     }
 
     params.push(caseId);
     await pool.execute(`UPDATE cases SET ${updates.join(', ')}, updated_at = NOW() WHERE case_id = ?`, params);
+
+    // If escalated to Critical, notify CEO
+    if (newEscalatedStatus === 1 && caseData.is_escalated === 0) {
+      try {
+        const [ceoRows] = await pool.execute(
+          `SELECT email FROM users WHERE role = 'CEO' AND is_active = 1 LIMIT 1`
+        );
+        if (ceoRows.length > 0) {
+          emailService.notifyAssignment(ceoRows[0].email, {
+            case_id: caseId,
+            severity: 'Critical',
+            message: 'Case escalated to Critical severity for immediate review',
+          }).catch(() => {});
+        }
+      } catch (_) {}
+    }
 
     await writeAuditLog({
       userId: user.userId,
@@ -493,7 +566,7 @@ const updateCaseStatus = async (req, res) => {
 
   try {
     const [existing] = await pool.execute(
-      `SELECT case_id, status, severity_level, assigned_investigator FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
+      `SELECT case_id, status, severity_level, assigned_investigator, is_escalated FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
       [caseId]
     );
 
@@ -528,18 +601,49 @@ const updateCaseStatus = async (req, res) => {
 
     const updates = [];
     const params  = [];
+    let newEscalatedStatus = prev.is_escalated;
 
     if (status)                         { updates.push('status = ?');             params.push(status); }
-    if (priority)                       { updates.push('severity_level = ?');     params.push(priority); }
+    if (priority)                       { 
+      updates.push('severity_level = ?');     
+      params.push(priority);
+      
+      // Escalate if severity is set to Critical
+      if (priority === 'Critical' && !prev.is_escalated) {
+        newEscalatedStatus = 1;
+      }
+    }
     if (assigned_to !== undefined &&
         user.role !== 'Investigator')   { updates.push('assigned_investigator = ?'); params.push(assigned_to); }
+
+    // Update is_escalated flag if severity changed to Critical
+    if (newEscalatedStatus !== prev.is_escalated) {
+      updates.push('is_escalated = ?');
+      params.push(newEscalatedStatus);
+    }
 
     if (updates.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
     }
 
     params.push(caseId);
-    await pool.execute(`UPDATE cases SET ${updates.join(', ')} WHERE case_id = ?`, params);
+    await pool.execute(`UPDATE cases SET ${updates.join(', ')}, updated_at = NOW() WHERE case_id = ?`, params);
+
+    // If escalated to Critical, notify CEO
+    if (newEscalatedStatus === 1 && prev.is_escalated === 0) {
+      try {
+        const [ceoRows] = await pool.execute(
+          `SELECT email FROM users WHERE role = 'CEO' AND is_active = 1 LIMIT 1`
+        );
+        if (ceoRows.length > 0) {
+          emailService.notifyAssignment(ceoRows[0].email, {
+            case_id: caseId,
+            severity: 'Critical',
+            message: 'Case escalated to Critical severity for immediate review',
+          }).catch(() => {});
+        }
+      } catch (_) {}
+    }
 
     await writeAuditLog({
       userId: user.userId,
@@ -551,6 +655,7 @@ const updateCaseStatus = async (req, res) => {
         prev_priority:  prev.severity_level,
         new_priority:   priority || prev.severity_level,
         assigned_investigator: assigned_to,
+        escalated: newEscalatedStatus === 1,
       },
     });
 
