@@ -793,7 +793,7 @@ const escalateCase = async (req, res) => {
 
   try {
     const [existing] = await pool.execute(
-      `SELECT case_id, is_escalated, reference_id FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
+      `SELECT case_id, is_escalated, reference_id, category FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
       [caseId]
     );
 
