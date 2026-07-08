@@ -78,6 +78,37 @@ const emailService = {
     });
   },
 
+  async notifyCEOEscalation(ceoEmail, details = {}) {
+    await sendEmail({
+      to: ceoEmail,
+      subject: '[DWBS] Critical Case Escalation for CEO Review',
+      text: `A critical whistleblowing case has been escalated to executive review. Please log in to the DWBS portal to view executive dashboard details.`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px;">
+          <div style="background: #0A1D37; padding: 20px; text-align: center;">
+            <h2 style="color: #F9A826; margin: 0;">Rammis Bank DWBS</h2>
+          </div>
+          <div style="padding: 30px; background: #f8f9fa;">
+            <p>A case has been marked as <strong>Critical</strong> and escalated to executive review.</p>
+            ${details.reference_id ? `<p>Reference: ${details.reference_id}</p>` : ''}
+            ${details.category ? `<p>Category: ${details.category.replace(/_/g, ' ')}</p>` : ''}
+            <p>Please log in to the DWBS portal to view the executive dashboard.</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.CLIENT_ORIGIN}/executive"
+                 style="background: #0A1D37; color: #F9A826; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                View Executive Dashboard
+              </a>
+            </div>
+            <p style="color: #999; font-size: 12px;">
+              This is an automated notification. Do not reply to this email.<br>
+              Rammis Bank — Digital Whistleblowing System
+            </p>
+          </div>
+        </div>
+      `,
+    });
+  },
+
   /**
    * Notifies a reporter (if they provided contact) that their case status changed.
    * Status label is generic — no specifics about the investigation.
