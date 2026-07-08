@@ -64,7 +64,7 @@ export default function CaseDetailPage() {
   const isCEO          = user?.role === 'CEO';
   const isOwner        = Boolean(caseData && caseData.owner_id === myUserId);
   const canManageOwnRequest = ['Employee', 'Branch_Manager'].includes(user?.role) && isOwner && caseData?.submitted_by_type !== 'anonymous';
-  const canViewEvidence = ['Investigator', 'Compliance_Officer', 'CEO'].includes(user?.role) || canManageOwnRequest;
+  const canViewEvidence = ['Investigator', 'Compliance_Officer'].includes(user?.role) || canManageOwnRequest;
   // Only Compliance_Officer / Team Lead can assign/reassign cases
   const canAssign      = isSenior;
 
@@ -494,21 +494,27 @@ export default function CaseDetailPage() {
                       <div>
                         <div className="flex items-center justify-between mb-1">
                           <label className="form-label text-xs">Severity / Priority</label>
-                          <span className="text-xs text-slate-400">{isSenior ? '(Compliance Officer)' : '(Investigator)'}</span>
+                          <span className="text-xs text-slate-400">(Compliance Officer only)</span>
                         </div>
-                        <select
-                          className="form-select text-sm"
-                          value={newPriority}
-                          onChange={e => setNewPriority(e.target.value)}
-                        >
-                          {PRIORITIES.map(p => (
-                            <option key={p} value={p}>{p}</option>
-                          ))}
-                        </select>
-                        {newPriority === 'Critical' && !caseData.is_escalated && (
-                          <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                            <Zap size={12} /> Setting to Critical will escalate to CEO
-                          </p>
+                        {isSenior ? (
+                          <>
+                            <select
+                              className="form-select text-sm"
+                              value={newPriority}
+                              onChange={e => setNewPriority(e.target.value)}
+                            >
+                              {PRIORITIES.map(p => (
+                                <option key={p} value={p}>{p}</option>
+                              ))}
+                            </select>
+                            {newPriority === 'Critical' && !caseData.is_escalated && (
+                              <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+                                <Zap size={12} /> Setting to Critical will escalate to CEO
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          <div className="text-sm font-semibold">{caseData.priority}</div>
                         )}
                       </div>
                       {canAssign && (
@@ -581,10 +587,6 @@ export default function CaseDetailPage() {
               <button onClick={deleteCaseRequest} className="btn btn-ghost w-full text-sm mb-3">
                 Delete Request
               </button>
-              <label className="btn btn-primary w-full text-sm cursor-pointer text-center">
-                {uploadingEvidence ? 'Uploading...' : 'Add Additional Evidence'}
-                <input type="file" className="hidden" onChange={uploadEvidence} />
-              </label>
             </div>
           )}
 
