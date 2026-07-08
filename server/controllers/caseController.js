@@ -282,11 +282,11 @@ const getCaseById = async (req, res) => {
 const editCase = async (req, res) => {
   const user = req.user;
   const caseId = parseInt(req.params.id);
-  const { description, branch_or_dept, severity_level } = req.body;
+  const { description, branch_or_dept, severity_level, status, priority, assigned_to } = req.body;
 
   try {
     const [rows] = await pool.execute(
-      `SELECT case_id, user_id, description, branch_or_dept, severity_level FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
+      `SELECT case_id, user_id, status, severity_level, assigned_investigator FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
       [caseId]
     );
 
@@ -295,8 +295,16 @@ const editCase = async (req, res) => {
     }
 
     const caseData = rows[0];
-    if (caseData.user_id !== user.userId) {
+    const isCompliance = user.role === 'Compliance_Officer';
+    const isInvestigator = user.role === 'Investigator';
+    const isOwner = caseData.user_id === user.userId;
+
+    if (!isCompliance && !isInvestigator && !isOwner) {
       return res.status(403).json({ error: 'You can only edit your own requests.' });
+    }
+
+    if (isInvestigator && caseData.assigned_investigator !== user.userId) {
+      return res.status(403).json({ error: 'You can only update cases assigned to you.' });
     }
 
     const updates = [];
@@ -313,6 +321,18 @@ const editCase = async (req, res) => {
     if (severity_level !== undefined) {
       updates.push('severity_level = ?');
       params.push(severity_level);
+    }
+    if (priority !== undefined) {
+      updates.push('severity_level = ?');
+      params.push(priority);
+    }
+    if (status !== undefined) {
+      updates.push('status = ?');
+      params.push(status);
+    }
+    if (assigned_to !== undefined && isCompliance) {
+      updates.push('assigned_investigator = ?');
+      params.push(assigned_to);
     }
 
     if (updates.length === 0) {
