@@ -139,25 +139,20 @@ export default function CaseDetailPage() {
   const updateCase = async () => {
     setUpdating(true);
     try {
+      const body = {};
       if (canManageOwnRequest) {
-        const body = {};
         if (requestDescription !== caseData.description) body.description = requestDescription;
         if (requestBranch !== caseData.incident_location) body.branch_or_dept = requestBranch;
         if (requestSeverity !== caseData.priority) body.severity_level = requestSeverity;
-
-        if (Object.keys(body).length === 0) { setEditMode(false); return; }
-
-        await api.patch(`/cases/${id}`, body);
       } else {
-        const body = {};
         if (newStatus   !== caseData.status)   body.status   = newStatus;
         if (newPriority !== caseData.priority) body.priority = newPriority;
         if (assignTo)                          body.assigned_to = parseInt(assignTo);
-
-        if (Object.keys(body).length === 0) { setEditMode(false); return; }
-
-        await api.patch(`/cases/${id}/status`, body);
       }
+
+      if (Object.keys(body).length === 0) { setEditMode(false); return; }
+
+      await api.patch(`/cases/${id}`, body);
 
       await loadCase();
       setEditMode(false);
