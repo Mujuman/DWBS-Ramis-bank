@@ -84,6 +84,7 @@ CREATE TABLE `cases` (
   `status` enum('New','Under_Review','Assigned','Investigating','Pending_Evidence','Resolved','Closed') DEFAULT 'New',
   `assigned_investigator` int(11) DEFAULT NULL,
   `is_escalated` tinyint(1) DEFAULT 0,
+  `deleted_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 
 const STATUSES = ['', 'New', 'Under_Review', 'Assigned', 'Investigating', 'Pending_Evidence', 'Resolved', 'Closed', 'Escalated'];
 const PRIORITIES = ['', 'Critical', 'High', 'Medium', 'Low'];
-const CATEGORIES = ['', 'Fraud', 'Bribery', 'Corruption', 'Harassment', 'AML_Violation', 'Data_Breach', 'Policy_Violation', 'Other'];
+const CATEGORIES = ['', 'Fraud', 'Corruption', 'Bribery', 'Abuse_of_Power', 'Procurement_Violation', 'System_Misuse'];
 
 const STATUS_MAP = {
   New: 'badge-new',

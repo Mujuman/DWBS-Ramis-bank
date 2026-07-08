@@ -12,14 +12,12 @@ import {
 import { useDropzone } from 'react-dropzone';
 
 const CATEGORIES = [
-  { value: 'Fraud',            label: 'Fraud',            icon: '💳' },
-  { value: 'Bribery',          label: 'Bribery',          icon: '💰' },
-  { value: 'Corruption',       label: 'Corruption',       icon: '⚖️' },
-  { value: 'Harassment',       label: 'Harassment',       icon: '🚫' },
-  { value: 'AML_Violation',    label: 'AML Violation',    icon: '🏦' },
-  { value: 'Data_Breach',      label: 'Data Breach',      icon: '🔐' },
-  { value: 'Policy_Violation', label: 'Policy Violation', icon: '📋' },
-  { value: 'Other',            label: 'Other',            icon: '⚠️' },
+  { value: 'Fraud',                 label: 'Fraud',                 icon: '💳' },
+  { value: 'Corruption',            label: 'Corruption',            icon: '⚖️' },
+  { value: 'Bribery',               label: 'Bribery',               icon: '💰' },
+  { value: 'Abuse_of_Power',        label: 'Abuse of Power',        icon: '⚡' },
+  { value: 'Procurement_Violation', label: 'Procurement Violation', icon: '📦' },
+  { value: 'System_Misuse',         label: 'System Misuse',         icon: '🖥️' },
 ];
 
 const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
@@ -39,7 +37,7 @@ export default function SubmitReportPage() {
   const captchaRef = useRef(null);
 
   const { register, handleSubmit, watch, formState: { errors }, getValues } = useForm({
-    defaultValues: { category: '', description: '', priority: 'Medium', incident_date: '', incident_location: '' },
+    defaultValues: { category: '', description: '' },
   });
 
   // ── hCaptcha verified → create anonymous session ──────────
@@ -88,9 +86,6 @@ export default function SubmitReportPage() {
       const caseRes = await api.post('/cases', {
         category:          data.category,
         description:       data.description,
-        priority:          data.priority,
-        incident_date:     data.incident_date || undefined,
-        incident_location: data.incident_location || undefined,
       }, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -106,7 +101,11 @@ export default function SubmitReportPage() {
         }).catch(() => {});
       }
 
-      setSubmitted({ reference_id: caseRes.data.reference_id, created_at: new Date().toISOString() });
+      setSubmitted({
+        reference_id: caseRes.data.reference_id,
+        verification_token: caseRes.data.verification_token,
+        created_at: new Date().toISOString()
+      });
       toast.success('Report submitted successfully!');
     } catch (err) {
       toast.error(err.response?.data?.error || 'Submission failed. Please try again.');
@@ -128,7 +127,7 @@ export default function SubmitReportPage() {
             Report Submitted
           </h2>
           <p className="text-slate-500 mb-8">
-            Your report has been received and encrypted. Use this reference code to track your case.
+            Your report has been received and encrypted. Save the credentials below.
           </p>
 
           <div className="rounded-xl p-5 mb-6" style={{ background: 'var(--color-navy-900)' }}>
@@ -140,20 +139,37 @@ export default function SubmitReportPage() {
               {submitted.reference_id}
             </div>
             <button
-              onClick={() => { navigator.clipboard.writeText(submitted.reference_id); toast.success('Copied!'); }}
+              onClick={() => { navigator.clipboard.writeText(submitted.reference_id); toast.success('Reference code copied!'); }}
+              className="flex items-center gap-2 mx-auto text-sm px-3 py-1.5 rounded-lg transition-colors mb-4"
+              style={{ color: 'var(--color-gold-500)', background: 'rgba(249,168,38,0.1)' }}>
+              <Copy size={14} /> Copy Reference Code
+            </button>
+
+            <div className="border-t border-slate-800 my-4" />
+
+            <p className="text-xs font-semibold uppercase tracking-wider mb-2"
+              style={{ color: 'var(--color-gold-500)' }}>
+              Your Secure Verification Token
+            </p>
+            <div className="text-sm font-bold text-white font-mono break-all bg-slate-950 p-3 rounded-lg mb-3 select-all">
+              {submitted.verification_token}
+            </div>
+            <button
+              onClick={() => { navigator.clipboard.writeText(submitted.verification_token); toast.success('Verification token copied!'); }}
               className="flex items-center gap-2 mx-auto text-sm px-3 py-1.5 rounded-lg transition-colors"
               style={{ color: 'var(--color-gold-500)', background: 'rgba(249,168,38,0.1)' }}>
-              <Copy size={14} /> Copy Code
+              <Copy size={14} /> Copy Verification Token
             </button>
           </div>
 
           <div className="rounded-xl p-4 mb-6 text-sm text-left"
             style={{ background: 'var(--color-slate-50)', border: '1px solid var(--color-slate-200)' }}>
-            <p className="font-semibold text-slate-700 mb-2">⚠️ Important</p>
+            <p className="font-semibold text-slate-700 mb-2">⚠️ Important Security Instructions</p>
             <ul className="text-slate-500 space-y-1">
-              <li>• Save your reference code — it cannot be recovered</li>
-              <li>• Use it to track status and communicate with investigators</li>
-              <li>• No account or email is linked to this report</li>
+              <li>• Save **both** your Reference Code and Verification Token. They cannot be recovered.</li>
+              <li>• The Reference Code is public and allows you to view status.</li>
+              <li>• The Verification Token is private and acts as a password to edit or delete your report.</li>
+              <li>• No account or email is linked to this report.</li>
             </ul>
           </div>
 
@@ -329,21 +345,6 @@ export default function SubmitReportPage() {
               </div>
 
               <div>
-                <label className="form-label">Priority Level</label>
-                <div className="flex gap-2 flex-wrap">
-                  {PRIORITIES.map(p => (
-                    <label key={p}
-                      className={`badge cursor-pointer transition-all ${
-                        watch('priority') === p ? 'badge-' + p.toLowerCase() : 'bg-slate-100 text-slate-500'
-                      }`}>
-                      <input type="radio" value={p} {...register('priority')} className="sr-only" />
-                      {p}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div>
                 <label className="form-label">Description of Misconduct *</label>
                 <textarea
                   className="form-textarea"
@@ -356,18 +357,6 @@ export default function SubmitReportPage() {
                 />
                 {errors.description && <p className="form-error">{errors.description.message}</p>}
                 <p className="text-xs text-slate-400 mt-1">{watch('description')?.length || 0} characters</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="form-label">Incident Date (Optional)</label>
-                  <input type="date" className="form-input" {...register('incident_date')} />
-                </div>
-                <div>
-                  <label className="form-label">Location (Optional)</label>
-                  <input type="text" className="form-input" placeholder="e.g. Head Office, Branch Name"
-                    {...register('incident_location')} />
-                </div>
               </div>
             </div>
 
@@ -444,10 +433,7 @@ export default function SubmitReportPage() {
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1">Category</p>
                   <p className="text-sm font-semibold text-slate-800">{getValues('category')?.replace(/_/g, ' ')}</p>
                 </div>
-                <div className="p-4 rounded-xl" style={{ background: 'var(--color-slate-50)' }}>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1">Priority</p>
-                  <span className={`badge badge-${getValues('priority')?.toLowerCase()}`}>{getValues('priority')}</span>
-                </div>
+
                 <div className="p-4 rounded-xl" style={{ background: 'var(--color-slate-50)' }}>
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Description</p>
                   <p className="text-sm text-slate-700 leading-relaxed line-clamp-4">{getValues('description')}</p>

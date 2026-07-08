@@ -66,7 +66,7 @@ const validateLogin = [
 const validateCreateCase = [
   body('category')
     .notEmpty().withMessage('Category is required')
-    .isIn(['Fraud', 'Bribery', 'Corruption', 'Harassment', 'AML_Violation', 'Data_Breach', 'Policy_Violation', 'Other'])
+    .isIn(['Fraud', 'Corruption', 'Bribery', 'Abuse_of_Power', 'Procurement_Violation', 'System_Misuse'])
     .withMessage('Invalid category'),
   body('description')
     .notEmpty().withMessage('Description is required')
@@ -76,10 +76,39 @@ const validateCreateCase = [
     .isDate().withMessage('Invalid incident date format'),
   body('incident_location')
     .optional()
-    .isLength({ max: 500 }).withMessage('Location too long'),
+    .isLength({ max: 100 }).withMessage('Location too long (max 100 characters)'),
   body('priority')
     .optional()
     .isIn(['Low', 'Medium', 'High', 'Critical']).withMessage('Invalid priority'),
+];
+
+const validateEditCaseAnonymous = [
+  body('reference_id')
+    .notEmpty().withMessage('Reference ID is required')
+    .matches(/^[A-Z2-9]{12}$/i).withMessage('Invalid reference ID format')
+    .trim(),
+  body('verification_token')
+    .notEmpty().withMessage('Verification token is required')
+    .isString()
+    .trim(),
+  body('category')
+    .optional()
+    .isIn(['Fraud', 'Corruption', 'Bribery', 'Abuse_of_Power', 'Procurement_Violation', 'System_Misuse'])
+    .withMessage('Invalid category'),
+  body('description')
+    .optional()
+    .isLength({ min: 20, max: 10000 }).withMessage('Description must be 20–10,000 characters'),
+];
+
+const validateDeleteCaseAnonymous = [
+  body('reference_id')
+    .notEmpty().withMessage('Reference ID is required')
+    .matches(/^[A-Z2-9]{12}$/i).withMessage('Invalid reference ID format')
+    .trim(),
+  body('verification_token')
+    .notEmpty().withMessage('Verification token is required')
+    .isString()
+    .trim(),
 ];
 
 const validateStatusUpdate = [
@@ -111,7 +140,7 @@ const validateCreateNote = [
 const validateTrackCase = [
   query('reference_id')
     .notEmpty().withMessage('Reference ID is required')
-    .matches(/^[A-Z2-9]{12}$/).withMessage('Invalid reference ID format')
+    .matches(/^[A-Z2-9]{12}$/i).withMessage('Invalid reference ID format')
     .trim(),
 ];
 
@@ -121,6 +150,8 @@ module.exports = {
   validateAnonSession,
   validateLogin,
   validateCreateCase,
+  validateEditCaseAnonymous,
+  validateDeleteCaseAnonymous,
   validateStatusUpdate,
   validateCreateNote,
   validateTrackCase,
