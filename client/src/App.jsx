@@ -16,6 +16,7 @@ import DashboardPage from './pages/DashboardPage';
 import CaseListPage from './pages/CaseListPage';
 import CaseDetailPage from './pages/CaseDetailPage';
 import ExecutiveDashboard from './pages/ExecutiveDashboard';
+import ComplianceDashboard from './pages/ComplianceDashboard';
 import AdminPage from './pages/AdminPage';
 import AuditDashboard from './pages/AuditDashboard';
 
@@ -154,9 +155,16 @@ function AppRoutes() {
           </ProtectedRoute>
         } />
         <Route path="/executive" element={
-          <ProtectedRoute roles={['CEO', 'Compliance_Officer', 'System_Admin']}>
+          <ProtectedRoute roles={['CEO', 'System_Admin']}>
             <AppShell>
               <PageWrapper><ExecutiveDashboard /></PageWrapper>
+            </AppShell>
+          </ProtectedRoute>
+        } />
+        <Route path="/compliance" element={
+          <ProtectedRoute roles={['Compliance_Officer', 'System_Admin']}>
+            <AppShell>
+              <PageWrapper><ComplianceDashboard /></PageWrapper>
             </AppShell>
           </ProtectedRoute>
         } />

@@ -325,3 +325,6 @@ export default function ComplianceDashboard() {
           </div>
         </>
       )}
+    </div>
+  );
+}

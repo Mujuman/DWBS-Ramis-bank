@@ -239,7 +239,7 @@ router.patch('/users/:id/active',
 
 router.get('/audit',
   authenticateStaff,
-  requireRole('System_Admin', 'Compliance_Officer', 'CEO', 'Auditor'),
+  requireRole('System_Admin', 'CEO', 'Auditor'),
   async (req, res) => {
     const { pool } = require('../config/db');
     const page = Math.max(1, parseInt(req.query.page) || 1);

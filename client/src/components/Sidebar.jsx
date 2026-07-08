@@ -19,16 +19,22 @@ const navItems = [
     roles: ['Investigator', 'Compliance_Officer', 'CEO', 'System_Admin'],
   },
   {
+    path: '/compliance',
+    label: 'Compliance Dashboard',
+    icon: BarChart3,
+    roles: ['Compliance_Officer', 'System_Admin'],
+  },
+  {
     path: '/executive',
     label: 'Executive Dashboard',
     icon: BarChart3,
-    roles: ['CEO', 'Compliance_Officer', 'System_Admin'],
+    roles: ['CEO', 'System_Admin'],
   },
   {
     path: '/audit',
     label: 'Audit Logs',
     icon: ClipboardList,
-    roles: ['Auditor', 'System_Admin', 'Compliance_Officer', 'CEO'],
+    roles: ['Auditor', 'System_Admin', 'CEO'],
   },
   {
     path: '/admin',
