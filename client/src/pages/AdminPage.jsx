@@ -18,7 +18,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState([]);
   const [audit, setAudit] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState('users');~
+  const [tab, setTab] = useState('users');
 
   const fetchUsers = async () => {
     try {
