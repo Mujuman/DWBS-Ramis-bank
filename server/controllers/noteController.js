@@ -74,7 +74,7 @@ const getNotes = async (req, res) => {
 
     // Privilege-aware filter
     const highPriv = identity.type === 'staff' &&
-      ['Investigator', 'Compliance_Officer', 'CEO', 'System_Admin'].includes(req.user?.role);
+      ['Investigator', 'Compliance_Officer', 'CEO'].includes(req.user?.role);
 
     if (identity.type === 'anonymous' || !highPriv) {
       // Reporter or low-privilege staff: only public notes

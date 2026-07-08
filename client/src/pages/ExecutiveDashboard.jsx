@@ -104,6 +104,64 @@ export default function ExecutiveDashboard() {
         ))}
       </div>
 
+      {/* Escalated Cases Section */}
+      <div className="card p-6 mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <AlertTriangle className="text-red-500" size={18} />
+          <h2 className="text-sm font-bold" style={{ color: 'var(--color-navy-900)' }}>
+            Escalated Cases for Immediate CEO Action
+          </h2>
+        </div>
+        {!stats?.escalated_cases || stats.escalated_cases.length === 0 ? (
+          <p className="text-slate-400 text-xs py-4 text-center">No escalated cases pending action.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="data-table text-xs">
+              <thead>
+                <tr>
+                  <th>Reference</th>
+                  <th>Category</th>
+                  <th>Priority</th>
+                  <th>Status</th>
+                  <th>Submitted</th>
+                  <th>Assigned To</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.escalated_cases.map(c => (
+                  <tr key={c.id}>
+                    <td>
+                      <span className="font-mono text-xs font-bold" style={{ color: 'var(--color-navy-900)' }}>
+                        {c.reference_id}
+                      </span>
+                    </td>
+                    <td className="text-slate-600">{c.category?.replace(/_/g, ' ')}</td>
+                    <td>
+                      <span className={`badge badge-${c.priority?.toLowerCase()}`}>{c.priority}</span>
+                    </td>
+                    <td>
+                      <span className="badge badge-escalated">Escalated</span>
+                    </td>
+                    <td className="text-slate-500">
+                      {new Date(c.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="text-slate-600">
+                      {c.assigned_investigator || <span className="text-red-400 font-medium italic">Unassigned</span>}
+                    </td>
+                    <td>
+                      <a href={`/cases/${c.id}`} className="btn btn-ghost text-xs py-1 px-2">
+                        View Details
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       <div className="grid lg:grid-cols-3 gap-6 mb-6">
         {/* Monthly Trend */}
         <div className="card p-6 lg:col-span-2">

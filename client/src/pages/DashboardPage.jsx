@@ -11,7 +11,10 @@ import { format } from 'date-fns';
 const STATUS_MAP = {
   New: { label: 'New', class: 'badge-new' },
   Under_Review: { label: 'Under Review', class: 'badge-review' },
+  Assigned: { label: 'Assigned', class: 'badge-review' },
+  Investigating: { label: 'Investigating', class: 'badge-progress' },
   Investigation_In_Progress: { label: 'In Progress', class: 'badge-progress' },
+  Pending_Evidence: { label: 'Pending Evidence', class: 'badge-escalated' },
   Awaiting_Response: { label: 'Awaiting Response', class: 'badge-escalated' },
   Resolved: { label: 'Resolved', class: 'badge-resolved' },
   Closed: { label: 'Closed', class: 'badge-closed' },

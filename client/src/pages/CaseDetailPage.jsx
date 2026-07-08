@@ -54,10 +54,10 @@ export default function CaseDetailPage() {
   // JWT payload uses `userId` (not `id`)
   const myUserId       = user?.userId;
   const isInvestigator = user?.role === 'Investigator';
-  const isSenior       = ['Compliance_Officer', 'System_Admin'].includes(user?.role);
+  const isSenior       = user?.role === 'Compliance_Officer';
   const isCEO          = user?.role === 'CEO';
-  const canViewEvidence = ['Investigator', 'Compliance_Officer', 'CEO', 'System_Admin'].includes(user?.role);
-  // Only Compliance_Officer / System_Admin can reassign cases
+  const canViewEvidence = ['Investigator', 'Compliance_Officer', 'CEO'].includes(user?.role);
+  // Only Compliance_Officer / Team Lead can assign/reassign cases
   const canAssign      = isSenior;
 
   // Investigators can ONLY edit cases explicitly assigned to them (assigned_to = their userId)
@@ -149,6 +149,21 @@ export default function CaseDetailPage() {
   };
 
   // ── Loading / Error states ────────────────────────────────
+  if (user?.role === 'System_Admin') {
+    return (
+      <div className="p-6 max-w-2xl mx-auto text-center py-20 fade-in-up">
+        <div className="card p-8 border border-red-100 shadow-sm">
+          <Lock size={48} className="mx-auto mb-4 text-red-500" />
+          <h2 className="text-xl font-bold text-slate-800 mb-2">Ethical Wall - Access Denied</h2>
+          <p className="text-slate-500 text-sm mb-6">
+            System Administrators are strictly prohibited from viewing case contents, notes, or evidence.
+          </p>
+          <button onClick={() => navigate(-1)} className="btn btn-primary">Go Back</button>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -224,8 +239,8 @@ export default function CaseDetailPage() {
               ))}
             </div>
 
-            {/* Description — not shown to CEO (read-only) or Branch Manager */}
-            {caseData.description && !isCEO && (
+            {/* Description — not shown to Branch Manager (low-priv) */}
+            {caseData.description && (
               <div>
                 <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-2">
                   Report Description
