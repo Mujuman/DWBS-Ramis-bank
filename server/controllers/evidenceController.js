@@ -26,8 +26,8 @@ const uploadEvidence = async (req, res) => {
     }
 
     const uploadedBy = user?.userId || null;
-    const fileName = req.file.originalname;
-    const filePath = req.file.path || req.file.filename;
+    const fileName = req.processedFile?.originalFilename || req.file.originalname;
+    const filePath = req.processedFile?.storedFilename || req.file.filename || req.file.path;
 
     await pool.execute(
       `INSERT INTO evidencefiles (case_id, file_name, file_path, uploaded_by)

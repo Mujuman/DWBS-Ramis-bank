@@ -444,16 +444,7 @@ export default function SubmitReportPage() {
                 </div>
               </div>
 
-              <div className="rounded-xl p-4 mb-6"
-                style={{ background: 'rgba(249,168,38,0.08)', border: '1px solid rgba(249,168,38,0.3)' }}>
-                <div className="flex gap-2">
-                  <AlertTriangle size={16} style={{ color: 'var(--color-gold-600)', flexShrink: 0, marginTop: 2 }} />
-                  <p className="text-sm" style={{ color: 'var(--color-navy-800)' }}>
-                    Once submitted, your report cannot be edited. Make sure all information is accurate.
-                    You will receive a reference code to track your case.
-                  </p>
-                </div>
-              </div>
+
 
               <div className="flex gap-3">
                 <button type="button" onClick={() => setStep(2)} className="btn btn-ghost flex-1">
