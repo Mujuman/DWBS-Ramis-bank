@@ -282,7 +282,20 @@ const getCaseById = async (req, res) => {
 const editCase = async (req, res) => {
   const user = req.user;
   const caseId = parseInt(req.params.id);
-  const { description, branch_or_dept, severity_level, status, priority, assigned_to } = req.body;
+  const body = req.body || {};
+  const {
+    description,
+    branch_or_dept,
+    branch,
+    department,
+    severity_level,
+    status,
+    priority,
+    assigned_to,
+    assigned_investigator,
+    newStatus,
+    newPriority,
+  } = body;
 
   try {
     const [rows] = await pool.execute(
@@ -314,29 +327,29 @@ const editCase = async (req, res) => {
       updates.push('description = ?');
       params.push(description);
     }
-    if (branch_or_dept !== undefined) {
+    const effectiveBranch = branch_or_dept ?? branch ?? department;
+    if (effectiveBranch !== undefined) {
       updates.push('branch_or_dept = ?');
-      params.push(branch_or_dept);
+      params.push(effectiveBranch);
     }
-    if (severity_level !== undefined) {
+    const effectiveSeverity = severity_level ?? priority ?? newPriority;
+    if (effectiveSeverity !== undefined) {
       updates.push('severity_level = ?');
-      params.push(severity_level);
+      params.push(effectiveSeverity);
     }
-    if (priority !== undefined) {
-      updates.push('severity_level = ?');
-      params.push(priority);
-    }
-    if (status !== undefined) {
+    const effectiveStatus = status ?? newStatus;
+    if (effectiveStatus !== undefined) {
       updates.push('status = ?');
-      params.push(status);
+      params.push(effectiveStatus);
     }
-    if (assigned_to !== undefined && isCompliance) {
+    const effectiveAssignment = assigned_to ?? assigned_investigator;
+    if (effectiveAssignment !== undefined && isCompliance) {
       updates.push('assigned_investigator = ?');
-      params.push(assigned_to);
+      params.push(effectiveAssignment);
     }
 
     if (updates.length === 0) {
-      return res.status(400).json({ error: 'No fields to update' });
+      return res.status(200).json({ message: 'No changes detected' });
     }
 
     params.push(caseId);
