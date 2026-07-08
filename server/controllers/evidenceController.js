@@ -2,8 +2,16 @@ const { pool } = require('../config/db');
 const { writeAuditLog } = require('../services/auditService');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
+
+const decryptBuffer = (encryptedBuffer, ivHex) => {
+  const key = Buffer.from(process.env.FILE_ENC_KEY, 'hex');
+  const iv = Buffer.from(ivHex, 'hex');
+  const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+  return Buffer.concat([decipher.update(encryptedBuffer), decipher.final()]);
+};
 
 /**
  * POST /api/cases/:id/evidence
@@ -114,7 +122,7 @@ const downloadEvidence = async (req, res) => {
     }
 
     const [rows] = await pool.execute(
-      `SELECT * FROM evidencefiles WHERE file_id = ? AND case_id = ?`,
+      `SELECT file_id, case_id, file_name, file_path, encryption_iv FROM evidencefiles WHERE file_id = ? AND case_id = ?`,
       [fileId, caseId]
     );
 
@@ -122,11 +130,33 @@ const downloadEvidence = async (req, res) => {
       return res.status(404).json({ error: 'Evidence file not found' });
     }
 
-    const file     = rows[0];
-    const filePath = path.resolve(UPLOAD_DIR, path.basename(file.file_path));
+    const file = rows[0];
+    let filePath = file.file_path;
+    
+    // Resolve the file path - if it's relative, make it absolute
+    if (!path.isAbsolute(filePath)) {
+      filePath = path.resolve(UPLOAD_DIR, path.basename(filePath));
+    }
 
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'File not found on disk' });
+    }
+
+    // Read encrypted file from disk
+    const encryptedBuffer = fs.readFileSync(filePath);
+    
+    // Decrypt using stored IV
+    let decryptedBuffer;
+    if (file.encryption_iv) {
+      try {
+        decryptedBuffer = decryptBuffer(encryptedBuffer, file.encryption_iv);
+      } catch (decryptErr) {
+        console.error('[EVIDENCE] Decryption error:', decryptErr.message);
+        return res.status(500).json({ error: 'Failed to decrypt file' });
+      }
+    } else {
+      // Fallback: file might not be encrypted (for backwards compatibility)
+      decryptedBuffer = encryptedBuffer;
     }
 
     await writeAuditLog({
@@ -138,7 +168,8 @@ const downloadEvidence = async (req, res) => {
 
     res.setHeader('Content-Disposition', `attachment; filename="${file.file_name}"`);
     res.setHeader('Cache-Control', 'no-store');
-    return res.sendFile(filePath);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    return res.send(decryptedBuffer);
   } catch (err) {
     console.error('[EVIDENCE] Download error:', err.message);
     return res.status(500).json({ error: 'Failed to retrieve file' });

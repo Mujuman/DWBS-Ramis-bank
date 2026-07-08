@@ -12,6 +12,8 @@ import {
 // ── Must match DB enum exactly ────────────────────────────────
 const STATUSES = ['New', 'Under_Review', 'Assigned', 'Investigating', 'Pending_Evidence', 'Resolved', 'Closed'];
 const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
+const COMPLIANCE_OFFICER_STATUSES = ['New', 'Assigned'];
+const INVESTIGATOR_STATUSES = ['Under_Review', 'Investigating', 'Pending_Evidence', 'Resolved', 'Closed'];
 
 const STATUS_BADGE = {
   New:              'badge-new',
@@ -87,7 +89,12 @@ export default function CaseDetailPage() {
       const c = cRes.data.case;
       setCaseData(c);
       setNotes(nRes.data.notes || []);
-      setNewStatus(c.status || 'New');
+      
+      // Validate status is in allowed list for this user's role
+      const allowedStatuses = isSenior ? COMPLIANCE_OFFICER_STATUSES : INVESTIGATOR_STATUSES;
+      const validStatus = allowedStatuses.includes(c.status) ? c.status : allowedStatuses[0];
+      setNewStatus(validStatus);
+      
       setNewPriority(c.priority || 'Medium');
       setRequestDescription(c.description || '');
       setRequestBranch(c.incident_location || '');
@@ -158,6 +165,8 @@ export default function CaseDetailPage() {
       console.error('Download error:', err);
     }
   };
+
+  const updateCase = async () => {
     setUpdating(true);
     try {
       const body = {};
@@ -486,7 +495,7 @@ export default function CaseDetailPage() {
                           value={newStatus}
                           onChange={e => setNewStatus(e.target.value)}
                         >
-                          {STATUSES.map(s => (
+                          {(isSenior ? COMPLIANCE_OFFICER_STATUSES : INVESTIGATOR_STATUSES).map(s => (
                             <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
                           ))}
                         </select>
