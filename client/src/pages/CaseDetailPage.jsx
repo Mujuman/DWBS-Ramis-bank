@@ -87,11 +87,12 @@ export default function CaseDetailPage() {
       const c = cRes.data.case;
       setCaseData(c);
       setNotes(nRes.data.notes || []);
-      setNewStatus(c.status);
-      setNewPriority(c.priority);
+      setNewStatus(c.status || 'New');
+      setNewPriority(c.priority || 'Medium');
       setRequestDescription(c.description || '');
       setRequestBranch(c.incident_location || '');
       setRequestSeverity(c.priority || 'Medium');
+      setAssignTo(c.assigned_to?.toString() || '');
 
       // Evidence — only for privileged roles
       if (canViewEvidence) {
@@ -107,11 +108,14 @@ export default function CaseDetailPage() {
       if (canAssign) {
         try {
           const uRes = await api.get('/users');
-          const inv  = (uRes.data.users || []).filter(u =>
-            ['Investigator', 'Compliance_Officer'].includes(u.role)
-          );
+          const inv = (uRes.data.users || [])
+            .filter(u => ['Investigator', 'Compliance_Officer'].includes(u.role))
+            .sort((a, b) => (a.username || '').localeCompare(b.username || ''));
           setInvestigators(inv);
-        } catch (_) {}
+        } catch (err) {
+          console.warn('Failed to load investigators:', err.message);
+          setInvestigators([]);
+        }
       }
     } catch (err) {
       const msg = err.response?.data?.error || 'Failed to load case';
@@ -141,28 +145,26 @@ export default function CaseDetailPage() {
     try {
       const body = {};
       if (canManageOwnRequest) {
-        if (requestDescription !== caseData.description) body.description = requestDescription;
-        if (requestBranch !== caseData.incident_location) body.branch_or_dept = requestBranch;
-        if (requestSeverity !== caseData.priority) body.severity_level = requestSeverity;
+        body.description = requestDescription;
+        body.branch_or_dept = requestBranch;
+        body.severity_level = requestSeverity;
       } else {
-        if (newStatus   !== caseData.status)   body.status   = newStatus;
-        if (newPriority !== caseData.priority) body.priority = newPriority;
-        if (assignTo)                          body.assigned_to = parseInt(assignTo);
+        body.status = newStatus;
+        body.priority = newPriority;
+        if (assignTo) body.assigned_to = parseInt(assignTo, 10);
       }
 
-      if (Object.keys(body).length === 0) { setEditMode(false); return; }
-
       await api.patch(`/cases/${id}`, body);
-
       await loadCase();
       setEditMode(false);
-      setAssignTo('');
       toast.success('Case updated successfully');
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Update failed');
+      const msg = err.response?.data?.error || err.message || 'Update failed';
+      toast.error(msg);
+      console.error('Update failed:', err);
     }
     setUpdating(false);
-  };
+  ;}
 
   const uploadEvidence = async (event) => {
     const file = event.target.files?.[0];
@@ -484,26 +486,26 @@ export default function CaseDetailPage() {
                           ))}
                         </select>
                       </div>
+                      {canAssign && (
+                        <div>
+                          <label className="form-label text-xs">Assign To</label>
+                          <select
+                            className="form-select text-sm"
+                            value={assignTo}
+                            onChange={e => setAssignTo(e.target.value)}
+                          >
+                            <option value="">{caseData.assigned_investigator ? 'Reassign...' : 'Assign investigator'}</option>
+                            {investigators.length > 0 ? investigators.map(u => (
+                              <option key={u.id} value={u.id}>
+                                {u.username}
+                              </option>
+                            )) : (
+                              <option disabled>No investigators</option>
+                            )}
+                          </select>
+                        </div>
+                      )}
                     </>
-                  )}
-
-                  {/* Assign — only for Compliance Officer / Admin */}
-                  {canAssign && (
-                    <div>
-                      <label className="form-label text-xs">Assign Investigator</label>
-                      <select
-                        className="form-select text-sm"
-                        value={assignTo}
-                        onChange={e => setAssignTo(e.target.value)}
-                      >
-                        <option value="">Keep current</option>
-                        {investigators.map(u => (
-                          <option key={u.id} value={u.id}>
-                            {u.username} ({u.role?.replace(/_/g, ' ')})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
                   )}
 
                   <button
