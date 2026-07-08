@@ -140,7 +140,24 @@ export default function CaseDetailPage() {
     setSendingNote(false);
   };
 
-  const updateCase = async () => {
+  const downloadEvidence = async (fileId, filename) => {
+    try {
+      const response = await api.get(`/cases/${id}/evidence/${fileId}/download`, {
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Download failed');
+      console.error('Download error:', err);
+    }
+  };
     setUpdating(true);
     try {
       const body = {};
@@ -582,10 +599,8 @@ export default function CaseDetailPage() {
                         </p>
                       </div>
                       <a
-                        href={`/api/cases/${id}/evidence/${f.id}/download`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-slate-400 hover:text-navy-900 transition-colors"
+                        onClick={() => downloadEvidence(f.id, f.original_filename)}
+                        className="text-slate-400 hover:text-navy-900 transition-colors cursor-pointer"
                       >
                         <Download size={13} />
                       </a>

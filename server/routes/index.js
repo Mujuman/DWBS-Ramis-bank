@@ -169,7 +169,6 @@ router.get('/cases/:id/evidence',
 
 router.get('/cases/:id/evidence/:fileId/download',
   authenticateStaff,
-  requireRole('Investigator', 'Compliance_Officer'),
   evidenceController.downloadEvidence
 );
 

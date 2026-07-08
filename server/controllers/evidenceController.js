@@ -94,6 +94,25 @@ const downloadEvidence = async (req, res) => {
   const user    = req.user;
 
   try {
+    // Get case to check ownership
+    const [caseRows] = await pool.execute(
+      `SELECT case_id, user_id FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
+      [caseId]
+    );
+
+    if (caseRows.length === 0) {
+      return res.status(404).json({ error: 'Case not found' });
+    }
+
+    const caseData = caseRows[0];
+    const isOwner = caseData.user_id === user.userId;
+    const isPrivileged = ['Investigator', 'Compliance_Officer', 'CEO'].includes(user.role);
+
+    // Allow access if user is owner or privileged role
+    if (!isOwner && !isPrivileged) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
     const [rows] = await pool.execute(
       `SELECT * FROM evidencefiles WHERE file_id = ? AND case_id = ?`,
       [fileId, caseId]
