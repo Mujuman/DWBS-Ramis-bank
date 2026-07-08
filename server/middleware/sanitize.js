@@ -121,8 +121,8 @@ const validateStatusUpdate = [
   param('id')
     .isInt({ min: 1 }).withMessage('Invalid case ID'),
   body('status')
-    .notEmpty().withMessage('Status is required')
-    .isIn(['New', 'Under_Review', 'Investigation_In_Progress', 'Awaiting_Response', 'Resolved', 'Closed', 'Escalated'])
+    .optional()
+    .isIn(['New', 'Under_Review', 'Assigned', 'Investigating', 'Pending_Evidence', 'Investigation_In_Progress', 'Awaiting_Response', 'Resolved', 'Closed', 'Escalated'])
     .withMessage('Invalid status'),
   body('priority')
     .optional()
