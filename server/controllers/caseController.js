@@ -201,6 +201,9 @@ const getCaseById = async (req, res) => {
     const caseData = rows[0];
 
     // Role access check
+    if (user.role === 'System_Admin') {
+      return res.status(403).json({ error: 'Access denied. System Administrators are blocked from viewing case details due to ethical wall policies.' });
+    }
     if (user.role === 'Employee' || user.role === 'Branch_Manager') {
       if (caseData.user_id !== user.userId) {
         return res.status(403).json({ error: 'Access denied' });
@@ -330,6 +333,13 @@ const updateCaseStatus = async (req, res) => {
 
     const prev = existing[0];
 
+    // Only Investigators and Compliance Officers can update status/priority/assignee
+    if (user.role !== 'Compliance_Officer' && user.role !== 'Investigator') {
+      return res.status(403).json({
+        error: 'Access denied. Only Investigators and Compliance Officers can update case status or assignments.',
+      });
+    }
+
     // ── Investigator restriction: can only update their own assigned cases ──
     if (user.role === 'Investigator') {
       if (prev.assigned_investigator !== user.userId) {
@@ -337,12 +347,13 @@ const updateCaseStatus = async (req, res) => {
           error: 'You can only update cases that are assigned to you.',
         });
       }
-      // Investigators cannot reassign cases to others
-      if (assigned_to !== undefined) {
-        return res.status(403).json({
-          error: 'Investigators cannot reassign cases. Contact a Compliance Officer.',
-        });
-      }
+    }
+
+    // ── Reassignment restriction: Only Compliance Officer can assign or reassign ──
+    if (assigned_to !== undefined && user.role !== 'Compliance_Officer') {
+      return res.status(403).json({
+        error: 'Only a Compliance Officer / Team Lead can assign or reassign cases.',
+      });
     }
 
     const updates = [];
@@ -432,6 +443,26 @@ const getCaseStats = async (req, res) => {
        WHERE status IN ('Resolved', 'Closed')`
     );
 
+    const [escalatedCases] = await pool.execute(
+      `SELECT c.case_id, c.reference_id, c.category, c.status, c.severity_level,
+              c.created_at, u.username AS assigned_investigator
+       FROM cases c
+       LEFT JOIN users u ON c.assigned_investigator = u.user_id
+       WHERE c.is_escalated = 1
+       ORDER BY c.created_at DESC`
+    );
+
+    const mappedEscalated = escalatedCases.map(c => ({
+      id: c.case_id,
+      reference_id: c.reference_id,
+      category: c.category,
+      status: c.status,
+      priority: c.severity_level,
+      submitted_by_type: c.reporter_type?.toLowerCase(),
+      created_at: c.created_at,
+      assigned_investigator: c.assigned_investigator,
+    }));
+
     return res.status(200).json({
       overview: {
         total: statusCounts.total || 0,
@@ -446,6 +477,7 @@ const getCaseStats = async (req, res) => {
       by_category: categoryCounts,
       monthly_trend: monthlyTrend,
       avg_resolution_hours: resolutionTime[0]?.avg_resolution_hours || null,
+      escalated_cases: mappedEscalated,
     });
   } catch (err) {
     console.error('[CASE] Stats error:', err.message);
@@ -453,4 +485,48 @@ const getCaseStats = async (req, res) => {
   }
 };
 
-module.exports = { createCase, listCases, getCaseById, trackCase, updateCaseStatus, getCaseStats };
+// ── Escalate Case to CEO ──────────────────────────────────────
+
+/**
+ * POST /api/cases/:id/escalate
+ * Compliance Officers can manually escalate a case to the CEO.
+ */
+const escalateCase = async (req, res) => {
+  const user = req.user;
+  const caseId = parseInt(req.params.id);
+
+  try {
+    const [existing] = await pool.execute(
+      `SELECT case_id, is_escalated, reference_id FROM cases WHERE case_id = ?`,
+      [caseId]
+    );
+
+    if (existing.length === 0) {
+      return res.status(404).json({ error: 'Case not found' });
+    }
+
+    const caseData = existing[0];
+    if (caseData.is_escalated) {
+      return res.status(400).json({ error: 'Case is already escalated' });
+    }
+
+    await pool.execute(
+      `UPDATE cases SET is_escalated = 1, updated_at = NOW() WHERE case_id = ?`,
+      [caseId]
+    );
+
+    await writeAuditLog({
+      userId: user.userId,
+      caseId,
+      action: 'CASE_ESCALATED',
+      metadata: { reference_id: caseData.reference_id },
+    });
+
+    return res.status(200).json({ message: 'Case escalated successfully' });
+  } catch (err) {
+    console.error('[CASE] Escalation error:', err.message);
+    return res.status(500).json({ error: 'Failed to escalate case' });
+  }
+};
+
+module.exports = { createCase, listCases, getCaseById, trackCase, updateCaseStatus, getCaseStats, escalateCase };

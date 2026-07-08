@@ -33,6 +33,17 @@ const testConnection = async () => {
     const conn = await pool.getConnection();
     console.log('[DB] MySQL connection pool established successfully');
     conn.release();
+
+    // Automatic schema migration: check and add manager_help_requested column
+    try {
+      const [columns] = await pool.execute("SHOW COLUMNS FROM cases LIKE 'manager_help_requested'");
+      if (columns.length === 0) {
+        await pool.execute("ALTER TABLE cases ADD COLUMN manager_help_requested tinyint(1) DEFAULT 0");
+        console.log('[DB] Migration: Added manager_help_requested column to cases table');
+      }
+    } catch (migErr) {
+      console.error('[DB] Schema migration check failed:', migErr.message);
+    }
   } catch (err) {
     console.error('[DB] Failed to connect to MySQL:', err.message);
     process.exit(1);

@@ -5,14 +5,21 @@ import { useAuth } from '../context/AuthContext';
 import { Search, Filter, ChevronRight, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 
-const STATUSES = ['', 'New', 'Under_Review', 'Investigation_In_Progress', 'Awaiting_Response', 'Resolved', 'Closed', 'Escalated'];
+const STATUSES = ['', 'New', 'Under_Review', 'Assigned', 'Investigating', 'Pending_Evidence', 'Resolved', 'Closed', 'Escalated'];
 const PRIORITIES = ['', 'Critical', 'High', 'Medium', 'Low'];
 const CATEGORIES = ['', 'Fraud', 'Bribery', 'Corruption', 'Harassment', 'AML_Violation', 'Data_Breach', 'Policy_Violation', 'Other'];
 
 const STATUS_MAP = {
-  New: 'badge-new', Under_Review: 'badge-review',
-  Investigation_In_Progress: 'badge-progress', Awaiting_Response: 'badge-escalated',
-  Resolved: 'badge-resolved', Closed: 'badge-closed', Escalated: 'badge-escalated',
+  New: 'badge-new',
+  Under_Review: 'badge-review',
+  Assigned: 'badge-review',
+  Investigating: 'badge-progress',
+  Investigation_In_Progress: 'badge-progress',
+  Pending_Evidence: 'badge-escalated',
+  Awaiting_Response: 'badge-escalated',
+  Resolved: 'badge-resolved',
+  Closed: 'badge-closed',
+  Escalated: 'badge-escalated',
 };
 const PRIORITY_MAP = { Critical: 'badge-critical', High: 'badge-high', Medium: 'badge-medium', Low: 'badge-low' };
 

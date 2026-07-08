@@ -98,11 +98,26 @@ router.get('/cases/:id',
 // Update case status/assignment
 router.patch('/cases/:id/status',
   authenticateStaff,
-  requireRole('Investigator', 'Compliance_Officer', 'CEO', 'System_Admin'),
+  requireRole('Investigator', 'Compliance_Officer'),
   sanitizeRequestBody,
   validateStatusUpdate,
   handleValidationErrors,
   caseController.updateCaseStatus
+);
+
+// Escalate case manually (Compliance Officer only)
+router.post('/cases/:id/escalate',
+  authenticateStaff,
+  requireRole('Compliance_Officer'),
+  caseController.escalateCase
+);
+
+// Request Branch Manager Help (Investigator or Compliance Officer)
+router.post('/cases/:id/request-manager-help',
+  authenticateStaff,
+  requireRole('Investigator', 'Compliance_Officer'),
+  sanitizeRequestBody,
+  caseController.requestManagerHelp
 );
 
 // ── Evidence Routes ───────────────────────────────────────────
@@ -117,13 +132,13 @@ router.post('/cases/:id/evidence',
 
 router.get('/cases/:id/evidence',
   authenticateStaff,
-  requireRole('Investigator', 'Compliance_Officer', 'CEO', 'System_Admin'),
+  requireRole('Investigator', 'Compliance_Officer', 'CEO'),
   evidenceController.listEvidence
 );
 
 router.get('/cases/:id/evidence/:fileId/download',
   authenticateStaff,
-  requireRole('Investigator', 'Compliance_Officer', 'System_Admin'),
+  requireRole('Investigator', 'Compliance_Officer'),
   evidenceController.downloadEvidence
 );
 
@@ -231,13 +246,31 @@ router.get('/audit',
        FROM AuditLogs ${whereClause} ORDER BY timestamp DESC LIMIT ? OFFSET ?`,
       [...params, limit, offset]
     );
+
+    // Sanitize metadata by parsing JSON and stripping ip_hash and user_agent
+    const sanitizedLogs = logs.map(log => {
+      let meta = {};
+      try {
+        meta = JSON.parse(log.metadata);
+      } catch (e) {
+        meta = typeof log.metadata === 'object' ? log.metadata : {};
+      }
+      if (meta) {
+        delete meta.ip_hash;
+        delete meta.user_agent;
+      }
+      return {
+        ...log,
+        metadata: JSON.stringify(meta),
+      };
+    });
     
     const [[count]] = await pool.execute(
       `SELECT COUNT(*) AS total FROM AuditLogs ${whereClause}`,
       params
     );
     
-    res.json({ logs, pagination: { total: count.total, page, limit } });
+    res.json({ logs: sanitizedLogs, pagination: { total: count.total, page, limit } });
   }
 );
 
