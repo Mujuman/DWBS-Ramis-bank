@@ -6,19 +6,29 @@ jest.mock('../services/auditService', () => ({
   writeAuditLog: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('isomorphic-dompurify', () => ({
+  sanitize: (input) => input,
+}));
+
 jest.mock('../services/emailService', () => ({
   notifyNewCaseToCompliance: jest.fn().mockResolvedValue(undefined),
   notifyAssignment: jest.fn().mockResolvedValue(undefined),
+  notifyCEOEscalation: jest.fn().mockResolvedValue(undefined),
 }));
 
 const { pool } = require('../config/db');
+const emailService = jest.requireMock('../services/emailService');
 const { validationResult } = require('express-validator');
-const { editCase, deleteCase, updateCaseStatus } = require('../controllers/caseController');
 const { validateStatusUpdate } = require('../middleware/sanitize');
+let editCase, deleteCase, updateCaseStatus;
 
 describe('staff case workflow', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    const controllers = require('../controllers/caseController');
+    editCase = controllers.editCase;
+    deleteCase = controllers.deleteCase;
+    updateCaseStatus = controllers.updateCaseStatus;
   });
 
   it('allows a staff reporter to edit their own case description', async () => {
@@ -86,12 +96,12 @@ describe('staff case workflow', () => {
 
   it('prevents an investigator from setting status outside their allowed workflow', async () => {
     pool.execute
-      .mockResolvedValueOnce([[{ case_id: 31, status: 'New', severity_level: 'Medium', assigned_investigator: 5, is_escalated: 0 }]]);
+      .mockResolvedValueOnce([[{ case_id: 31, status: 'Under_Review', severity_level: 'Medium', assigned_investigator: 5, is_escalated: 0 }]]);
 
     const req = {
       user: { userId: 5, role: 'Investigator' },
       params: { id: '31' },
-      body: { status: 'New' },
+      body: { status: 'Assigned' },
     };
     const res = {
       status: jest.fn().mockReturnThis(),
@@ -106,7 +116,7 @@ describe('staff case workflow', () => {
 
   it('prevents a compliance officer from moving status outside their allowed workflow', async () => {
     pool.execute
-      .mockResolvedValueOnce([[{ case_id: 41, status: 'New', severity_level: 'High', assigned_investigator: null, is_escalated: 0 }]]);
+      .mockResolvedValueOnce([[{ case_id: 41, status: 'New', severity_level: 'High', assigned_investigator: null, is_escalated: 0, reference_id: 'REF123456789', category: 'Fraud' }]]);
 
     const req = {
       user: { userId: 96, role: 'Compliance_Officer' },
@@ -122,6 +132,35 @@ describe('staff case workflow', () => {
 
     expect(res.status).toHaveBeenCalledWith(403);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Compliance Officers may only update status during assignment and review stages.' }));
+  });
+
+  it('notifies CEO when investigator escalates case priority to Critical', async () => {
+    pool.execute
+      .mockResolvedValueOnce([[{ case_id: 51, status: 'Under_Review', severity_level: 'Medium', assigned_investigator: 7, is_escalated: 0, reference_id: 'REFABCDEF123', category: 'Bribery' }]])
+      .mockResolvedValueOnce([{ affectedRows: 1 }])
+      .mockResolvedValueOnce([[{ email: 'ceo@bank.local' }]]);
+
+    const req = {
+      user: { userId: 7, role: 'Investigator' },
+      params: { id: '51' },
+      body: { priority: 'Critical' },
+    };
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+    };
+
+    await updateCaseStatus(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ message: 'Case updated successfully' }));
+    expect(pool.execute).toHaveBeenCalledWith(
+      `SELECT email FROM users WHERE role = 'CEO' AND is_active = 1 LIMIT 1`
+    );
+    expect(emailService.notifyCEOEscalation).toHaveBeenCalledWith(
+      'ceo@bank.local',
+      expect.objectContaining({ reference_id: 'REFABCDEF123', category: 'Bribery' })
+    );
   });
 
   it('accepts priority-only updates through the status validation middleware', async () => {

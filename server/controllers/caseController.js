@@ -94,12 +94,9 @@ const createCase = async (req, res) => {
           `SELECT email FROM users WHERE role = 'CEO' AND is_active = 1 LIMIT 1`
         );
         if (ceoRows.length > 0) {
-          emailService.notifyAssignment(ceoRows[0].email, {
-            case_id: caseId,
+          emailService.notifyCEOEscalation(ceoRows[0].email, {
             reference_id: referenceId,
             category,
-            severity: 'Critical',
-            message: 'Critical case escalated for immediate review',
           }).catch(() => {});
         }
       } catch (_) {}
@@ -347,7 +344,7 @@ const editCase = async (req, res) => {
 
   try {
     const [rows] = await pool.execute(
-      `SELECT case_id, user_id, status, severity_level, assigned_investigator, is_escalated FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
+      `SELECT case_id, user_id, status, severity_level, assigned_investigator, is_escalated, reference_id, category FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
       [caseId]
     );
 
@@ -433,10 +430,9 @@ const editCase = async (req, res) => {
           `SELECT email FROM users WHERE role = 'CEO' AND is_active = 1 LIMIT 1`
         );
         if (ceoRows.length > 0) {
-          emailService.notifyAssignment(ceoRows[0].email, {
-            case_id: caseId,
-            severity: 'Critical',
-            message: 'Case escalated to Critical severity for immediate review',
+          emailService.notifyCEOEscalation(ceoRows[0].email, {
+            reference_id: caseData.reference_id,
+            category: caseData.category,
           }).catch(() => {});
         }
       } catch (_) {}
@@ -580,7 +576,7 @@ const updateCaseStatus = async (req, res) => {
 
   try {
     const [existing] = await pool.execute(
-      `SELECT case_id, status, severity_level, assigned_investigator, is_escalated FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
+      `SELECT case_id, status, severity_level, assigned_investigator, is_escalated, reference_id, category FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
       [caseId]
     );
 
@@ -661,10 +657,9 @@ const updateCaseStatus = async (req, res) => {
           `SELECT email FROM users WHERE role = 'CEO' AND is_active = 1 LIMIT 1`
         );
         if (ceoRows.length > 0) {
-          emailService.notifyAssignment(ceoRows[0].email, {
-            case_id: caseId,
-            severity: 'Critical',
-            message: 'Case escalated to Critical severity for immediate review',
+          emailService.notifyCEOEscalation(ceoRows[0].email, {
+            reference_id: prev.reference_id,
+            category: prev.category,
           }).catch(() => {});
         }
       } catch (_) {}
@@ -822,6 +817,18 @@ const escalateCase = async (req, res) => {
       action: 'CASE_ESCALATED',
       metadata: { reference_id: caseData.reference_id },
     });
+
+    try {
+      const [ceoRows] = await pool.execute(
+        `SELECT email FROM users WHERE role = 'CEO' AND is_active = 1 LIMIT 1`
+      );
+      if (ceoRows.length > 0) {
+        emailService.notifyCEOEscalation(ceoRows[0].email, {
+          reference_id: caseData.reference_id,
+          category: caseData.category,
+        }).catch(() => {});
+      }
+    } catch (_) {}
 
     return res.status(200).json({ message: 'Case escalated successfully' });
   } catch (err) {
