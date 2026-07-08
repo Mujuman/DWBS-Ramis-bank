@@ -23,8 +23,8 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const staffLogin = useCallback(async (username, password) => {
-    const res = await api.post('/auth/login', { username, password });
+  const staffLogin = useCallback(async (username, password, otp) => {
+    const res = await api.post('/auth/login', { username, password, otp });
     const { access_token, refresh_token, user: userData } = res.data;
     localStorage.setItem('access_token', access_token);
     localStorage.setItem('refresh_token', refresh_token);

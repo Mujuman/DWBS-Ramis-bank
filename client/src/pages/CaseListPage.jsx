@@ -28,16 +28,20 @@ export default function CaseListPage() {
   const [cases, setCases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ total: 0, page: 1, total_pages: 1 });
-  const [filters, setFilters] = useState({ status: '', priority: '', category: '', search: '', page: 1 });
+  const [filters, setFilters] = useState({ status: '', priority: '', category: '', search: '', branch_or_dept: '', case_id: '', from_date: '', to_date: '', page: 1 });
 
   const fetchCases = async (f = filters) => {
     setLoading(true);
     try {
       const params = {};
       if (f.status) params.status = f.status;
-      if (f.priority) params.priority = f.priority;
+      if (f.priority) params.severity_level = f.priority;
       if (f.category) params.category = f.category;
       if (f.search) params.search = f.search;
+      if (f.branch_or_dept) params.branch_or_dept = f.branch_or_dept;
+      if (f.case_id) params.case_id = f.case_id;
+      if (f.from_date) params.from_date = f.from_date;
+      if (f.to_date) params.to_date = f.to_date;
       params.page = f.page;
       params.limit = 20;
       const res = await api.get('/cases', { params });
@@ -100,6 +104,20 @@ export default function CaseListPage() {
             <option value="">All Categories</option>
             {CATEGORIES.slice(1).map(c => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
           </select>
+          <input type="text" className="form-input text-sm flex-1 min-w-36"
+            placeholder="Branch / department"
+            value={filters.branch_or_dept}
+            onChange={e => setFilter('branch_or_dept', e.target.value)} />
+          <input type="number" className="form-input text-sm flex-1 min-w-28"
+            placeholder="Case ID"
+            value={filters.case_id}
+            onChange={e => setFilter('case_id', e.target.value)} />
+          <input type="date" className="form-input text-sm flex-1 min-w-36"
+            value={filters.from_date}
+            onChange={e => setFilter('from_date', e.target.value)} />
+          <input type="date" className="form-input text-sm flex-1 min-w-36"
+            value={filters.to_date}
+            onChange={e => setFilter('to_date', e.target.value)} />
         </div>
       </div>
 

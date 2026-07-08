@@ -79,9 +79,25 @@ const initAnonymousSession = async (req, res) => {
  * Returns short-lived JWT access token + refresh token.
  */
 const staffLogin = async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, otp } = req.body;
 
   try {
+    const otpEnabled = Boolean(process.env.OTP_CODE || process.env.OTP_SECRET);
+    if (otpEnabled) {
+      if (!otp || String(otp).trim() === '') {
+        return res.status(400).json({ error: 'OTP is required when OTP validation is enabled.' });
+      }
+      const expectedOtp = process.env.OTP_CODE || process.env.OTP_SECRET;
+      if (String(otp).trim() !== expectedOtp) {
+        await writeAuditLog({
+          action: 'STAFF_LOGIN_FAILED',
+          performedBy: null,
+          performedByType: 'system',
+          metadata: { reason: 'Invalid OTP' },
+        });
+        return res.status(401).json({ error: 'Invalid OTP' });
+      }
+    }
     // ── Step 1: Look up user in local DB ──────────────────────
     const [rows] = await pool.execute(
       `SELECT user_id, username, email, role, department, is_active, password_hash

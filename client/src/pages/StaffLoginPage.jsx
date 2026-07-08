@@ -11,13 +11,14 @@ export default function StaffLoginPage() {
   const navigate = useNavigate();
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const otpRequired = import.meta.env.VITE_OTP_REQUIRED === 'true';
 
-  const { register, handleSubmit, formState: { errors } } = useForm();
+  const { register, handleSubmit, formState: { errors } } = useForm({ defaultValues: { username: '', password: '', otp: '' } });
 
-  const onLogin = async ({ username, password }) => {
+  const onLogin = async ({ username, password, otp }) => {
     setLoading(true);
     try {
-      const user = await staffLogin(username, password);
+      const user = await staffLogin(username, password, otp);
       toast.success(`Welcome, ${user.display_name}`);
       if (user.role === 'CEO') navigate('/executive');
       else if (user.role === 'System_Admin') navigate('/admin');
@@ -142,6 +143,20 @@ export default function StaffLoginPage() {
                 </div>
                 {errors.password && <p className="form-error">{errors.password.message}</p>}
               </div>
+
+              {otpRequired && (
+                <div>
+                  <label className="form-label">OTP</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Enter your OTP"
+                    autoComplete="one-time-code"
+                    {...register('otp', { required: 'OTP is required' })}
+                  />
+                  {errors.otp && <p className="form-error">{errors.otp.message}</p>}
+                </div>
+              )}
 
               <button type="submit" disabled={loading} className="btn btn-primary w-full mt-6">
                 {loading

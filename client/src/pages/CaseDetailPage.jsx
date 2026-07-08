@@ -46,23 +46,29 @@ export default function CaseDetailPage() {
   const [editMode,    setEditMode]    = useState(false);
   const [newStatus,   setNewStatus]   = useState('');
   const [newPriority, setNewPriority] = useState('');
+  const [requestDescription, setRequestDescription] = useState('');
+  const [requestBranch, setRequestBranch] = useState('');
+  const [requestSeverity, setRequestSeverity] = useState('Medium');
   const [investigators, setInvestigators] = useState([]);
   const [assignTo,    setAssignTo]    = useState('');
   const [updating,    setUpdating]    = useState(false);
+  const [uploadingEvidence, setUploadingEvidence] = useState(false);
 
   // ── Per-spec permission flags ─────────────────────────────
   // JWT payload uses `userId` (not `id`)
-  const myUserId       = user?.userId;
+  const myUserId       = user?.userId ?? user?.id;
   const isInvestigator = user?.role === 'Investigator';
   const isSenior       = user?.role === 'Compliance_Officer';
   const isCEO          = user?.role === 'CEO';
-  const canViewEvidence = ['Investigator', 'Compliance_Officer', 'CEO'].includes(user?.role);
+  const isOwner        = Boolean(caseData && caseData.owner_id === myUserId);
+  const canManageOwnRequest = ['Employee', 'Branch_Manager'].includes(user?.role) && isOwner && caseData?.submitted_by_type !== 'anonymous';
+  const canViewEvidence = ['Investigator', 'Compliance_Officer', 'CEO'].includes(user?.role) || canManageOwnRequest;
   // Only Compliance_Officer / Team Lead can assign/reassign cases
   const canAssign      = isSenior;
 
   // Investigators can ONLY edit cases explicitly assigned to them (assigned_to = their userId)
   const isAssignedToMe = caseData ? (caseData.assigned_to === myUserId) : false;
-  const canEditNow     = isSenior || (isInvestigator && isAssignedToMe);
+  const canEditNow     = isSenior || (isInvestigator && isAssignedToMe) || canManageOwnRequest;
 
   useEffect(() => {
     loadCase();
@@ -83,6 +89,9 @@ export default function CaseDetailPage() {
       setNotes(nRes.data.notes || []);
       setNewStatus(c.status);
       setNewPriority(c.priority);
+      setRequestDescription(c.description || '');
+      setRequestBranch(c.incident_location || '');
+      setRequestSeverity(c.priority || 'Medium');
 
       // Evidence — only for privileged roles
       if (canViewEvidence) {
@@ -130,15 +139,27 @@ export default function CaseDetailPage() {
   const updateCase = async () => {
     setUpdating(true);
     try {
-      const body = {};
-      if (newStatus   !== caseData.status)   body.status   = newStatus;
-      if (newPriority !== caseData.priority) body.priority = newPriority;
-      if (assignTo)                          body.assigned_to = parseInt(assignTo);
+      if (canManageOwnRequest) {
+        const body = {};
+        if (requestDescription !== caseData.description) body.description = requestDescription;
+        if (requestBranch !== caseData.incident_location) body.branch_or_dept = requestBranch;
+        if (requestSeverity !== caseData.priority) body.severity_level = requestSeverity;
 
-      if (Object.keys(body).length === 0) { setEditMode(false); return; }
+        if (Object.keys(body).length === 0) { setEditMode(false); return; }
 
-      await api.patch(`/cases/${id}/status`, body);
-      await loadCase();       // refresh everything
+        await api.patch(`/cases/${id}`, body);
+      } else {
+        const body = {};
+        if (newStatus   !== caseData.status)   body.status   = newStatus;
+        if (newPriority !== caseData.priority) body.priority = newPriority;
+        if (assignTo)                          body.assigned_to = parseInt(assignTo);
+
+        if (Object.keys(body).length === 0) { setEditMode(false); return; }
+
+        await api.patch(`/cases/${id}/status`, body);
+      }
+
+      await loadCase();
       setEditMode(false);
       setAssignTo('');
       toast.success('Case updated successfully');
@@ -146,6 +167,44 @@ export default function CaseDetailPage() {
       toast.error(err.response?.data?.error || 'Update failed');
     }
     setUpdating(false);
+  };
+
+  const uploadEvidence = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadingEvidence(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      await api.post(`/cases/${id}/evidence`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      await loadCase();
+      toast.success('Additional evidence uploaded');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Evidence upload failed');
+    } finally {
+      setUploadingEvidence(false);
+      event.target.value = '';
+    }
+  };
+
+  const deleteCaseRequest = async () => {
+    const justification = window.prompt('Please provide a justification for deleting this request (10+ characters):');
+    if (!justification || justification.trim().length < 10) {
+      toast.error('A justification of at least 10 characters is required.');
+      return;
+    }
+
+    try {
+      await api.delete(`/cases/${id}`, { data: { justification, requires_approval: false } });
+      toast.success('Request deleted successfully');
+      navigate('/dashboard');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Delete failed');
+    }
   };
 
   // ── Loading / Error states ────────────────────────────────
@@ -313,7 +372,7 @@ export default function CaseDetailPage() {
               ))}
             </div>
 
-            {/* Add note — only for editors */}
+            {/* Add note — only for editors or own request owners */}
             {canEditNow && (
               <div className="border-t border-slate-100 pt-4">
                 <textarea
@@ -371,30 +430,67 @@ export default function CaseDetailPage() {
 
               {editMode ? (
                 <div className="space-y-3">
-                  <div>
-                    <label className="form-label text-xs">Status</label>
-                    <select
-                      className="form-select text-sm"
-                      value={newStatus}
-                      onChange={e => setNewStatus(e.target.value)}
-                    >
-                      {STATUSES.map(s => (
-                        <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="form-label text-xs">Severity / Priority</label>
-                    <select
-                      className="form-select text-sm"
-                      value={newPriority}
-                      onChange={e => setNewPriority(e.target.value)}
-                    >
-                      {PRIORITIES.map(p => (
-                        <option key={p} value={p}>{p}</option>
-                      ))}
-                    </select>
-                  </div>
+                  {canManageOwnRequest ? (
+                    <>
+                      <div>
+                        <label className="form-label text-xs">Description</label>
+                        <textarea
+                          className="form-textarea text-sm"
+                          rows={4}
+                          value={requestDescription}
+                          onChange={e => setRequestDescription(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="form-label text-xs">Branch / Department</label>
+                        <input
+                          type="text"
+                          className="form-input text-sm"
+                          value={requestBranch}
+                          onChange={e => setRequestBranch(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="form-label text-xs">Severity</label>
+                        <select
+                          className="form-select text-sm"
+                          value={requestSeverity}
+                          onChange={e => setRequestSeverity(e.target.value)}
+                        >
+                          {PRIORITIES.map(p => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="form-label text-xs">Status</label>
+                        <select
+                          className="form-select text-sm"
+                          value={newStatus}
+                          onChange={e => setNewStatus(e.target.value)}
+                        >
+                          {STATUSES.map(s => (
+                            <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="form-label text-xs">Severity / Priority</label>
+                        <select
+                          className="form-select text-sm"
+                          value={newPriority}
+                          onChange={e => setNewPriority(e.target.value)}
+                        >
+                          {PRIORITIES.map(p => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  )}
 
                   {/* Assign — only for Compliance Officer / Admin */}
                   {canAssign && (
@@ -446,6 +542,21 @@ export default function CaseDetailPage() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {canManageOwnRequest && (
+            <div className="card p-5">
+              <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--color-navy-900)' }}>
+                Manage Request
+              </h3>
+              <button onClick={deleteCaseRequest} className="btn btn-ghost w-full text-sm mb-3">
+                Delete Request
+              </button>
+              <label className="btn btn-primary w-full text-sm cursor-pointer text-center">
+                {uploadingEvidence ? 'Uploading...' : 'Add Additional Evidence'}
+                <input type="file" className="hidden" onChange={uploadEvidence} />
+              </label>
             </div>
           )}
 

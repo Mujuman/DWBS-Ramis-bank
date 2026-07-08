@@ -20,8 +20,9 @@ const createNote = async (req, res) => {
     // Anonymous reporters cannot post internal notes
     const isInternal = identity.type === 'staff' ? (is_internal_only === true || is_internal_only === 'true') : false;
 
-    // Determine sender_type: 'Investigator' for staff, 'Reporter' for anonymous
-    const senderType = identity.type === 'staff' ? 'Investigator' : 'Reporter';
+    // Determine sender_type: staff owners are modeled as 'Reporter' so their clarifications appear as correspondence.
+    const isStaffReporter = identity.type === 'staff' && ['Employee', 'Branch_Manager'].includes(req.user?.role);
+    const senderType = identity.type === 'staff' && !isStaffReporter ? 'Investigator' : 'Reporter';
 
     await pool.execute(
       `INSERT INTO investigationnotes (case_id, sender_type, note_text, is_internal_only)
