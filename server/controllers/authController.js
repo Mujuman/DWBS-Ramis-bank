@@ -31,8 +31,15 @@ const initAnonymousSession = async (req, res) => {
         { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
       );
 
+      // Log verification response for debugging (development only)
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[AUTH] hCaptcha verification response:', captchaRes.data);
+      }
+
       if (!captchaRes.data.success) {
-        return res.status(400).json({ error: 'CAPTCHA verification failed. Please try again.' });
+        const errCodes = captchaRes.data['error-codes'] || captchaRes.data['errors'] || [];
+        console.warn('[AUTH] CAPTCHA failed validation:', errCodes);
+        return res.status(400).json({ error: 'CAPTCHA verification failed. Please try again.', codes: errCodes });
       }
     }
   } catch (captchaErr) {
