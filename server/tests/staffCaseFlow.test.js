@@ -140,8 +140,9 @@ describe('staff case workflow', () => {
       .mockResolvedValueOnce([{ affectedRows: 1 }])
       .mockResolvedValueOnce([[{ email: 'ceo@bank.local' }]]);
 
+    // Per BRD: only Compliance Officers may escalate priority to Critical
     const req = {
-      user: { userId: 7, role: 'Investigator' },
+      user: { userId: 99, role: 'Compliance_Officer' },
       params: { id: '51' },
       body: { priority: 'Critical' },
     };

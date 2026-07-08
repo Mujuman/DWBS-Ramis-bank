@@ -298,8 +298,8 @@ const getCaseById = async (req, res) => {
       is_escalated: caseData.is_escalated === 1 || caseData.is_escalated === true,
     };
 
-    // Allow request owners to review and update their own descriptions.
-    const canViewDescription = user.role === 'System_Admin' || user.role === 'Compliance_Officer' || user.role === 'CEO' || caseData.user_id === user.userId;
+    // Allow request owners and Compliance Officers to view full description. System Admins and CEO are blocked from detailed case data per BRD.
+    const canViewDescription = user.role === 'Compliance_Officer' || caseData.user_id === user.userId;
     if (!canViewDescription) {
       delete formattedCase.description;
     }
@@ -379,10 +379,14 @@ const editCase = async (req, res) => {
       params.push(effectiveBranch);
     }
     const effectiveSeverity = severity_level ?? priority ?? newPriority;
-    if (effectiveSeverity !== undefined && (isInvestigator || isCompliance)) {
+    // Only Compliance Officers may change severity/priority per BRD
+    if (effectiveSeverity !== undefined) {
+      if (!isCompliance) {
+        return res.status(403).json({ error: 'Only Compliance Officers may change case severity/priority.' });
+      }
       updates.push('severity_level = ?');
       params.push(effectiveSeverity);
-      
+
       // Escalate to Critical if severity is set to Critical
       if (effectiveSeverity === 'Critical' && !caseData.is_escalated) {
         newEscalatedStatus = 1;
@@ -405,7 +409,11 @@ const editCase = async (req, res) => {
       params.push(effectiveStatus);
     }
     const effectiveAssignment = assigned_to ?? assigned_investigator;
-    if (effectiveAssignment !== undefined && isCompliance) {
+    if (effectiveAssignment !== undefined) {
+      // Only Compliance Officers may assign/reassign cases per BRD
+      if (!isCompliance) {
+        return res.status(403).json({ error: 'Only Compliance Officers may assign or reassign cases.' });
+      }
       updates.push('assigned_investigator = ?');
       params.push(effectiveAssignment);
     }
@@ -625,10 +633,14 @@ const updateCaseStatus = async (req, res) => {
       updates.push('status = ?');
       params.push(status);
     }
-    if (priority) { 
-      updates.push('severity_level = ?');     
+    if (priority) {
+      // Only Compliance Officers may change priority per BRD
+      if (user.role !== 'Compliance_Officer') {
+        return res.status(403).json({ error: 'Only Compliance Officers may change case priority.' });
+      }
+      updates.push('severity_level = ?');
       params.push(priority);
-      
+
       // Escalate if severity is set to Critical
       if (priority === 'Critical' && !prev.is_escalated) {
         newEscalatedStatus = 1;
@@ -804,6 +816,11 @@ const escalateCase = async (req, res) => {
     const caseData = existing[0];
     if (caseData.is_escalated) {
       return res.status(400).json({ error: 'Case is already escalated' });
+    }
+
+    // Only Compliance Officers may manually escalate per BRD
+    if (user.role !== 'Compliance_Officer') {
+      return res.status(403).json({ error: 'Only a Compliance Officer may escalate a case to the CEO.' });
     }
 
     await pool.execute(

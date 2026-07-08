@@ -155,14 +155,23 @@ export default function CaseDetailPage() {
       const response = await api.get(`/cases/${id}/evidence/${fileId}/download`, {
         responseType: 'blob',
       });
-      const url = window.URL.createObjectURL(response.data);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      const mime = response.headers['content-type'] || response.headers['Content-Type'] || '';
+      const blob = new Blob([response.data], { type: mime });
+      const url = window.URL.createObjectURL(blob);
+
+      // Preview inline for images, video, and PDFs; otherwise force download
+      if (mime.startsWith('image/') || mime.startsWith('video/') || mime === 'application/pdf') {
+        // Open in new tab for preview
+        window.open(url, '_blank');
+      } else {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }
     } catch (err) {
       toast.error(err.response?.data?.error || 'Download failed');
       console.error('Download error:', err);
