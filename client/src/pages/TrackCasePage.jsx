@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import api from '../services/api';
-import { Search, Clock, CheckCircle, AlertTriangle, MessageSquare, ChevronRight } from 'lucide-react';
+import { Search, Clock, CheckCircle, AlertTriangle, MessageSquare, ChevronRight, Edit3, Trash2, X } from 'lucide-react';
 import { format } from 'date-fns';
+import toast from 'react-hot-toast';
 
 const STATUS_LABELS = {
   New: { label: 'New', class: 'badge-new' },
@@ -24,6 +25,21 @@ export default function TrackCasePage() {
   const [error, setError] = useState(null);
   const { register, handleSubmit, formState: { errors } } = useForm();
 
+  // Edit and Delete Modals states
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+  // Form states for Edit
+  const [editToken, setEditToken] = useState('');
+  const [editCategory, setEditCategory] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editLocation, setEditLocation] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
+
+  // Form states for Delete
+  const [deleteToken, setDeleteToken] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   const onSearch = async ({ reference_id }) => {
     setLoading(true);
     setError(null);
@@ -31,10 +47,71 @@ export default function TrackCasePage() {
     try {
       const res = await api.get('/cases/track', { params: { reference_id: reference_id.toUpperCase().trim() } });
       setResult(res.data);
+      setEditCategory(res.data.case.category);
     } catch (err) {
       setError(err.response?.data?.error || 'No case found with that reference ID');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    if (!editToken) {
+      toast.error('Verification token is required');
+      return;
+    }
+    if (editDescription && editDescription.length < 20) {
+      toast.error('Description must be at least 20 characters');
+      return;
+    }
+    setEditLoading(true);
+    try {
+      await api.patch('/cases/anonymous', {
+        reference_id: result.case.reference_id,
+        verification_token: editToken.trim(),
+        category: editCategory,
+        description: editDescription || undefined,
+      });
+      toast.success('Report updated successfully!');
+      setIsEditModalOpen(false);
+      
+      // Refresh tracked case info
+      const res = await api.get('/cases/track', { params: { reference_id: result.case.reference_id } });
+      setResult(res.data);
+      // Reset form input values
+      setEditToken('');
+      setEditDescription('');
+      setEditLocation('');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to update case. Please check your token.');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleDeleteSubmit = async (e) => {
+    e.preventDefault();
+    if (!deleteToken) {
+      toast.error('Verification token is required');
+      return;
+    }
+    setDeleteLoading(true);
+    try {
+      await api.delete('/cases/anonymous', {
+        data: {
+          reference_id: result.case.reference_id,
+          verification_token: deleteToken.trim(),
+        }
+      });
+      toast.success('Report deleted successfully.');
+      setIsDeleteModalOpen(false);
+      setResult(null); // Clear result since it's deleted
+      setDeleteToken('');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to delete case. Please check your token.');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -111,12 +188,7 @@ export default function TrackCasePage() {
                     {result.case.category?.replace(/_/g, ' ')}
                   </p>
                 </div>
-                <div className="p-3 rounded-lg" style={{ background: 'var(--color-slate-50)' }}>
-                  <p className="text-xs text-slate-400 mb-1">Priority</p>
-                  <span className={`badge ${PRIORITY_LABELS[result.case.priority] || 'badge-medium'}`}>
-                    {result.case.priority}
-                  </span>
-                </div>
+
                 <div className="p-3 rounded-lg" style={{ background: 'var(--color-slate-50)' }}>
                   <p className="text-xs text-slate-400 mb-1">Submitted</p>
                   <p className="text-sm font-semibold text-slate-700">
@@ -129,6 +201,21 @@ export default function TrackCasePage() {
                     {format(new Date(result.case.updated_at), 'MMM d, yyyy')}
                   </p>
                 </div>
+              </div>
+              <div className="border-t border-slate-100 mt-6 pt-4 flex gap-3 justify-end">
+                <button
+                  onClick={() => setIsEditModalOpen(true)}
+                  className="btn btn-secondary px-4 py-2 flex items-center gap-1.5 text-sm"
+                >
+                  <Edit3 size={14} /> Edit Report
+                </button>
+                <button
+                  onClick={() => setIsDeleteModalOpen(true)}
+                  className="btn btn-danger-outline px-4 py-2 flex items-center gap-1.5 text-sm"
+                  style={{ borderColor: 'var(--color-danger-500)', color: 'var(--color-danger-500)', border: '1px solid', borderRadius: 'var(--radius-lg)' }}
+                >
+                  <Trash2 size={14} /> Delete Report
+                </button>
               </div>
             </div>
 
@@ -205,6 +292,145 @@ export default function TrackCasePage() {
           </div>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="card w-full max-w-lg p-6 relative animate-in fade-in zoom-in-95 duration-200" style={{ background: '#fff' }}>
+            <button
+              onClick={() => setIsEditModalOpen(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <X size={20} />
+            </button>
+            
+            <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--color-navy-900)' }}>
+              Edit Report Details
+            </h3>
+            <p className="text-sm text-slate-500 mb-6">
+              Provide your secret verification token and enter the fields you wish to update.
+            </p>
+
+            <form onSubmit={handleEditSubmit} className="space-y-4 text-left">
+              <div>
+                <label className="form-label font-semibold">Secret Verification Token *</label>
+                <input
+                  type="text"
+                  required
+                  className="form-input font-mono"
+                  placeholder="Enter the 64-character hex token"
+                  value={editToken}
+                  onChange={(e) => setEditToken(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="form-label font-semibold">Category</label>
+                <select
+                  className="form-input"
+                  value={editCategory}
+                  onChange={(e) => setEditCategory(e.target.value)}
+                >
+                  <option value="Fraud">Fraud</option>
+                  <option value="Corruption">Corruption</option>
+                  <option value="Bribery">Bribery</option>
+                  <option value="Abuse_of_Power">Abuse of Power</option>
+                  <option value="Procurement_Violation">Procurement Violation</option>
+                  <option value="System_Misuse">System Misuse</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="form-label font-semibold">Updated Description (Min 20 chars)</label>
+                <textarea
+                  className="form-input min-h-[120px]"
+                  placeholder="Enter updated incident description..."
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                />
+              </div>
+
+
+
+              <div className="flex gap-3 justify-end pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="btn btn-secondary px-4 py-2"
+                  disabled={editLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary px-6 py-2"
+                  disabled={editLoading}
+                >
+                  {editLoading ? <span className="spinner" /> : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="card w-full max-w-md p-6 relative animate-in fade-in zoom-in-95 duration-200" style={{ background: '#fff' }}>
+            <button
+              onClick={() => setIsDeleteModalOpen(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <X size={20} />
+            </button>
+            
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-4">
+              <AlertTriangle size={24} style={{ color: 'var(--color-danger-500)' }} />
+            </div>
+
+            <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--color-navy-900)' }}>
+              Request Case Deletion
+            </h3>
+            <p className="text-sm text-slate-500 mb-6 text-left">
+              This will request a soft delete of your case. It will no longer be visible or trackable in the system. An audit log of the case lifecycle is retained.
+            </p>
+
+            <form onSubmit={handleDeleteSubmit} className="space-y-4 text-left">
+              <div>
+                <label className="form-label font-semibold">Secret Verification Token *</label>
+                <input
+                  type="text"
+                  required
+                  className="form-input font-mono"
+                  placeholder="Enter the 64-character hex token"
+                  value={deleteToken}
+                  onChange={(e) => setDeleteToken(e.target.value)}
+                />
+              </div>
+
+              <div className="flex gap-3 justify-end pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  className="btn btn-secondary px-4 py-2"
+                  disabled={deleteLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-danger px-6 py-2"
+                  style={{ background: 'var(--color-danger-500)', color: 'white' }}
+                  disabled={deleteLoading}
+                >
+                  {deleteLoading ? <span className="spinner" /> : 'Confirm Deletion'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

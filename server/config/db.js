@@ -42,7 +42,18 @@ const testConnection = async () => {
         console.log('[DB] Migration: Added manager_help_requested column to cases table');
       }
     } catch (migErr) {
-      console.error('[DB] Schema migration check failed:', migErr.message);
+      console.error('[DB] Schema migration check failed for manager_help_requested:', migErr.message);
+    }
+
+    // Automatic schema migration: check and add deleted_at column
+    try {
+      const [columns] = await pool.execute("SHOW COLUMNS FROM cases LIKE 'deleted_at'");
+      if (columns.length === 0) {
+        await pool.execute("ALTER TABLE cases ADD COLUMN deleted_at timestamp NULL DEFAULT NULL");
+        console.log('[DB] Migration: Added deleted_at column to cases table');
+      }
+    } catch (migErr) {
+      console.error('[DB] Schema migration check failed for deleted_at:', migErr.message);
     }
   } catch (err) {
     console.error('[DB] Failed to connect to MySQL:', err.message);

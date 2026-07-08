@@ -26,14 +26,14 @@ const features = [
   {
     icon: AlertTriangle,
     title: 'Report All Violations',
-    desc: 'Fraud, bribery, AML violations, harassment, data breaches, and policy misconduct.',
+    desc: 'Fraud, corruption, bribery, abuse of power, procurement violations, and system misuse.',
     color: '#ef4444',
   },
 ];
 
 const categories = [
-  'Fraud', 'Bribery', 'Corruption', 'Harassment',
-  'AML Violation', 'Data Breach', 'Policy Violation', 'Other',
+  'Fraud', 'Corruption', 'Bribery', 'Abuse of Power',
+  'Procurement Violation', 'System Misuse',
 ];
 
 const steps = [

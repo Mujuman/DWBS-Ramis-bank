@@ -7,9 +7,8 @@ import {
 import { TrendingUp, AlertTriangle, Clock, CheckCircle, FileText, Activity } from 'lucide-react';
 
 const CATEGORY_COLORS = {
-  Fraud: '#ef4444', Bribery: '#f59e0b', Corruption: '#8b5cf6',
-  Harassment: '#ec4899', AML_Violation: '#0ea5e9', Data_Breach: '#14b8a6',
-  Policy_Violation: '#64748b', Other: '#94a3b8',
+  Fraud: '#ef4444', Corruption: '#8b5cf6', Bribery: '#f59e0b',
+  Abuse_of_Power: '#f43f5e', Procurement_Violation: '#10b981', System_Misuse: '#0ea5e9',
 };
 
 const PIE_COLORS = ['#0A1D37', '#F9A826', '#3b82f6', '#22c55e', '#ef4444', '#8b5cf6', '#ec4899', '#94a3b8'];

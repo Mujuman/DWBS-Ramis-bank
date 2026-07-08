@@ -29,7 +29,7 @@ const createCase = async (req, res) => {
 
     const reporterType = identity.type === 'staff' ? 'Authenticated' : 'Anonymous';
     const userId = identity.type === 'staff' ? identity.id : null;
-    const verificationToken = req.anonSession ? req.anonSession.session_token : generateSecureToken(32);
+    const verificationToken = generateSecureToken(32);
 
     const [result] = await pool.execute(
       `INSERT INTO cases
@@ -72,6 +72,7 @@ const createCase = async (req, res) => {
       message: 'Report submitted successfully',
       case_id: caseId,
       reference_id: referenceId,
+      verification_token: verificationToken,
       status: 'New',
       created_at: new Date().toISOString(),
     });
@@ -95,7 +96,7 @@ const listCases = async (req, res) => {
   const { status, severity_level, category, search } = req.query;
 
   try {
-    let whereConditions = [];
+    let whereConditions = ['c.deleted_at IS NULL'];
     let params = [];
 
     // Role-based filtering — per spec: Investigators see ONLY cases assigned to them
@@ -190,7 +191,7 @@ const getCaseById = async (req, res) => {
       `SELECT c.*, u.username AS assigned_investigator_name, u.email AS investigator_email
        FROM cases c
        LEFT JOIN users u ON c.assigned_investigator = u.user_id
-       WHERE c.case_id = ?`,
+       WHERE c.case_id = ? AND c.deleted_at IS NULL`,
       [caseId]
     );
 
@@ -266,7 +267,7 @@ const trackCase = async (req, res) => {
   try {
     const [rows] = await pool.execute(
       `SELECT case_id, reference_id, category, status, severity_level, created_at, updated_at
-       FROM cases WHERE reference_id = ?`,
+       FROM cases WHERE reference_id = ? AND deleted_at IS NULL`,
       [reference_id.toUpperCase().trim()]
     );
 
@@ -323,7 +324,7 @@ const updateCaseStatus = async (req, res) => {
 
   try {
     const [existing] = await pool.execute(
-      `SELECT case_id, status, severity_level, assigned_investigator FROM cases WHERE case_id = ?`,
+      `SELECT case_id, status, severity_level, assigned_investigator FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
       [caseId]
     );
 
@@ -422,17 +423,18 @@ const getCaseStats = async (req, res) => {
          SUM(status = 'Closed') AS closed,
          SUM(severity_level = 'Critical') AS critical,
          SUM(severity_level = 'High') AS high
-       FROM cases`
+       FROM cases
+       WHERE deleted_at IS NULL`
     );
 
     const [categoryCounts] = await pool.execute(
-      `SELECT category, COUNT(*) AS total FROM cases GROUP BY category ORDER BY total DESC`
+      `SELECT category, COUNT(*) AS total FROM cases WHERE deleted_at IS NULL GROUP BY category ORDER BY total DESC`
     );
 
     const [monthlyTrend] = await pool.execute(
       `SELECT DATE_FORMAT(created_at, '%Y-%m') AS month, COUNT(*) AS total
        FROM cases
-       WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+       WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH) AND deleted_at IS NULL
        GROUP BY month ORDER BY month ASC`
     );
 
@@ -440,7 +442,7 @@ const getCaseStats = async (req, res) => {
       `SELECT
          ROUND(AVG(TIMESTAMPDIFF(HOUR, created_at, updated_at)), 1) AS avg_resolution_hours
        FROM cases
-       WHERE status IN ('Resolved', 'Closed')`
+       WHERE status IN ('Resolved', 'Closed') AND deleted_at IS NULL`
     );
 
     const [escalatedCases] = await pool.execute(
@@ -448,7 +450,7 @@ const getCaseStats = async (req, res) => {
               c.created_at, u.username AS assigned_investigator
        FROM cases c
        LEFT JOIN users u ON c.assigned_investigator = u.user_id
-       WHERE c.is_escalated = 1
+       WHERE c.is_escalated = 1 AND c.deleted_at IS NULL
        ORDER BY c.created_at DESC`
     );
 
@@ -497,7 +499,7 @@ const escalateCase = async (req, res) => {
 
   try {
     const [existing] = await pool.execute(
-      `SELECT case_id, is_escalated, reference_id FROM cases WHERE case_id = ?`,
+      `SELECT case_id, is_escalated, reference_id FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
       [caseId]
     );
 
@@ -529,4 +531,161 @@ const escalateCase = async (req, res) => {
   }
 };
 
-module.exports = { createCase, listCases, getCaseById, trackCase, updateCaseStatus, getCaseStats, escalateCase };
+/**
+ * PATCH /api/cases/anonymous
+ * Allows anonymous reporters to update category, description, or location of their report.
+ * Requires reference_id and correct verification_token.
+ */
+const editCaseAnonymous = async (req, res) => {
+  const { reference_id, verification_token, category, description } = req.body;
+
+  try {
+    const [rows] = await pool.execute(
+      `SELECT case_id, verification_token FROM cases WHERE reference_id = ? AND deleted_at IS NULL`,
+      [reference_id.toUpperCase().trim()]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'No case found with that reference ID' });
+    }
+
+    const caseData = rows[0];
+
+    if (caseData.verification_token !== verification_token) {
+      return res.status(401).json({ error: 'Invalid verification token' });
+    }
+
+    const updates = [];
+    const params = [];
+
+    if (category) {
+      updates.push('category = ?');
+      params.push(category);
+    }
+    if (description) {
+      updates.push('description = ?');
+      params.push(description);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    params.push(caseData.case_id);
+    await pool.execute(`UPDATE cases SET ${updates.join(', ')} WHERE case_id = ?`, params);
+
+    await writeAuditLog({
+      userId: null,
+      caseId: caseData.case_id,
+      action: 'CASE_EDITED_BY_ANON',
+      performedBy: null,
+      performedByType: 'anonymous',
+      metadata: {
+        reference_id,
+        updated_fields: Object.keys(req.body).filter(k => ['category', 'description'].includes(k))
+      },
+    });
+
+    return res.status(200).json({ message: 'Report updated successfully' });
+  } catch (err) {
+    console.error('[CASE] Anonymous edit error:', err.message);
+    return res.status(500).json({ error: 'Failed to update report' });
+  }
+};
+
+/**
+ * DELETE /api/cases/anonymous
+ * Allows anonymous reporters to request a soft delete of their report.
+ * Requires reference_id and correct verification_token.
+ */
+const deleteCaseAnonymous = async (req, res) => {
+  const { reference_id, verification_token } = req.body;
+
+  try {
+    const [rows] = await pool.execute(
+      `SELECT case_id, verification_token FROM cases WHERE reference_id = ? AND deleted_at IS NULL`,
+      [reference_id.toUpperCase().trim()]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'No case found with that reference ID' });
+    }
+
+    const caseData = rows[0];
+
+    if (caseData.verification_token !== verification_token) {
+      return res.status(401).json({ error: 'Invalid verification token' });
+    }
+
+    await pool.execute(
+      `UPDATE cases SET deleted_at = NOW(), updated_at = NOW() WHERE case_id = ?`,
+      [caseData.case_id]
+    );
+
+    await writeAuditLog({
+      userId: null,
+      caseId: caseData.case_id,
+      action: 'CASE_DELETED_BY_ANON',
+      performedBy: null,
+      performedByType: 'anonymous',
+      metadata: { reference_id },
+    });
+
+    return res.status(200).json({ message: 'Report deleted successfully' });
+  } catch (err) {
+    console.error('[CASE] Anonymous delete error:', err.message);
+    return res.status(500).json({ error: 'Failed to delete report' });
+  }
+};
+
+/**
+ * POST /api/cases/:id/request-manager-help
+ * Allows an Investigator or Compliance Officer to request help from the Branch Manager.
+ */
+const requestManagerHelp = async (req, res) => {
+  const caseId = parseInt(req.params.id);
+  const user = req.user;
+
+  try {
+    const [rows] = await pool.execute(
+      `SELECT case_id, reference_id FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
+      [caseId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Case not found' });
+    }
+
+    await pool.execute(
+      `UPDATE cases SET manager_help_requested = 1, updated_at = NOW() WHERE case_id = ?`,
+      [caseId]
+    );
+
+    await writeAuditLog({
+      userId: user.userId,
+      caseId,
+      action: 'MANAGER_HELP_REQUESTED',
+      performedBy: user.username,
+      performedByType: 'staff',
+      metadata: { reference_id: rows[0].reference_id },
+    });
+
+    return res.status(200).json({ message: 'Help requested from Branch Manager successfully' });
+  } catch (err) {
+    console.error('[CASE] Request manager help error:', err.message);
+    return res.status(500).json({ error: 'Failed to request manager help' });
+  }
+};
+
+module.exports = {
+  createCase,
+  listCases,
+  getCaseById,
+  trackCase,
+  updateCaseStatus,
+  getCaseStats,
+  escalateCase,
+  editCaseAnonymous,
+  deleteCaseAnonymous,
+  requestManagerHelp
+};

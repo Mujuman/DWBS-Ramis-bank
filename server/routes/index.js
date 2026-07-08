@@ -5,7 +5,8 @@ const rateLimit = require('express-rate-limit');
 const { authenticateStaff, authenticateAnonymous, requireRole, authenticateAny } = require('../middleware/auth');
 const { sanitizeRequestBody, handleValidationErrors,
         validateAnonSession, validateLogin, validateCreateCase,
-        validateStatusUpdate, validateCreateNote, validateTrackCase } = require('../middleware/sanitize');
+        validateStatusUpdate, validateCreateNote, validateTrackCase,
+        validateEditCaseAnonymous, validateDeleteCaseAnonymous } = require('../middleware/sanitize');
 const { upload, processAndSaveFile, handleUploadErrors } = require('../middleware/upload');
 
 const authController = require('../controllers/authController');
@@ -65,6 +66,22 @@ router.get('/cases/track',
   validateTrackCase,
   handleValidationErrors,
   caseController.trackCase
+);
+
+// Anonymous edit case (no auth header needed, verified by reference_id + verification_token)
+router.patch('/cases/anonymous',
+  sanitizeRequestBody,
+  validateEditCaseAnonymous,
+  handleValidationErrors,
+  caseController.editCaseAnonymous
+);
+
+// Anonymous delete case (no auth header needed, verified by reference_id + verification_token)
+router.delete('/cases/anonymous',
+  sanitizeRequestBody,
+  validateDeleteCaseAnonymous,
+  handleValidationErrors,
+  caseController.deleteCaseAnonymous
 );
 
 // Executive stats (CEO, Compliance_Officer, System_Admin)
