@@ -72,6 +72,10 @@ export default function CaseDetailPage() {
   const isAssignedToMe = caseData ? (caseData.assigned_to === myUserId) : false;
   const canEditNow     = isSenior || (isInvestigator && isAssignedToMe) || canManageOwnRequest;
 
+  const allowedStatusOptions = caseData
+    ? [...new Set([caseData.status, ...(isSenior ? COMPLIANCE_OFFICER_STATUSES : INVESTIGATOR_STATUSES)])].filter(Boolean)
+    : (isSenior ? COMPLIANCE_OFFICER_STATUSES : INVESTIGATOR_STATUSES);
+
   useEffect(() => {
     loadCase();
   }, [id]);
@@ -92,8 +96,7 @@ export default function CaseDetailPage() {
       
       // Validate status is in allowed list for this user's role
       const allowedStatuses = isSenior ? COMPLIANCE_OFFICER_STATUSES : INVESTIGATOR_STATUSES;
-      const validStatus = allowedStatuses.includes(c.status) ? c.status : allowedStatuses[0];
-      setNewStatus(validStatus);
+      setNewStatus(c.status || allowedStatuses[0]);
       
       setNewPriority(c.priority || 'Medium');
       setRequestDescription(c.description || '');
@@ -473,18 +476,6 @@ export default function CaseDetailPage() {
                           onChange={e => setRequestBranch(e.target.value)}
                         />
                       </div>
-                      <div>
-                        <label className="form-label text-xs">Severity</label>
-                        <select
-                          className="form-select text-sm"
-                          value={requestSeverity}
-                          onChange={e => setRequestSeverity(e.target.value)}
-                        >
-                          {PRIORITIES.map(p => (
-                            <option key={p} value={p}>{p}</option>
-                          ))}
-                        </select>
-                      </div>
                     </>
                   ) : (
                     <>
@@ -495,7 +486,7 @@ export default function CaseDetailPage() {
                           value={newStatus}
                           onChange={e => setNewStatus(e.target.value)}
                         >
-                          {(isSenior ? COMPLIANCE_OFFICER_STATUSES : INVESTIGATOR_STATUSES).map(s => (
+                          {allowedStatusOptions.map(s => (
                             <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
                           ))}
                         </select>

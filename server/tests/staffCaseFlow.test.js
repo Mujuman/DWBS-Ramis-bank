@@ -65,7 +65,7 @@ describe('staff case workflow', () => {
 
   it('allows a compliance officer to update case priority without sending a status', async () => {
     pool.execute
-      .mockResolvedValueOnce([[{ case_id: 21, status: 'New', severity_level: 'Low', assigned_investigator: null }]])
+      .mockResolvedValueOnce([[{ case_id: 21, status: 'New', severity_level: 'Low', assigned_investigator: null, is_escalated: 0 }]])
       .mockResolvedValueOnce([{ affectedRows: 1 }]);
 
     const req = {
@@ -82,6 +82,46 @@ describe('staff case workflow', () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ message: 'Case updated successfully' }));
+  });
+
+  it('prevents an investigator from setting status outside their allowed workflow', async () => {
+    pool.execute
+      .mockResolvedValueOnce([[{ case_id: 31, status: 'New', severity_level: 'Medium', assigned_investigator: 5, is_escalated: 0 }]]);
+
+    const req = {
+      user: { userId: 5, role: 'Investigator' },
+      params: { id: '31' },
+      body: { status: 'New' },
+    };
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+    };
+
+    await updateCaseStatus(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Investigators may only update status within their allowed workflow.' }));
+  });
+
+  it('prevents a compliance officer from moving status outside their allowed workflow', async () => {
+    pool.execute
+      .mockResolvedValueOnce([[{ case_id: 41, status: 'New', severity_level: 'High', assigned_investigator: null, is_escalated: 0 }]]);
+
+    const req = {
+      user: { userId: 96, role: 'Compliance_Officer' },
+      params: { id: '41' },
+      body: { status: 'Resolved' },
+    };
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+    };
+
+    await updateCaseStatus(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Compliance Officers may only update status during assignment and review stages.' }));
   });
 
   it('accepts priority-only updates through the status validation middleware', async () => {

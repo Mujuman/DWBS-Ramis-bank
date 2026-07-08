@@ -14,6 +14,9 @@ const CATEGORY_SEVERITY_MAP = {
   'System_Misuse': 'Medium',
 };
 
+const INVESTIGATOR_STATUSES = ['Under_Review', 'Investigating', 'Pending_Evidence', 'Resolved', 'Closed'];
+const COMPLIANCE_OFFICER_STATUSES = ['New', 'Assigned'];
+
 const getInitialSeverity = (category) => {
   return CATEGORY_SEVERITY_MAP[category] || 'Medium';
 };
@@ -390,6 +393,17 @@ const editCase = async (req, res) => {
     }
     const effectiveStatus = status ?? newStatus;
     if (effectiveStatus !== undefined) {
+      if (!isInvestigator && !isCompliance) {
+        return res.status(403).json({ error: 'Only investigators and compliance officers can update case status.' });
+      }
+      if (effectiveStatus !== caseData.status) {
+        if (isInvestigator && !INVESTIGATOR_STATUSES.includes(effectiveStatus)) {
+          return res.status(403).json({ error: 'Investigators may only update status within their allowed workflow.' });
+        }
+        if (isCompliance && !COMPLIANCE_OFFICER_STATUSES.includes(effectiveStatus)) {
+          return res.status(403).json({ error: 'Compliance Officers may only update status during assignment and review stages.' });
+        }
+      }
       updates.push('status = ?');
       params.push(effectiveStatus);
     }
@@ -603,8 +617,19 @@ const updateCaseStatus = async (req, res) => {
     const params  = [];
     let newEscalatedStatus = prev.is_escalated;
 
-    if (status)                         { updates.push('status = ?');             params.push(status); }
-    if (priority)                       { 
+    if (status) {
+      if (status !== prev.status) {
+        if (user.role === 'Investigator' && !INVESTIGATOR_STATUSES.includes(status)) {
+          return res.status(403).json({ error: 'Investigators may only update status within their allowed workflow.' });
+        }
+        if (user.role === 'Compliance_Officer' && !COMPLIANCE_OFFICER_STATUSES.includes(status)) {
+          return res.status(403).json({ error: 'Compliance Officers may only update status during assignment and review stages.' });
+        }
+      }
+      updates.push('status = ?');
+      params.push(status);
+    }
+    if (priority) { 
       updates.push('severity_level = ?');     
       params.push(priority);
       
