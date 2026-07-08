@@ -106,6 +106,20 @@ const validateEditCaseAnonymous = [
     .isLength({ min: 20, max: 10000 }).withMessage('Description must be 20–10,000 characters'),
 ];
 
+const validateCreateAnonNote = [
+  body('reference_id')
+    .notEmpty().withMessage('Reference ID is required')
+    .matches(/^[A-Z2-9]{12}$/i).withMessage('Invalid reference ID format')
+    .trim(),
+  body('verification_token')
+    .notEmpty().withMessage('Verification token is required')
+    .isString()
+    .trim(),
+  body('body')
+    .notEmpty().withMessage('Response body is required')
+    .isLength({ min: 5, max: 5000 }).withMessage('Response body must be 5–5000 characters'),
+];
+
 const validateDeleteCaseAnonymous = [
   body('reference_id')
     .notEmpty().withMessage('Reference ID is required')
@@ -160,5 +174,6 @@ module.exports = {
   validateDeleteCaseAnonymous,
   validateStatusUpdate,
   validateCreateNote,
+  validateCreateAnonNote,
   validateTrackCase,
 };
