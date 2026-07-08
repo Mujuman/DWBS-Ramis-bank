@@ -71,6 +71,12 @@ const validateCreateCase = [
   body('description')
     .notEmpty().withMessage('Description is required')
     .isLength({ min: 20, max: 10000 }).withMessage('Description must be 20–10,000 characters'),
+  body('branch_or_dept')
+    .optional()
+    .isLength({ min: 2, max: 100 }).withMessage('Branch or department must be 2–100 characters'),
+  body('severity_level')
+    .optional()
+    .isIn(['Low', 'Medium', 'High', 'Critical']).withMessage('Invalid severity level'),
   body('incident_date')
     .optional()
     .isDate().withMessage('Invalid incident date format'),

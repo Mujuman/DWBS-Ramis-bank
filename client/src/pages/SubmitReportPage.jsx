@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../context/AuthContext';
@@ -24,10 +24,11 @@ const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
 const STEPS = ['Privacy Shield', 'Incident Details', 'Evidence', 'Review & Submit'];
 
 export default function SubmitReportPage() {
-  const { anonToken, initAnonymousSession } = useAuth();
+  const { user, anonToken, initAnonymousSession } = useAuth();
   const navigate = useNavigate();
 
-  const [step, setStep]               = useState(0);
+  const isStaffAuthenticated = Boolean(user);
+  const [step, setStep]               = useState(isStaffAuthenticated ? 1 : 0);
   const [captchaLoading, setCaptchaLoading] = useState(false);
   const [captchaToken, setCaptchaToken]     = useState(null);
   const [sessionToken, setSessionToken]     = useState(anonToken || null);
@@ -36,8 +37,12 @@ export default function SubmitReportPage() {
   const [submitted, setSubmitted]     = useState(null);
   const captchaRef = useRef(null);
 
+  useEffect(() => {
+    setStep(isStaffAuthenticated ? 1 : 0);
+  }, [isStaffAuthenticated]);
+
   const { register, handleSubmit, watch, formState: { errors }, getValues } = useForm({
-    defaultValues: { category: '', description: '' },
+    defaultValues: { category: '', description: '', branch_or_dept: '', severity_level: 'Medium' },
   });
 
   // ── hCaptcha verified → create anonymous session ──────────
@@ -83,12 +88,18 @@ export default function SubmitReportPage() {
     try {
       const token = sessionToken || anonToken;
 
-      const caseRes = await api.post('/cases', {
-        category:          data.category,
-        description:       data.description,
-      }, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const payload = {
+        category: data.category,
+        description: data.description,
+        branch_or_dept: data.branch_or_dept || 'General',
+        severity_level: data.severity_level || 'Medium',
+      };
+
+      const caseRes = isStaffAuthenticated
+        ? await api.post('/cases', payload)
+        : await api.post('/cases', payload, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
 
       for (const file of files) {
         const formData = new FormData();
@@ -192,9 +203,13 @@ export default function SubmitReportPage() {
             <Lock size={14} /> Fully Anonymous Submission
           </div>
           <h1 className="text-3xl font-bold" style={{ color: 'var(--color-navy-900)' }}>
-            Submit a Report
+            {isStaffAuthenticated ? 'Submit a Staff Request' : 'Submit a Report'}
           </h1>
-          <p className="text-slate-500 mt-2">Your identity is fully protected. Complete each step below.</p>
+          <p className="text-slate-500 mt-2">
+            {isStaffAuthenticated
+              ? 'Provide a detailed request with your identity and the relevant branch or department context.'
+              : 'Your identity is fully protected. Complete each step below.'}
+          </p>
         </div>
 
         {/* Step progress */}
@@ -229,7 +244,7 @@ export default function SubmitReportPage() {
         </div>
 
         {/* ── Step 0: Privacy Shield / hCaptcha ─────────────── */}
-        {step === 0 && (
+        {step === 0 && !isStaffAuthenticated && (
           <div className="card p-8 fade-in-up">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-12 h-12 rounded-xl flex items-center justify-center"
@@ -345,6 +360,28 @@ export default function SubmitReportPage() {
               </div>
 
               <div>
+                <label className="form-label">Branch / Department *</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. Retail Banking"
+                  {...register('branch_or_dept', { required: 'Branch or department is required' })}
+                />
+                {errors.branch_or_dept && <p className="form-error">{errors.branch_or_dept.message}</p>}
+              </div>
+
+              <div>
+                <label className="form-label">Severity Level *</label>
+                <select className="form-select" defaultValue="Medium" {...register('severity_level', { required: 'Severity is required' })}>
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                  <option value="Critical">Critical</option>
+                </select>
+                {errors.severity_level && <p className="form-error">{errors.severity_level.message}</p>}
+              </div>
+
+              <div>
                 <label className="form-label">Description of Misconduct *</label>
                 <textarea
                   className="form-textarea"
@@ -434,6 +471,14 @@ export default function SubmitReportPage() {
                   <p className="text-sm font-semibold text-slate-800">{getValues('category')?.replace(/_/g, ' ')}</p>
                 </div>
 
+                <div className="p-4 rounded-xl" style={{ background: 'var(--color-slate-50)' }}>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1">Branch / Department</p>
+                  <p className="text-sm font-semibold text-slate-800">{getValues('branch_or_dept') || 'General'}</p>
+                </div>
+                <div className="p-4 rounded-xl" style={{ background: 'var(--color-slate-50)' }}>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1">Severity</p>
+                  <p className="text-sm font-semibold text-slate-800">{getValues('severity_level') || 'Medium'}</p>
+                </div>
                 <div className="p-4 rounded-xl" style={{ background: 'var(--color-slate-50)' }}>
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Description</p>
                   <p className="text-sm text-slate-700 leading-relaxed line-clamp-4">{getValues('description')}</p>

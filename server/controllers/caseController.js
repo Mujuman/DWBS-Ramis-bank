@@ -93,7 +93,7 @@ const listCases = async (req, res) => {
   const page = Math.max(1, parseInt(req.query.page) || 1);
   const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
   const offset = (page - 1) * limit;
-  const { status, severity_level, category, search } = req.query;
+  const { status, severity_level, category, search, branch_or_dept, from_date, to_date, case_id } = req.query;
 
   try {
     let whereConditions = ['c.deleted_at IS NULL'];
@@ -120,9 +120,25 @@ const listCases = async (req, res) => {
       whereConditions.push('c.category = ?');
       params.push(category);
     }
+    if (branch_or_dept) {
+      whereConditions.push('c.branch_or_dept LIKE ?');
+      params.push(`%${branch_or_dept}%`);
+    }
+    if (case_id) {
+      whereConditions.push('c.case_id = ?');
+      params.push(parseInt(case_id));
+    }
+    if (from_date) {
+      whereConditions.push('c.created_at >= ?');
+      params.push(from_date);
+    }
+    if (to_date) {
+      whereConditions.push('c.created_at <= ?');
+      params.push(`${to_date} 23:59:59`);
+    }
     if (search) {
-      whereConditions.push('c.reference_id LIKE ?');
-      params.push(`${search.toUpperCase()}%`);
+      whereConditions.push('(c.reference_id LIKE ? OR c.category LIKE ? OR c.branch_or_dept LIKE ?)');
+      params.push(`${search.toUpperCase()}%`, `%${search}%`, `%${search}%`);
     }
 
     const where = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
@@ -233,11 +249,13 @@ const getCaseById = async (req, res) => {
       assigned_investigator: caseData.assigned_investigator_name,
       investigator_email: caseData.investigator_email,
       description: caseData.description,
+      owner_id: caseData.user_id,
+      user_id: caseData.user_id,
     };
 
-    // Restrict description for low-permission roles
-    const restrictedRoles = ['Employee', 'Branch_Manager'];
-    if (restrictedRoles.includes(user.role)) {
+    // Allow request owners to review and update their own descriptions.
+    const canViewDescription = user.role === 'System_Admin' || user.role === 'Compliance_Officer' || user.role === 'CEO' || caseData.user_id === user.userId;
+    if (!canViewDescription) {
       delete formattedCase.description;
     }
 
@@ -252,6 +270,124 @@ const getCaseById = async (req, res) => {
   } catch (err) {
     console.error('[CASE] Get error:', err.message);
     return res.status(500).json({ error: 'Failed to fetch case' });
+  }
+};
+
+// ── Edit own request (staff) ───────────────────────────────
+
+/**
+ * PATCH /api/cases/:id
+ * Lets an authenticated staff user update their own request description.
+ */
+const editCase = async (req, res) => {
+  const user = req.user;
+  const caseId = parseInt(req.params.id);
+  const { description, branch_or_dept, severity_level } = req.body;
+
+  try {
+    const [rows] = await pool.execute(
+      `SELECT case_id, user_id, description, branch_or_dept, severity_level FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
+      [caseId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Case not found' });
+    }
+
+    const caseData = rows[0];
+    if (caseData.user_id !== user.userId) {
+      return res.status(403).json({ error: 'You can only edit your own requests.' });
+    }
+
+    const updates = [];
+    const params = [];
+
+    if (description !== undefined) {
+      updates.push('description = ?');
+      params.push(description);
+    }
+    if (branch_or_dept !== undefined) {
+      updates.push('branch_or_dept = ?');
+      params.push(branch_or_dept);
+    }
+    if (severity_level !== undefined) {
+      updates.push('severity_level = ?');
+      params.push(severity_level);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    params.push(caseId);
+    await pool.execute(`UPDATE cases SET ${updates.join(', ')}, updated_at = NOW() WHERE case_id = ?`, params);
+
+    await writeAuditLog({
+      userId: user.userId,
+      caseId,
+      action: 'CASE_EDITED_BY_STAFF',
+      performedBy: user.username,
+      performedByType: 'staff',
+      metadata: { updated_fields: updates.map(u => u.split('=')[0].trim()) },
+    });
+
+    return res.status(200).json({ message: 'Case updated successfully' });
+  } catch (err) {
+    console.error('[CASE] Staff edit error:', err.message);
+    return res.status(500).json({ error: 'Failed to update request' });
+  }
+};
+
+/**
+ * DELETE /api/cases/:id
+ * Soft deletes a staff-owned request with a required justification.
+ */
+const deleteCase = async (req, res) => {
+  const user = req.user;
+  const caseId = parseInt(req.params.id);
+  const { justification, requires_approval } = req.body;
+
+  try {
+    const [rows] = await pool.execute(
+      `SELECT case_id, user_id, deleted_at FROM cases WHERE case_id = ?`,
+      [caseId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Case not found' });
+    }
+
+    const caseData = rows[0];
+    if (caseData.deleted_at) {
+      return res.status(410).json({ error: 'This request has already been deleted.' });
+    }
+
+    if (caseData.user_id !== user.userId && !['Compliance_Officer', 'System_Admin'].includes(user.role)) {
+      return res.status(403).json({ error: 'You can only delete your own requests.' });
+    }
+
+    if (!justification || String(justification).trim().length < 10) {
+      return res.status(400).json({ error: 'A justification of at least 10 characters is required.' });
+    }
+
+    await pool.execute(
+      `UPDATE cases SET deleted_at = NOW(), updated_at = NOW() WHERE case_id = ?`,
+      [caseId]
+    );
+
+    await writeAuditLog({
+      userId: user.userId,
+      caseId,
+      action: 'CASE_DELETED_BY_STAFF',
+      performedBy: user.username,
+      performedByType: 'staff',
+      metadata: { justification: String(justification).trim(), requires_approval: Boolean(requires_approval) },
+    });
+
+    return res.status(200).json({ message: 'Case deleted successfully' });
+  } catch (err) {
+    console.error('[CASE] Staff delete error:', err.message);
+    return res.status(500).json({ error: 'Failed to delete request' });
   }
 };
 
@@ -681,6 +817,8 @@ module.exports = {
   createCase,
   listCases,
   getCaseById,
+  editCase,
+  deleteCase,
   trackCase,
   updateCaseStatus,
   getCaseStats,

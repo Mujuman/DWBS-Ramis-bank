@@ -112,6 +112,20 @@ router.get('/cases/:id',
   caseController.getCaseById
 );
 
+// Update authenticated staff request details
+router.patch('/cases/:id',
+  authenticateStaff,
+  sanitizeRequestBody,
+  caseController.editCase
+);
+
+// Soft delete authenticated staff request
+router.delete('/cases/:id',
+  authenticateStaff,
+  sanitizeRequestBody,
+  caseController.deleteCase
+);
+
 // Update case status/assignment
 router.patch('/cases/:id/status',
   authenticateStaff,
