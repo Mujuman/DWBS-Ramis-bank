@@ -1,6 +1,73 @@
 const { pool } = require('../config/db');
 const { writeAuditLog } = require('../services/auditService');
 
+const addReporterNote = async (caseId, noteBody) => {
+  await pool.execute(
+    `INSERT INTO investigationnotes (case_id, sender_type, note_text, is_internal_only)
+     VALUES (?, 'Reporter', ?, 0)`,
+    [caseId, noteBody]
+  );
+};
+
+/**
+ * POST /api/cases/anonymous/notes
+ * Allows anonymous reporters to reply to investigator/compliance messages
+ * using their reference ID and verification token.
+ */
+const createAnonNote = async (req, res) => {
+  const { reference_id, verification_token, body } = req.body;
+
+  try {
+    const [rows] = await pool.execute(
+      `SELECT case_id, verification_token, status FROM cases WHERE reference_id = ? AND deleted_at IS NULL`,
+      [reference_id.toUpperCase().trim()]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'No case found with that reference ID' });
+    }
+
+    const caseData = rows[0];
+
+    if (caseData.verification_token !== verification_token) {
+      return res.status(401).json({ error: 'Invalid verification token' });
+    }
+
+    const [staffNotes] = await pool.execute(
+      `SELECT note_id FROM investigationnotes
+       WHERE case_id = ? AND sender_type = 'Investigator' AND is_internal_only = 0
+       LIMIT 1`,
+      [caseData.case_id]
+    );
+
+    if (staffNotes.length === 0) {
+      return res.status(400).json({ error: 'You can only reply after the investigation team has sent a message.' });
+    }
+
+    await addReporterNote(caseData.case_id, body);
+
+    if (!['Resolved', 'Closed'].includes(caseData.status)) {
+      await pool.execute(
+        `UPDATE cases SET status = 'Awaiting_Response', updated_at = NOW() WHERE case_id = ?`,
+        [caseData.case_id]
+      );
+    }
+
+    await writeAuditLog({
+      caseId: caseData.case_id,
+      action: 'ANON_REPORTER_REPLIED',
+      performedBy: null,
+      performedByType: 'anonymous',
+      metadata: { reference_id },
+    });
+
+    return res.status(201).json({ message: 'Your response has been sent to the investigation team.' });
+  } catch (err) {
+    console.error('[NOTE] Anonymous create error:', err.message);
+    return res.status(500).json({ error: 'Failed to add response' });
+  }
+};
+
 /**
  * POST /api/cases/:id/notes
  * Adds a note to the investigation correspondence thread.
@@ -34,7 +101,7 @@ const createNote = async (req, res) => {
     if (identity.type === 'anonymous') {
       await pool.execute(
         `UPDATE cases SET status = 'Awaiting_Response', updated_at = NOW()
-         WHERE case_id = ? AND status = 'Investigation_In_Progress'`,
+         WHERE case_id = ? AND status NOT IN ('Resolved', 'Closed')`,
         [caseId]
       );
     }
@@ -103,4 +170,4 @@ const getNotes = async (req, res) => {
   }
 };
 
-module.exports = { createNote, getNotes };
+module.exports = { createAnonNote, createNote, getNotes };

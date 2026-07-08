@@ -6,7 +6,7 @@ const { authenticateStaff, authenticateAnonymous, requireRole, authenticateAny }
 const { sanitizeRequestBody, handleValidationErrors,
         validateAnonSession, validateLogin, validateCreateCase,
         validateStatusUpdate, validateCreateNote, validateTrackCase,
-        validateEditCaseAnonymous, validateDeleteCaseAnonymous } = require('../middleware/sanitize');
+        validateEditCaseAnonymous, validateDeleteCaseAnonymous, validateCreateAnonNote } = require('../middleware/sanitize');
 const { upload, processAndSaveFile, handleUploadErrors } = require('../middleware/upload');
 
 const authController = require('../controllers/authController');
@@ -173,6 +173,13 @@ router.get('/cases/:id/evidence/:fileId/download',
 );
 
 // ── Note Routes ───────────────────────────────────────────────
+
+router.post('/cases/anonymous/notes',
+  sanitizeRequestBody,
+  validateCreateAnonNote,
+  handleValidationErrors,
+  noteController.createAnonNote
+);
 
 router.post('/cases/:id/notes',
   sanitizeRequestBody,

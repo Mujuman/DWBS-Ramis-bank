@@ -40,6 +40,11 @@ export default function TrackCasePage() {
   const [deleteToken, setDeleteToken] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // Form states for anonymous reply
+  const [replyToken, setReplyToken] = useState('');
+  const [replyBody, setReplyBody] = useState('');
+  const [replyLoading, setReplyLoading] = useState(false);
+
   const onSearch = async ({ reference_id }) => {
     setLoading(true);
     setError(null);
@@ -112,6 +117,36 @@ export default function TrackCasePage() {
       toast.error(err.response?.data?.error || 'Failed to delete case. Please check your token.');
     } finally {
       setDeleteLoading(false);
+    }
+  };
+
+  const handleReplySubmit = async (e) => {
+    e.preventDefault();
+    if (!replyToken) {
+      toast.error('Verification token is required to send your response');
+      return;
+    }
+    if (!replyBody || replyBody.length < 5) {
+      toast.error('Please enter a response of at least 5 characters');
+      return;
+    }
+    setReplyLoading(true);
+
+    try {
+      await api.post('/cases/anonymous/notes', {
+        reference_id: result.case.reference_id,
+        verification_token: replyToken.trim(),
+        body: replyBody.trim(),
+      });
+      toast.success('Your reply has been submitted.');
+      setReplyBody('');
+      setReplyToken('');
+      const res = await api.get('/cases/track', { params: { reference_id: result.case.reference_id } });
+      setResult(res.data);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to send response. Please check your token.');
+    } finally {
+      setReplyLoading(false);
     }
   };
 
@@ -287,6 +322,54 @@ export default function TrackCasePage() {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {(result.correspondence?.some(note => note.author_type === 'staff')) ? (
+              <div className="card p-6">
+                <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: 'var(--color-navy-900)' }}>
+                  <MessageSquare size={16} /> Send a Response
+                </h3>
+                <p className="text-sm text-slate-500 mb-4">
+                  Reply securely to the investigation team using your reference code and verification token.
+                </p>
+                <form onSubmit={handleReplySubmit} className="space-y-4">
+                  <div>
+                    <label className="form-label font-semibold">Verification Token</label>
+                    <input
+                      type="text"
+                      value={replyToken}
+                      onChange={(e) => setReplyToken(e.target.value)}
+                      className="form-input font-mono"
+                      placeholder="Enter your secret token"
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label font-semibold">Your Response</label>
+                    <textarea
+                      value={replyBody}
+                      onChange={(e) => setReplyBody(e.target.value)}
+                      className="form-textarea min-h-[140px]"
+                      placeholder="Write your response to the investigator or compliance team..."
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="btn btn-primary px-5 py-2"
+                    disabled={replyLoading}
+                  >
+                    {replyLoading ? 'Sending...' : 'Send Response'}
+                  </button>
+                </form>
+              </div>
+            ) : (
+              <div className="card p-6">
+                <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: 'var(--color-navy-900)' }}>
+                  <MessageSquare size={16} /> Reply Unavailable
+                </h3>
+                <p className="text-sm text-slate-500">
+                  You can only send a reply after the investigation team has posted a public response to your report.
+                </p>
               </div>
             )}
           </div>
