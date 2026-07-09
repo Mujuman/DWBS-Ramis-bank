@@ -10,16 +10,11 @@ import {
   TrendingUp, Shield, Users, ChevronRight, X, Filter,
   Briefcase, BarChart3,
 } from 'lucide-react';
+import { CASE_STATUSES, STATUS_BADGE, formatStatus } from '../constants/caseWorkflow';
 
-const STATUSES   = ['New','Under_Review','Assigned','Investigating','Pending_Evidence','Resolved','Closed'];
+const STATUSES   = CASE_STATUSES;
 const PRIORITIES = ['Low','Medium','High','Critical'];
 const CATEGORIES = ['Fraud','Corruption','Bribery','Abuse_of_Power','Procurement_Violation','System_Misuse'];
-
-const STATUS_BADGE = {
-  New:'badge-new', Under_Review:'badge-review', Assigned:'badge-review',
-  Investigating:'badge-progress', Pending_Evidence:'badge-escalated',
-  Resolved:'badge-resolved', Closed:'badge-closed',
-};
 const PRIORITY_BADGE = {
   Low:'badge-low', Medium:'badge-medium', High:'badge-high', Critical:'badge-critical',
 };
@@ -140,7 +135,7 @@ export default function ComplianceDashboard() {
     { label:'Total Cases',  value: ov.total      || 0, icon: FileText,      color:'var(--color-navy-900)', bg:'#e8edf5' },
     { label:'New',          value: ov.new_cases   || 0, icon: AlertTriangle, color:'var(--color-gold-600)', bg:'#fef3c7' },
     { label:'In Progress',  value: ov.in_progress || 0, icon: Clock,         color:'#3b82f6',               bg:'#dbeafe' },
-    { label:'Resolved',     value: ov.resolved    || 0, icon: CheckCircle,   color:'#16a34a',               bg:'#dcfce7' },
+    { label:'Substantiated', value: ov.substantiated || 0, icon: CheckCircle, color:'#16a34a',               bg:'#dcfce7' },
     { label:'Critical',     value: ov.critical    || 0, icon: TrendingUp,    color:'#dc2626',               bg:'#fee2e2' },
     { label:'Unassigned',   value: cases.filter(c => !c.assigned_investigator).length,
       icon: Users, color:'#7c3aed', bg:'#ede9fe' },
@@ -211,7 +206,7 @@ export default function ComplianceDashboard() {
               <select className="form-select text-sm min-w-36"
                 value={filters.status} onChange={e => applyFilter('status', e.target.value)}>
                 <option value="">All Statuses</option>
-                {STATUSES.map(s => <option key={s} value={s}>{s.replace(/_/g,' ')}</option>)}
+                {STATUSES.map(s => <option key={s} value={s}>{formatStatus(s)}</option>)}
               </select>
               <select className="form-select text-sm min-w-32"
                 value={filters.priority} onChange={e => applyFilter('priority', e.target.value)}>
@@ -260,7 +255,7 @@ export default function ComplianceDashboard() {
                         </td>
                         <td className="text-slate-600 text-sm">{c.category?.replace(/_/g,' ')}</td>
                         <td><span className={`badge ${PRIORITY_BADGE[c.priority] || 'badge-low'}`}>{c.priority}</span></td>
-                        <td><span className={`badge ${STATUS_BADGE[c.status] || 'badge-review'}`}>{c.status?.replace(/_/g,' ')}</span></td>
+                        <td><span className={`badge ${STATUS_BADGE[c.status] || 'badge-review'}`}>{formatStatus(c.status)}</span></td>
                         <td>
                           <span className="text-xs px-2 py-0.5 rounded-full font-medium"
                             style={{
@@ -440,7 +435,7 @@ export default function ComplianceDashboard() {
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-500">Current Status</span>
                   <span className={`badge ${STATUS_BADGE[assignModal.status] || 'badge-review'}`}>
-                    {assignModal.status?.replace(/_/g, ' ')}
+                    {formatStatus(assignModal.status)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xs mt-2">

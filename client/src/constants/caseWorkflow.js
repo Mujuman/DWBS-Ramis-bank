@@ -23,11 +23,11 @@ export const STATUS_LABELS = {
   New: 'New',
   Under_Review: 'Analyse the Complaint',
   Complaint_Dismissed: 'Complaint Dismissed',
-  Assigned: 'Referred to A&RC / Assigned',
-  Investigating: 'Active Investigation',
+  Assigned: 'Refer to A&RC / Assign to Case Investigator',
+  Investigating: 'Gather Facts and Analyze Evidence',
   Pending_Evidence: 'Pending Evidence',
   Substantiated: 'Substantiated (በማስረጃ የተረጋገጠ)',
-  Dismissed_No_Evidence: 'Dismissed — Lack of Evidence',
+  Dismissed_No_Evidence: 'Dismissed due to Lack of Evidence',
 };
 
 export const STATUS_BADGE = {

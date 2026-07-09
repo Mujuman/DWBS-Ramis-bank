@@ -4,15 +4,17 @@ import api from '../services/api';
 import { Search, Clock, CheckCircle, AlertTriangle, MessageSquare, ChevronRight, Edit3, Trash2, X } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import { STATUS_BADGE, formatStatus } from '../constants/caseWorkflow';
 
 const STATUS_LABELS = {
-  New: { label: 'New', class: 'badge-new' },
-  Under_Review: { label: 'Under Review', class: 'badge-review' },
-  Investigation_In_Progress: { label: 'Investigation In Progress', class: 'badge-progress' },
-  Awaiting_Response: { label: 'Awaiting Your Response', class: 'badge-escalated' },
-  Resolved: { label: 'Resolved', class: 'badge-resolved' },
-  Closed: { label: 'Closed', class: 'badge-closed' },
-  Escalated: { label: 'Escalated', class: 'badge-escalated' },
+  New: { label: 'New', class: STATUS_BADGE.New },
+  Under_Review: { label: 'Analyse the Complaint', class: STATUS_BADGE.Under_Review },
+  Assigned: { label: 'Referred to A&RC / Assigned', class: STATUS_BADGE.Assigned },
+  Investigating: { label: 'Investigation in Progress', class: STATUS_BADGE.Investigating },
+  Pending_Evidence: { label: 'Pending Evidence', class: STATUS_BADGE.Pending_Evidence },
+  Substantiated: { label: 'Substantiated', class: STATUS_BADGE.Substantiated },
+  Complaint_Dismissed: { label: 'Complaint Dismissed', class: STATUS_BADGE.Complaint_Dismissed },
+  Dismissed_No_Evidence: { label: 'Dismissed due to Lack of Evidence', class: STATUS_BADGE.Dismissed_No_Evidence },
 };
 
 const PRIORITY_LABELS = {
@@ -211,8 +213,8 @@ export default function TrackCasePage() {
                     {result.case.reference_id}
                   </p>
                 </div>
-                <span className={`badge ${STATUS_LABELS[result.case.status]?.class || 'badge-review'}`}>
-                  {STATUS_LABELS[result.case.status]?.label || result.case.status}
+                <span className={`badge ${STATUS_BADGE[result.case.status] || 'badge-review'}`}>
+                  {formatStatus(result.case.status)}
                 </span>
               </div>
 
@@ -260,10 +262,17 @@ export default function TrackCasePage() {
                 <Clock size={16} /> Status Timeline
               </h3>
               <div className="space-y-3">
-                {['New', 'Under_Review', 'Investigation_In_Progress', 'Resolved'].map((s, i) => {
-                  const statuses = ['New', 'Under_Review', 'Investigation_In_Progress', 'Awaiting_Response', 'Resolved', 'Closed', 'Escalated'];
-                  const currentIdx = statuses.indexOf(result.case.status);
-                  const thisIdx = statuses.indexOf(s);
+                {(() => {
+                  const terminalStatuses = ['Substantiated', 'Complaint_Dismissed', 'Dismissed_No_Evidence'];
+                  const terminalStatus = terminalStatuses.includes(result.case.status)
+                    ? result.case.status
+                    : 'Substantiated';
+                  const visiblePath = ['New', 'Under_Review', 'Assigned', 'Investigating', terminalStatus];
+                  const progressOrder = ['New', 'Under_Review', 'Assigned', 'Investigating', 'Pending_Evidence', terminalStatus];
+                  const currentIdx = progressOrder.indexOf(result.case.status);
+
+                  return visiblePath.map((s) => {
+                  const thisIdx = progressOrder.indexOf(s);
                   const isComplete = thisIdx <= currentIdx;
                   const isCurrent = s === result.case.status;
                   return (
@@ -279,11 +288,12 @@ export default function TrackCasePage() {
                           : <span className="w-2 h-2 rounded-full bg-slate-300 block" />}
                       </div>
                       <p className={`text-sm ${isComplete ? 'text-slate-800 font-medium' : 'text-slate-400'}`}>
-                        {STATUS_LABELS[s]?.label || s.replace(/_/g, ' ')}
+                        {STATUS_LABELS[s]?.label || formatStatus(s)}
                       </p>
                     </div>
                   );
-                })}
+                  });
+                })()}
               </div>
             </div>
 

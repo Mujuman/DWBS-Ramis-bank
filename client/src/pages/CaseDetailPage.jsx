@@ -10,13 +10,13 @@ import {
 } from 'lucide-react';
 
 import {
-  CASE_STATUSES,
+  COMPLIANCE_OFFICER_STATUSES,
+  INVESTIGATOR_STATUSES,
   STATUS_BADGE,
-  STATUS_LABELS,
-  TERMINAL_STATUSES,
-  getNextStatusesForRole,
   formatStatus,
 } from '../constants/caseWorkflow';
+
+const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
 
 const PRIORITY_COLOR = {
   Low:      'text-green-600',
@@ -511,7 +511,7 @@ export default function CaseDetailPage() {
                           onChange={e => setNewStatus(e.target.value)}
                         >
                           {allowedStatusOptions.map(s => (
-                            <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+                            <option key={s} value={s}>{formatStatus(s)}</option>
                           ))}
                         </select>
                       </div>
@@ -583,7 +583,7 @@ export default function CaseDetailPage() {
                   <div className="flex justify-between items-center">
                     <span className="text-slate-500">Status</span>
                     <span className={`badge ${STATUS_BADGE[caseData.status] || 'badge-review'}`}>
-                      {caseData.status?.replace(/_/g, ' ')}
+                      {formatStatus(caseData.status)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">

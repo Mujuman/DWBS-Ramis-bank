@@ -4,23 +4,11 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Search, Filter, ChevronRight, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
+import { CASE_STATUSES, STATUS_BADGE, formatStatus } from '../constants/caseWorkflow';
 
-const STATUSES = ['', 'New', 'Under_Review', 'Assigned', 'Investigating', 'Pending_Evidence', 'Resolved', 'Closed', 'Escalated'];
+const STATUSES = ['', ...CASE_STATUSES];
 const PRIORITIES = ['', 'Critical', 'High', 'Medium', 'Low'];
 const CATEGORIES = ['', 'Fraud', 'Corruption', 'Bribery', 'Abuse_of_Power', 'Procurement_Violation', 'System_Misuse'];
-
-const STATUS_MAP = {
-  New: 'badge-new',
-  Under_Review: 'badge-review',
-  Assigned: 'badge-review',
-  Investigating: 'badge-progress',
-  Investigation_In_Progress: 'badge-progress',
-  Pending_Evidence: 'badge-escalated',
-  Awaiting_Response: 'badge-escalated',
-  Resolved: 'badge-resolved',
-  Closed: 'badge-closed',
-  Escalated: 'badge-escalated',
-};
 const PRIORITY_MAP = { Critical: 'badge-critical', High: 'badge-high', Medium: 'badge-medium', Low: 'badge-low' };
 
 export default function CaseListPage() {
@@ -92,7 +80,7 @@ export default function CaseListPage() {
           <select className="form-select text-sm flex-1 min-w-36"
             value={filters.status} onChange={e => setFilter('status', e.target.value)}>
             <option value="">All Statuses</option>
-            {STATUSES.slice(1).map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
+            {STATUSES.slice(1).map(s => <option key={s} value={s}>{formatStatus(s)}</option>)}
           </select>
           <select className="form-select text-sm flex-1 min-w-32"
             value={filters.priority} onChange={e => setFilter('priority', e.target.value)}>
@@ -159,8 +147,8 @@ export default function CaseListPage() {
                     <td className="text-slate-600 text-sm">{c.category?.replace(/_/g, ' ')}</td>
                     <td><span className={`badge ${PRIORITY_MAP[c.priority]}`}>{c.priority}</span></td>
                     <td>
-                      <span className={`badge ${STATUS_MAP[c.status] || 'badge-review'}`}>
-                        {c.status?.replace(/_/g, ' ')}
+                      <span className={`badge ${STATUS_BADGE[c.status] || 'badge-review'}`}>
+                        {formatStatus(c.status)}
                       </span>
                     </td>
                     <td>

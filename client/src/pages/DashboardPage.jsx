@@ -7,19 +7,7 @@ import {
   TrendingUp, Plus, ArrowRight
 } from 'lucide-react';
 import { format } from 'date-fns';
-
-const STATUS_MAP = {
-  New: { label: 'New', class: 'badge-new' },
-  Under_Review: { label: 'Under Review', class: 'badge-review' },
-  Assigned: { label: 'Assigned', class: 'badge-review' },
-  Investigating: { label: 'Investigating', class: 'badge-progress' },
-  Investigation_In_Progress: { label: 'In Progress', class: 'badge-progress' },
-  Pending_Evidence: { label: 'Pending Evidence', class: 'badge-escalated' },
-  Awaiting_Response: { label: 'Awaiting Response', class: 'badge-escalated' },
-  Resolved: { label: 'Resolved', class: 'badge-resolved' },
-  Closed: { label: 'Closed', class: 'badge-closed' },
-  Escalated: { label: 'Escalated', class: 'badge-escalated' },
-};
+import { STATUS_BADGE, formatStatus } from '../constants/caseWorkflow';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -48,7 +36,7 @@ export default function DashboardPage() {
     { label: 'Total Cases', value: stats.overview?.total || 0, icon: FileText, color: 'var(--color-navy-900)', bg: '#e8edf5' },
     { label: 'New', value: stats.overview?.new_cases || 0, icon: AlertTriangle, color: 'var(--color-gold-600)', bg: '#fef3c7' },
     { label: 'In Progress', value: stats.overview?.in_progress || 0, icon: Clock, color: '#3b82f6', bg: '#dbeafe' },
-    { label: 'Resolved', value: stats.overview?.resolved || 0, icon: CheckCircle, color: '#16a34a', bg: '#dcfce7' },
+    { label: 'Substantiated', value: stats.overview?.substantiated || 0, icon: CheckCircle, color: '#16a34a', bg: '#dcfce7' },
   ] : [];
 
   return (
@@ -138,8 +126,8 @@ export default function DashboardPage() {
                       <span className={`badge badge-${c.priority?.toLowerCase()}`}>{c.priority}</span>
                     </td>
                     <td>
-                      <span className={`badge ${STATUS_MAP[c.status]?.class || 'badge-review'}`}>
-                        {STATUS_MAP[c.status]?.label || c.status}
+                      <span className={`badge ${STATUS_BADGE[c.status] || 'badge-review'}`}>
+                        {formatStatus(c.status)}
                       </span>
                     </td>
                     <td className="text-slate-500 text-xs">
