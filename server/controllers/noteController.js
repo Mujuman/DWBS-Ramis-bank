@@ -1,6 +1,7 @@
 const { pool } = require('../config/db');
 const { writeAuditLog } = require('../services/auditService');
 const { createNotification } = require('./notificationController');
+const { TERMINAL_STATUSES } = require('../constants/caseWorkflow');
 
 const addReporterNote = async (caseId, noteBody) => {
   await pool.execute(
@@ -47,9 +48,9 @@ const createAnonNote = async (req, res) => {
 
     await addReporterNote(caseData.case_id, body);
 
-    if (!['Resolved', 'Closed'].includes(caseData.status)) {
+    if (!TERMINAL_STATUSES.includes(caseData.status)) {
       await pool.execute(
-        `UPDATE cases SET status = 'Awaiting_Response', updated_at = NOW() WHERE case_id = ?`,
+        `UPDATE cases SET status = 'Pending_Evidence', updated_at = NOW() WHERE case_id = ?`,
         [caseData.case_id]
       );
     }
@@ -126,12 +127,13 @@ const createNote = async (req, res) => {
       [caseId, senderType, body, isInternal ? 1 : 0]
     );
 
-    // Update case status to Awaiting_Response if reporter replied
+    // Update case status when reporter replies during active investigation
     if (identity.type === 'anonymous') {
+      const placeholders = TERMINAL_STATUSES.map(() => '?').join(', ');
       await pool.execute(
-        `UPDATE cases SET status = 'Awaiting_Response', updated_at = NOW()
-         WHERE case_id = ? AND status NOT IN ('Resolved', 'Closed')`,
-        [caseId]
+        `UPDATE cases SET status = 'Pending_Evidence', updated_at = NOW()
+         WHERE case_id = ? AND status NOT IN (${placeholders})`,
+        [caseId, ...TERMINAL_STATUSES]
       );
     }
 

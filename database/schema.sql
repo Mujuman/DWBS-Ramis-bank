@@ -81,7 +81,7 @@ CREATE TABLE `cases` (
   `branch_or_dept` varchar(100) NOT NULL,
   `severity_level` enum('Low','Medium','High','Critical') DEFAULT 'Low',
   `description` text NOT NULL,
-  `status` enum('New','Under_Review','Assigned','Investigating','Pending_Evidence','Resolved','Closed') DEFAULT 'New',
+  `status` enum('New','Under_Review','Complaint_Dismissed','Assigned','Investigating','Pending_Evidence','Substantiated','Dismissed_No_Evidence') DEFAULT 'New',
   `assigned_investigator` int(11) DEFAULT NULL,
   `is_escalated` tinyint(1) DEFAULT 0,
   `deleted_at` timestamp NULL DEFAULT NULL,

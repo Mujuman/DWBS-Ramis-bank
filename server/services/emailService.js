@@ -115,11 +115,13 @@ const emailService = {
    */
   async notifyReporterStatusChange(reporterEmail, newStatus) {
     const statusLabels = {
-      Under_Review: 'is now under review',
-      Investigation_In_Progress: 'is being actively investigated',
-      Awaiting_Response: 'requires your response via the portal',
-      Resolved: 'has been resolved',
-      Closed: 'has been closed',
+      Under_Review: 'is being analysed by the Compliance Team',
+      Assigned: 'has been validated and assigned for investigation',
+      Investigating: 'is being actively investigated',
+      Pending_Evidence: 'requires additional information via the portal',
+      Substantiated: 'has been substantiated and referred for appropriate action',
+      Complaint_Dismissed: 'has been reviewed and closed',
+      Dismissed_No_Evidence: 'has been closed due to insufficient evidence',
     };
     const label = statusLabels[newStatus] || 'has been updated';
 
@@ -139,6 +141,49 @@ const emailService = {
               <a href="${process.env.CLIENT_ORIGIN}/track"
                  style="background: #0A1D37; color: #F9A826; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
                 Check Report Status
+              </a>
+            </div>
+            <p style="color: #999; font-size: 12px;">
+              This is an automated notification. Do not reply to this email.<br>
+              Rammis Bank — Digital Whistleblowing System
+            </p>
+          </div>
+        </div>
+      `,
+    });
+  },
+
+  /**
+   * Notifies A&RC (via Compliance Team Lead) when a valid complaint is assigned
+   * or when an investigation concludes with a substantiated finding.
+   */
+  async notifyAARCReferral(recipientEmail, details = {}) {
+    const isSubstantiated = details.stage === 'substantiated';
+    const subject = isSubstantiated
+      ? '[DWBS] Substantiated Case — A&RC Action Required'
+      : '[DWBS] Valid Complaint Referred to A&RC';
+
+    const bodyText = isSubstantiated
+      ? 'An investigation has concluded with a substantiated finding. Please log in to the DWBS portal to review and initiate appropriate disciplinary or legal action.'
+      : 'A whistleblowing complaint has been validated and referred to A&RC. A Case Investigator has been assigned to gather facts and analyse evidence.';
+
+    await sendEmail({
+      to: recipientEmail,
+      subject,
+      text: bodyText,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px;">
+          <div style="background: #0A1D37; padding: 20px; text-align: center;">
+            <h2 style="color: #F9A826; margin: 0;">Rammis Bank DWBS — A&RC Referral</h2>
+          </div>
+          <div style="padding: 30px; background: #f8f9fa;">
+            <p>${bodyText}</p>
+            ${details.reference_id ? `<p><strong>Reference:</strong> ${details.reference_id}</p>` : ''}
+            ${details.category ? `<p><strong>Category:</strong> ${details.category.replace(/_/g, ' ')}</p>` : ''}
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.CLIENT_ORIGIN}/login"
+                 style="background: #0A1D37; color: #F9A826; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                Access DWBS Portal
               </a>
             </div>
             <p style="color: #999; font-size: 12px;">

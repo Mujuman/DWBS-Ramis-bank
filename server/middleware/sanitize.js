@@ -131,12 +131,14 @@ const validateDeleteCaseAnonymous = [
     .trim(),
 ];
 
+const { CASE_STATUSES } = require('../constants/caseWorkflow');
+
 const validateStatusUpdate = [
   param('id')
     .isInt({ min: 1 }).withMessage('Invalid case ID'),
   body('status')
     .optional()
-    .isIn(['New', 'Under_Review', 'Assigned', 'Investigating', 'Pending_Evidence', 'Resolved', 'Closed'])
+    .isIn(CASE_STATUSES)
     .withMessage('Invalid status'),
   body('priority')
     .optional()

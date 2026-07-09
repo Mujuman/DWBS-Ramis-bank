@@ -15,8 +15,11 @@ const CATEGORY_SEVERITY_MAP = {
   'System_Misuse': 'Medium',
 };
 
-const INVESTIGATOR_STATUSES = ['Under_Review', 'Investigating', 'Pending_Evidence', 'Resolved', 'Closed'];
-const COMPLIANCE_OFFICER_STATUSES = ['New', 'Assigned'];
+const {
+  COMPLIANCE_OFFICER_STATUSES,
+  INVESTIGATOR_STATUSES,
+  validateStatusTransition,
+} = require('../constants/caseWorkflow');
 
 const getInitialSeverity = (category) => {
   return CATEGORY_SEVERITY_MAP[category] || 'Medium';
@@ -632,11 +635,26 @@ const updateCaseStatus = async (req, res) => {
 
     if (status) {
       if (status !== prev.status) {
+        const transitionError = validateStatusTransition(user.role, prev.status, status);
+        if (transitionError) {
+          return res.status(403).json({ error: transitionError });
+        }
+
         if (user.role === 'Investigator' && !INVESTIGATOR_STATUSES.includes(status)) {
           return res.status(403).json({ error: 'Investigators may only update status within their allowed workflow.' });
         }
         if (user.role === 'Compliance_Officer' && !COMPLIANCE_OFFICER_STATUSES.includes(status)) {
-          return res.status(403).json({ error: 'Compliance Officers may only update status during assignment and review stages.' });
+          return res.status(403).json({ error: 'Compliance Officers may only update status during validation and assignment stages.' });
+        }
+
+        // Valid complaint approval requires investigator assignment
+        if (status === 'Assigned' && user.role === 'Compliance_Officer') {
+          const assignee = assigned_to !== undefined ? assigned_to : prev.assigned_investigator;
+          if (!assignee) {
+            return res.status(400).json({
+              error: 'A Case Investigator must be assigned when approving a valid complaint.',
+            });
+          }
         }
       }
       updates.push('status = ?');
@@ -731,6 +749,38 @@ const updateCaseStatus = async (req, res) => {
         message: `Case ${prev.reference_id} status changed from ${prev.status?.replace(/_/g, ' ')} to ${status?.replace(/_/g, ' ')}.`,
         caseId,
       });
+
+      // Refer valid complaints to A&RC when assigned
+      if (status === 'Assigned') {
+        try {
+          const [aarcRows] = await pool.execute(
+            `SELECT email FROM users WHERE role = 'Compliance_Officer' AND is_active = 1`
+          );
+          for (const row of aarcRows) {
+            emailService.notifyAARCReferral(row.email, {
+              reference_id: prev.reference_id,
+              category: prev.category,
+              stage: 'assignment',
+            }).catch(() => {});
+          }
+        } catch (_) {}
+      }
+
+      // Report substantiated findings to A&RC for disciplinary/legal action
+      if (status === 'Substantiated') {
+        try {
+          const [aarcRows] = await pool.execute(
+            `SELECT email FROM users WHERE role = 'Compliance_Officer' AND is_active = 1`
+          );
+          for (const row of aarcRows) {
+            emailService.notifyAARCReferral(row.email, {
+              reference_id: prev.reference_id,
+              category: prev.category,
+              stage: 'substantiated',
+            }).catch(() => {});
+          }
+        } catch (_) {}
+      }
     }
 
     return res.status(200).json({ message: 'Case updated successfully' });
@@ -753,9 +803,11 @@ const getCaseStats = async (req, res) => {
          COUNT(*) AS total,
          SUM(status = 'New') AS new_cases,
          SUM(status = 'Under_Review') AS under_review,
-         SUM(status = 'Investigating') AS in_progress,
-         SUM(status = 'Resolved') AS resolved,
-         SUM(status = 'Closed') AS closed,
+         SUM(status = 'Assigned') AS assigned,
+         SUM(status IN ('Investigating', 'Pending_Evidence')) AS in_progress,
+         SUM(status = 'Substantiated') AS substantiated,
+         SUM(status = 'Complaint_Dismissed') AS complaint_dismissed,
+         SUM(status = 'Dismissed_No_Evidence') AS dismissed_no_evidence,
          SUM(severity_level = 'Critical') AS critical,
          SUM(severity_level = 'High') AS high
        FROM cases
@@ -777,7 +829,7 @@ const getCaseStats = async (req, res) => {
       `SELECT
          ROUND(AVG(TIMESTAMPDIFF(HOUR, created_at, updated_at)), 1) AS avg_resolution_hours
        FROM cases
-       WHERE status IN ('Resolved', 'Closed') AND deleted_at IS NULL`
+       WHERE status IN ('Substantiated', 'Complaint_Dismissed', 'Dismissed_No_Evidence') AND deleted_at IS NULL`
     );
 
     const [escalatedCases] = await pool.execute(
@@ -805,9 +857,14 @@ const getCaseStats = async (req, res) => {
         total: statusCounts.total || 0,
         new_cases: statusCounts.new_cases || 0,
         under_review: statusCounts.under_review || 0,
+        assigned: statusCounts.assigned || 0,
         in_progress: statusCounts.in_progress || 0,
-        resolved: statusCounts.resolved || 0,
-        closed: statusCounts.closed || 0,
+        substantiated: statusCounts.substantiated || 0,
+        complaint_dismissed: statusCounts.complaint_dismissed || 0,
+        dismissed_no_evidence: statusCounts.dismissed_no_evidence || 0,
+        // Legacy keys for dashboard backward compatibility
+        resolved: statusCounts.substantiated || 0,
+        closed: (statusCounts.complaint_dismissed || 0) + (statusCounts.dismissed_no_evidence || 0),
         critical: statusCounts.critical || 0,
         high: statusCounts.high || 0,
       },

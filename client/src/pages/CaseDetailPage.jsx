@@ -9,21 +9,14 @@ import {
   Paperclip, Download, Edit3, Shield, AlertTriangle, Info, Zap
 } from 'lucide-react';
 
-// ── Must match DB enum exactly ────────────────────────────────
-const STATUSES = ['New', 'Under_Review', 'Assigned', 'Investigating', 'Pending_Evidence', 'Resolved', 'Closed'];
-const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
-const COMPLIANCE_OFFICER_STATUSES = ['New', 'Assigned'];
-const INVESTIGATOR_STATUSES = ['Under_Review', 'Investigating', 'Pending_Evidence', 'Resolved', 'Closed'];
-
-const STATUS_BADGE = {
-  New:              'badge-new',
-  Under_Review:     'badge-review',
-  Assigned:         'badge-review',
-  Investigating:    'badge-progress',
-  Pending_Evidence: 'badge-escalated',
-  Resolved:         'badge-resolved',
-  Closed:           'badge-closed',
-};
+import {
+  CASE_STATUSES,
+  STATUS_BADGE,
+  STATUS_LABELS,
+  TERMINAL_STATUSES,
+  getNextStatusesForRole,
+  formatStatus,
+} from '../constants/caseWorkflow';
 
 const PRIORITY_COLOR = {
   Low:      'text-green-600',
