@@ -120,6 +120,12 @@ const validateCreateAnonNote = [
     .isLength({ min: 5, max: 5000 }).withMessage('Response body must be 5–5000 characters'),
 ];
 
+const validateAnonNoteRecipient = body('recipient_role')
+  .optional()
+  .isIn(['Investigator', 'Compliance_Officer']).withMessage('Invalid response recipient');
+
+validateCreateAnonNote.splice(validateCreateAnonNote.length - 1, 0, validateAnonNoteRecipient);
+
 const validateDeleteCaseAnonymous = [
   body('reference_id')
     .notEmpty().withMessage('Reference ID is required')
@@ -157,6 +163,9 @@ const validateCreateNote = [
   body('is_internal_only')
     .optional()
     .isBoolean().withMessage('is_internal_only must be boolean'),
+  body('recipient_role')
+    .optional()
+    .isIn(['Investigator', 'Compliance_Officer']).withMessage('Invalid note recipient'),
 ];
 
 const validateTrackCase = [

@@ -10,6 +10,7 @@ const routes = require('./routes/index');
 
 const app = express();
 const PORT = parseInt(process.env.PORT) || 5000;
+const rateLimitDisabled = process.env.DISABLE_RATE_LIMIT === 'true';
 
 // ── Security Headers ──────────────────────────────────────────
 app.use(helmet({
@@ -50,13 +51,15 @@ app.use(cors({
 app.use(compression());
 
 // ── Global Rate Limiter ───────────────────────────────────────
-app.use(rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 10000,
-  message: { error: 'Too many requests. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-}));
+if (!rateLimitDisabled) {
+  app.use(rateLimit({
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
+    max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 10000,
+    message: { error: 'Too many requests. Please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+  }));
+}
 
 // ── PII-Masked Request Logger ─────────────────────────────────
 // Custom format: logs method, URL (path only), status, response time
@@ -113,6 +116,7 @@ const start = async () => {
     console.log(`[SERVER] DWBS API running on port ${PORT}`);
     console.log(`[SERVER] Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`[SERVER] Client origin: ${process.env.CLIENT_ORIGIN}`);
+    console.log(`[SERVER] Rate limit: ${rateLimitDisabled ? 'disabled' : 'enabled'}`);
   });
 };
 

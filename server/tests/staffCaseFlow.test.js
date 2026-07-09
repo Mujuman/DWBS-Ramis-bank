@@ -111,7 +111,9 @@ describe('staff case workflow', () => {
     await updateCaseStatus(req, res);
 
     expect(res.status).toHaveBeenCalledWith(403);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Investigators may only update status within their allowed workflow.' }));
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      error: 'Invalid transition from "Analyse the Complaint" to "Refer to A&RC / Assign to Case Investigator" for your role.',
+    }));
   });
 
   it('prevents a compliance officer from moving status outside their allowed workflow', async () => {
@@ -131,7 +133,9 @@ describe('staff case workflow', () => {
     await updateCaseStatus(req, res);
 
     expect(res.status).toHaveBeenCalledWith(403);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Compliance Officers may only update status during assignment and review stages.' }));
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      error: 'Invalid transition from "New" to "Resolved" for your role.',
+    }));
   });
 
   it('allows an assigned investigator to view report description', async () => {

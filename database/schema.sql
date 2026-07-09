@@ -114,7 +114,8 @@ CREATE TABLE `evidencefiles` (
 CREATE TABLE `investigationnotes` (
   `note_id` int(11) NOT NULL,
   `case_id` int(11) NOT NULL,
-  `sender_type` enum('Investigator','Reporter') NOT NULL,
+  `sender_type` enum('Investigator','Compliance_Officer','Reporter') NOT NULL,
+  `audience_type` enum('General','Investigator','Compliance_Officer') NOT NULL DEFAULT 'General',
   `note_text` text NOT NULL,
   `is_internal_only` tinyint(1) DEFAULT 1,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()

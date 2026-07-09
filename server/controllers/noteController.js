@@ -3,12 +3,17 @@ const { writeAuditLog } = require('../services/auditService');
 const { createNotification } = require('./notificationController');
 const { TERMINAL_STATUSES } = require('../constants/caseWorkflow');
 
-const addReporterNote = async (caseId, noteBody) => {
+const normalizeRecipientRole = (recipientRole) =>
+  recipientRole === 'Compliance_Officer' ? 'Compliance_Officer' : 'Investigator';
+
+const addReporterNote = async (caseId, noteBody, recipientRole = 'Investigator') => {
+  const audienceType = normalizeRecipientRole(recipientRole);
   await pool.execute(
-    `INSERT INTO investigationnotes (case_id, sender_type, note_text, is_internal_only)
-     VALUES (?, 'Reporter', ?, 0)`,
-    [caseId, noteBody]
+    `INSERT INTO investigationnotes (case_id, sender_type, audience_type, note_text, is_internal_only)
+     VALUES (?, 'Reporter', ?, ?, 0)`,
+    [caseId, audienceType, noteBody]
   );
+  return audienceType;
 };
 
 /**
@@ -17,7 +22,8 @@ const addReporterNote = async (caseId, noteBody) => {
  * using their reference ID and verification token.
  */
 const createAnonNote = async (req, res) => {
-  const { reference_id, verification_token, body } = req.body;
+  const { reference_id, verification_token, body, recipient_role } = req.body;
+  const recipientRole = normalizeRecipientRole(recipient_role);
 
   try {
     const [rows] = await pool.execute(
@@ -37,16 +43,16 @@ const createAnonNote = async (req, res) => {
 
     const [staffNotes] = await pool.execute(
       `SELECT note_id FROM investigationnotes
-       WHERE case_id = ? AND sender_type = 'Investigator' AND is_internal_only = 0
+       WHERE case_id = ? AND sender_type = ? AND is_internal_only = 0
        LIMIT 1`,
-      [caseData.case_id]
+      [caseData.case_id, recipientRole]
     );
 
     if (staffNotes.length === 0) {
       return res.status(400).json({ error: 'You can only reply after the investigation team has sent a message.' });
     }
 
-    await addReporterNote(caseData.case_id, body);
+    const audienceType = await addReporterNote(caseData.case_id, body, recipientRole);
 
     if (!TERMINAL_STATUSES.includes(caseData.status)) {
       await pool.execute(
@@ -60,7 +66,7 @@ const createAnonNote = async (req, res) => {
       action: 'ANON_REPORTER_REPLIED',
       performedBy: null,
       performedByType: 'anonymous',
-      metadata: { reference_id },
+      metadata: { reference_id, recipient_role: audienceType },
     });
 
     // Notify assigned investigator and compliance officers about the anonymous reply
@@ -70,8 +76,7 @@ const createAnonNote = async (req, res) => {
         [caseData.case_id]
       );
       if (caseInfo.length > 0) {
-        // Notify assigned investigator
-        if (caseInfo[0].assigned_investigator) {
+        if (audienceType === 'Investigator' && caseInfo[0].assigned_investigator) {
           createNotification({
             userId: caseInfo[0].assigned_investigator,
             type: 'new_message',
@@ -80,18 +85,21 @@ const createAnonNote = async (req, res) => {
             caseId: caseData.case_id,
           });
         }
-        // Notify compliance officers about anonymous reporter reply
-        createNotification({
-          targetRole: 'Compliance_Officer',
-          type: 'new_message',
-          title: 'New Anonymous Reporter Message',
-          message: `An anonymous reporter responded on case ${caseInfo[0].reference_id}.`,
-          caseId: caseData.case_id,
-        });
+        if (audienceType === 'Compliance_Officer') {
+          createNotification({
+            targetRole: 'Compliance_Officer',
+            type: 'new_message',
+            title: 'New Anonymous Reporter Message',
+            message: `An anonymous reporter responded to the Compliance Team Lead on case ${caseInfo[0].reference_id}.`,
+            caseId: caseData.case_id,
+          });
+        }
       }
     } catch (_) {}
 
-    return res.status(201).json({ message: 'Your response has been sent to the investigation team.' });
+    return res.status(201).json({
+      message: `Your response has been sent to the ${audienceType === 'Compliance_Officer' ? 'Compliance Team Lead' : 'Case Investigator'}.`,
+    });
   } catch (err) {
     console.error('[NOTE] Anonymous create error:', err.message);
     return res.status(500).json({ error: 'Failed to add response' });
@@ -106,7 +114,7 @@ const createAnonNote = async (req, res) => {
 const createNote = async (req, res) => {
   const caseId = parseInt(req.params.id);
   const identity = req.identity;
-  const { body, is_internal_only } = req.body;
+  const { body, is_internal_only, recipient_role } = req.body;
 
   try {
     const [cases] = await pool.execute(`SELECT case_id FROM cases WHERE case_id = ?`, [caseId]);
@@ -119,12 +127,15 @@ const createNote = async (req, res) => {
 
     // Determine sender_type: staff owners are modeled as 'Reporter' so their clarifications appear as correspondence.
     const isStaffReporter = identity.type === 'staff' && ['Employee', 'Branch_Manager'].includes(req.user?.role);
-    const senderType = identity.type === 'staff' && !isStaffReporter ? 'Investigator' : 'Reporter';
+    const senderType = identity.type === 'staff' && !isStaffReporter
+      ? (req.user?.role === 'Compliance_Officer' ? 'Compliance_Officer' : 'Investigator')
+      : 'Reporter';
+    const audienceType = senderType === 'Reporter' ? normalizeRecipientRole(recipient_role) : senderType;
 
     await pool.execute(
-      `INSERT INTO investigationnotes (case_id, sender_type, note_text, is_internal_only)
-       VALUES (?, ?, ?, ?)`,
-      [caseId, senderType, body, isInternal ? 1 : 0]
+      `INSERT INTO investigationnotes (case_id, sender_type, audience_type, note_text, is_internal_only)
+       VALUES (?, ?, ?, ?, ?)`,
+      [caseId, senderType, audienceType, body, isInternal ? 1 : 0]
     );
 
     // Update case status when reporter replies during active investigation
@@ -142,7 +153,7 @@ const createNote = async (req, res) => {
       action: 'NOTE_ADDED',
       performedBy: identity.label,
       performedByType: identity.type,
-      metadata: { is_internal_only: isInternal },
+      metadata: { is_internal_only: isInternal, recipient_role: audienceType },
     });
 
     // Create notification for relevant parties about the new message
@@ -153,22 +164,31 @@ const createNote = async (req, res) => {
       );
       if (caseInfo.length > 0) {
         const ref = caseInfo[0].reference_id;
-        if (identity.type === 'staff' && senderType === 'Investigator') {
+        if (identity.type === 'staff' && ['Investigator', 'Compliance_Officer'].includes(senderType)) {
           // Investigator posted → notify Compliance Officer
           createNotification({
             targetRole: 'Compliance_Officer',
             type: 'new_message',
-            title: 'New Investigation Note',
-            message: `A new note was added to case ${ref}.`,
+            title: senderType === 'Compliance_Officer' ? 'New Compliance Team Lead Message' : 'New Investigation Note',
+            message: `A new ${senderType === 'Compliance_Officer' ? 'compliance team lead message' : 'investigation note'} was added to case ${ref}.`,
             caseId,
           });
+          if (senderType === 'Compliance_Officer' && caseInfo[0].assigned_investigator) {
+            createNotification({
+              userId: caseInfo[0].assigned_investigator,
+              type: 'new_message',
+              title: 'New Compliance Team Lead Message',
+              message: `The Compliance Team Lead posted a new message on case ${ref}.`,
+              caseId,
+            });
+          }
           // Also notify the case owner (if authenticated staff reporter) about the investigator's message
           if (caseInfo[0].user_id) {
             createNotification({
               userId: caseInfo[0].user_id,
               type: 'new_message',
               title: 'New Message on Your Case',
-              message: `The investigation team has posted a new message on your case ${ref}.`,
+              message: `The ${senderType === 'Compliance_Officer' ? 'Compliance Team Lead' : 'Case Investigator'} has posted a new message on your case ${ref}.`,
               caseId,
             });
           }

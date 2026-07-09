@@ -559,11 +559,20 @@ const trackCase = async (req, res) => {
     );
 
     // Map to client format
-    const formattedNotes = notes.map(n => ({
-      body: n.body,
-      author_type: n.author_type === 'Investigator' ? 'staff' : 'anonymous',
-      created_at: n.created_at,
-    }));
+    const formattedNotes = notes.map(n => {
+      const isStaffMessage = ['Investigator', 'Compliance_Officer'].includes(n.author_type);
+      return {
+        body: n.body,
+        author_type: isStaffMessage ? 'staff' : 'anonymous',
+        sender_role: n.author_type,
+        author_label: n.author_type === 'Compliance_Officer'
+          ? 'Compliance Team Lead'
+          : n.author_type === 'Investigator'
+          ? 'Case Investigator'
+          : 'You (Anonymous Reporter)',
+        created_at: n.created_at,
+      };
+    });
 
     return res.status(200).json({
       case: {

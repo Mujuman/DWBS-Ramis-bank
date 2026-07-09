@@ -16,7 +16,7 @@ const noteController = require('../controllers/noteController');
 const notificationController = require('../controllers/notificationController');
 
 // ── Strict rate limiter for auth endpoints ────────────────────
-const authLimiter = rateLimit({
+const authLimiter = process.env.DISABLE_RATE_LIMIT === 'true' ? (_req, _res, next) => next() : rateLimit({
   windowMs: 15 * 60 * 1000,
   max: parseInt(process.env.STRICT_RATE_LIMIT_MAX) || 1000,
   message: { error: 'Too many attempts. Please wait 15 minutes.' },

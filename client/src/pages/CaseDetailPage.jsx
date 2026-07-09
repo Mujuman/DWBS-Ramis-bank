@@ -70,6 +70,48 @@ export default function CaseDetailPage() {
     ? [...new Set([caseData.status, ...(isSenior ? COMPLIANCE_OFFICER_STATUSES : INVESTIGATOR_STATUSES)])].filter(Boolean)
     : (isSenior ? COMPLIANCE_OFFICER_STATUSES : INVESTIGATOR_STATUSES);
 
+  const getNoteAuthorLabel = (note) => {
+    if (note.author_type === 'Compliance_Officer') return 'Compliance Team Lead';
+    if (note.author_type === 'Investigator') return 'Case Investigator';
+    if (note.author_type === 'Reporter') {
+      return caseData?.submitted_by_type === 'anonymous' ? 'Anonymous Reporter' : 'Staff Reporter';
+    }
+    return 'Reporter';
+  };
+
+  const getNoteTone = (note) => {
+    if (note.is_internal_only) {
+      return {
+        background: 'rgba(139,92,246,0.06)',
+        borderColor: 'rgba(139,92,246,0.2)',
+        labelColor: '#7c3aed',
+        icon: 'internal',
+      };
+    }
+    if (note.author_type === 'Compliance_Officer') {
+      return {
+        background: 'rgba(37,99,235,0.06)',
+        borderColor: 'rgba(37,99,235,0.18)',
+        labelColor: '#1d4ed8',
+        icon: 'staff',
+      };
+    }
+    if (note.author_type === 'Investigator') {
+      return {
+        background: 'rgba(10,29,55,0.05)',
+        borderColor: 'rgba(10,29,55,0.1)',
+        labelColor: 'var(--color-navy-900)',
+        icon: 'staff',
+      };
+    }
+    return {
+      background: 'rgba(249,168,38,0.07)',
+      borderColor: 'rgba(249,168,38,0.2)',
+      labelColor: 'var(--color-gold-700)',
+      icon: 'reporter',
+    };
+  };
+
   useEffect(() => {
     loadCase();
   }, [id]);
@@ -305,7 +347,7 @@ export default function CaseDetailPage() {
                 </h1>
               </div>
               <span className={`badge ${STATUS_BADGE[caseData.status] || 'badge-review'} text-sm`}>
-                {caseData.status?.replace(/_/g, ' ')}
+                {formatStatus(caseData.status)}
               </span>
             </div>
 
@@ -382,29 +424,23 @@ export default function CaseDetailPage() {
             <div className="space-y-3 mb-6 max-h-96 overflow-y-auto pr-1">
               {notes.length === 0 ? (
                 <p className="text-sm text-slate-400 text-center py-6">No notes yet.</p>
-              ) : notes.map((n, i) => (
+              ) : notes.map((n, i) => {
+                const tone = getNoteTone(n);
+                return (
                 <div key={n.id || i}
                   className={`p-4 rounded-xl ${n.author_type === 'Reporter' ? 'ml-6' : ''}`}
                   style={{
-                    background: n.is_internal_only
-                      ? 'rgba(139,92,246,0.06)'
-                      : n.author_type === 'Investigator'
-                      ? 'rgba(10,29,55,0.05)'
-                      : 'rgba(249,168,38,0.07)',
+                    background: tone.background,
                     border: '1px solid',
-                    borderColor: n.is_internal_only
-                      ? 'rgba(139,92,246,0.2)'
-                      : n.author_type === 'Investigator'
-                      ? 'rgba(10,29,55,0.1)'
-                      : 'rgba(249,168,38,0.2)',
+                    borderColor: tone.borderColor,
                   }}>
                   <div className="flex items-center justify-between mb-2 gap-2">
                     <div className="flex items-center gap-2">
-                      {n.author_type === 'Investigator'
+                      {tone.icon === 'staff'
                         ? <User size={12} className="text-slate-400" />
                         : <Shield size={12} style={{ color: 'var(--color-gold-500)' }} />}
-                      <span className="text-xs font-semibold text-slate-600">
-                        {n.author_type === 'Investigator' ? 'Investigation Team' : 'Reporter'}
+                      <span className="text-xs font-semibold" style={{ color: tone.labelColor }}>
+                        {getNoteAuthorLabel(n)}
                       </span>
                       {n.is_internal_only === 1 && (
                         <span className="text-xs px-1.5 py-0.5 rounded font-medium"
@@ -419,7 +455,8 @@ export default function CaseDetailPage() {
                   </div>
                   <p className="text-sm text-slate-700 leading-relaxed">{n.body}</p>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Add note — only for editors or own request owners */}

@@ -9,7 +9,7 @@ import { STATUS_BADGE, formatStatus } from '../constants/caseWorkflow';
 const STATUS_LABELS = {
   New: { label: 'New', class: STATUS_BADGE.New },
   Under_Review: { label: 'Analyse the Complaint', class: STATUS_BADGE.Under_Review },
-  Assigned: { label: 'Referred to A&RC / Assigned', class: STATUS_BADGE.Assigned },
+  Assigned: { label: 'Refer to A&RC / Assign to Case Investigator', class: STATUS_BADGE.Assigned },
   Investigating: { label: 'Investigation in Progress', class: STATUS_BADGE.Investigating },
   Pending_Evidence: { label: 'Pending Evidence', class: STATUS_BADGE.Pending_Evidence },
   Substantiated: { label: 'Substantiated', class: STATUS_BADGE.Substantiated },
@@ -46,6 +46,35 @@ export default function TrackCasePage() {
   const [replyToken, setReplyToken] = useState('');
   const [replyBody, setReplyBody] = useState('');
   const [replyLoading, setReplyLoading] = useState(false);
+
+  const getCorrespondenceLabel = (note) => {
+    if (note.author_label) return note.author_label;
+    if (note.sender_role === 'Compliance_Officer') return 'Compliance Team Lead';
+    if (note.sender_role === 'Investigator') return 'Case Investigator';
+    return 'You (Anonymous Reporter)';
+  };
+
+  const getCorrespondenceTone = (note) => {
+    if (note.sender_role === 'Compliance_Officer') {
+      return {
+        background: 'rgba(37,99,235,0.06)',
+        borderColor: 'rgba(37,99,235,0.18)',
+        labelColor: '#1d4ed8',
+      };
+    }
+    if (note.author_type === 'staff') {
+      return {
+        background: 'rgba(10,29,55,0.05)',
+        borderColor: 'rgba(10,29,55,0.1)',
+        labelColor: 'var(--color-navy-900)',
+      };
+    }
+    return {
+      background: 'rgba(249,168,38,0.08)',
+      borderColor: 'rgba(249,168,38,0.2)',
+      labelColor: 'var(--color-gold-700)',
+    };
+  };
 
   const onSearch = async ({ reference_id }) => {
     setLoading(true);
@@ -304,25 +333,23 @@ export default function TrackCasePage() {
                   <MessageSquare size={16} /> Correspondence
                 </h3>
                 <div className="space-y-3">
-                  {result.correspondence.map((note, i) => (
+                  {result.correspondence.map((note, i) => {
+                    const tone = getCorrespondenceTone(note);
+                    return (
                     <div key={i} className={`p-4 rounded-xl ${
                       note.author_type === 'staff'
                         ? 'ml-4'
                         : 'mr-4'
                     }`}
                       style={{
-                        background: note.author_type === 'staff'
-                          ? 'rgba(10,29,55,0.05)'
-                          : 'rgba(249,168,38,0.08)',
+                        background: tone.background,
                         border: '1px solid',
-                        borderColor: note.author_type === 'staff'
-                          ? 'rgba(10,29,55,0.1)'
-                          : 'rgba(249,168,38,0.2)',
+                        borderColor: tone.borderColor,
                       }}>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-semibold"
-                          style={{ color: note.author_type === 'staff' ? 'var(--color-navy-900)' : 'var(--color-gold-700)' }}>
-                          {note.author_type === 'staff' ? 'Investigation Team' : 'You (Reporter)'}
+                          style={{ color: tone.labelColor }}>
+                          {getCorrespondenceLabel(note)}
                         </span>
                         <span className="text-xs text-slate-400">
                           {format(new Date(note.created_at), 'MMM d, HH:mm')}
@@ -330,7 +357,8 @@ export default function TrackCasePage() {
                       </div>
                       <p className="text-sm text-slate-700 leading-relaxed">{note.body}</p>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

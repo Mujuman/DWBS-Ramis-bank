@@ -57,7 +57,7 @@ export default function ExecutiveDashboard() {
     { label: 'Total Reports', value: o.total || 0, icon: FileText, color: '#0A1D37', bg: '#e8edf5', change: 'All time' },
     { label: 'Critical Cases', value: o.critical || 0, icon: AlertTriangle, color: '#ef4444', bg: '#fee2e2', change: 'Requires immediate action' },
     { label: 'In Investigation', value: o.in_progress || 0, icon: Activity, color: '#3b82f6', bg: '#dbeafe', change: 'Active investigations' },
-    { label: 'Resolved', value: o.resolved || 0, icon: CheckCircle, color: '#16a34a', bg: '#dcfce7', change: 'Successfully closed' },
+    { label: 'Substantiated', value: o.substantiated || 0, icon: CheckCircle, color: '#16a34a', bg: '#dcfce7', change: 'Evidence confirmed' },
     { label: 'Avg. Resolution', value: stats?.avg_resolution_hours ? `${stats.avg_resolution_hours}h` : 'N/A', icon: Clock, color: '#8b5cf6', bg: '#ede9fe', change: 'Average hours' },
     { label: 'High Priority', value: o.high || 0, icon: TrendingUp, color: '#f59e0b', bg: '#fef3c7', change: 'High severity' },
   ];
@@ -71,8 +71,8 @@ export default function ExecutiveDashboard() {
     { name: 'New', value: o.new_cases || 0, fill: '#F9A826' },
     { name: 'Under Review', value: o.under_review || 0, fill: '#3b82f6' },
     { name: 'In Progress', value: o.in_progress || 0, fill: '#f59e0b' },
-    { name: 'Resolved', value: o.resolved || 0, fill: '#22c55e' },
-    { name: 'Closed', value: o.closed || 0, fill: '#94a3b8' },
+    { name: 'Substantiated', value: o.substantiated || 0, fill: '#22c55e' },
+    { name: 'Dismissed', value: (o.complaint_dismissed || 0) + (o.dismissed_no_evidence || 0), fill: '#94a3b8' },
   ];
 
   return (
