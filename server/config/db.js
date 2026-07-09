@@ -66,6 +66,33 @@ const testConnection = async () => {
     } catch (migErr) {
       console.error('[DB] Schema migration check failed for evidencefiles.encryption_iv:', migErr.message);
     }
+
+    // Automatic schema migration: create notifications table
+    try {
+      const [tables] = await pool.execute("SHOW TABLES LIKE 'notifications'");
+      if (tables.length === 0) {
+        await pool.execute(`
+          CREATE TABLE notifications (
+            notification_id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NULL,
+            target_role VARCHAR(50) NULL,
+            type VARCHAR(50) NOT NULL,
+            title VARCHAR(255) NOT NULL,
+            message TEXT,
+            case_id INT NULL,
+            is_read TINYINT(1) DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_notif_user (user_id),
+            INDEX idx_notif_role (target_role),
+            INDEX idx_notif_read (is_read),
+            INDEX idx_notif_created (created_at)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        `);
+        console.log('[DB] Migration: Created notifications table');
+      }
+    } catch (migErr) {
+      console.error('[DB] Schema migration failed for notifications table:', migErr.message);
+    }
   } catch (err) {
     console.error('[DB] Failed to connect to MySQL:', err.message);
     process.exit(1);

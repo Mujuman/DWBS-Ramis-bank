@@ -10,13 +10,13 @@ const navItems = [
     path: '/dashboard',
     label: 'Dashboard',
     icon: LayoutDashboard,
-    roles: ['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO', 'System_Admin'],
+    roles: ['Employee', 'Branch_Manager', 'Investigator', 'CEO', 'System_Admin'],
   },
   {
     path: '/cases',
     label: 'Case Management',
     icon: FileText,
-    roles: ['Investigator', 'Compliance_Officer', 'CEO', 'System_Admin'],
+    roles: ['Investigator', 'System_Admin'],
   },
   {
     path: '/compliance',

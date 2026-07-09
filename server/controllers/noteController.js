@@ -1,5 +1,6 @@
 const { pool } = require('../config/db');
 const { writeAuditLog } = require('../services/auditService');
+const { createNotification } = require('./notificationController');
 
 const addReporterNote = async (caseId, noteBody) => {
   await pool.execute(
@@ -61,6 +62,34 @@ const createAnonNote = async (req, res) => {
       metadata: { reference_id },
     });
 
+    // Notify assigned investigator and compliance officers about the anonymous reply
+    try {
+      const [caseInfo] = await pool.execute(
+        `SELECT assigned_investigator, reference_id FROM cases WHERE case_id = ?`,
+        [caseData.case_id]
+      );
+      if (caseInfo.length > 0) {
+        // Notify assigned investigator
+        if (caseInfo[0].assigned_investigator) {
+          createNotification({
+            userId: caseInfo[0].assigned_investigator,
+            type: 'new_message',
+            title: 'New Reporter Message',
+            message: `The anonymous reporter on case ${caseInfo[0].reference_id} has sent a new response.`,
+            caseId: caseData.case_id,
+          });
+        }
+        // Notify compliance officers about anonymous reporter reply
+        createNotification({
+          targetRole: 'Compliance_Officer',
+          type: 'new_message',
+          title: 'New Anonymous Reporter Message',
+          message: `An anonymous reporter responded on case ${caseInfo[0].reference_id}.`,
+          caseId: caseData.case_id,
+        });
+      }
+    } catch (_) {}
+
     return res.status(201).json({ message: 'Your response has been sent to the investigation team.' });
   } catch (err) {
     console.error('[NOTE] Anonymous create error:', err.message);
@@ -113,6 +142,74 @@ const createNote = async (req, res) => {
       performedByType: identity.type,
       metadata: { is_internal_only: isInternal },
     });
+
+    // Create notification for relevant parties about the new message
+    try {
+      const [caseInfo] = await pool.execute(
+        `SELECT assigned_investigator, reference_id, user_id FROM cases WHERE case_id = ?`,
+        [caseId]
+      );
+      if (caseInfo.length > 0) {
+        const ref = caseInfo[0].reference_id;
+        if (identity.type === 'staff' && senderType === 'Investigator') {
+          // Investigator posted → notify Compliance Officer
+          createNotification({
+            targetRole: 'Compliance_Officer',
+            type: 'new_message',
+            title: 'New Investigation Note',
+            message: `A new note was added to case ${ref}.`,
+            caseId,
+          });
+          // Also notify the case owner (if authenticated staff reporter) about the investigator's message
+          if (caseInfo[0].user_id) {
+            createNotification({
+              userId: caseInfo[0].user_id,
+              type: 'new_message',
+              title: 'New Message on Your Case',
+              message: `The investigation team has posted a new message on your case ${ref}.`,
+              caseId,
+            });
+          }
+        } else if (identity.type === 'staff' && senderType === 'Reporter') {
+          // Staff reporter (Employee/Branch_Manager) replied → notify assigned investigator
+          if (caseInfo[0].assigned_investigator) {
+            createNotification({
+              userId: caseInfo[0].assigned_investigator,
+              type: 'new_message',
+              title: 'New Reporter Message',
+              message: `The reporter on case ${ref} has sent a new message.`,
+              caseId,
+            });
+          }
+          // Also notify compliance officers about staff reporter reply
+          createNotification({
+            targetRole: 'Compliance_Officer',
+            type: 'new_message',
+            title: 'New Staff Reporter Message',
+            message: `A staff reporter responded on case ${ref}.`,
+            caseId,
+          });
+        } else if (identity.type === 'anonymous') {
+          // Anonymous reporter posted via authenticated note route → notify investigator & compliance
+          if (caseInfo[0].assigned_investigator) {
+            createNotification({
+              userId: caseInfo[0].assigned_investigator,
+              type: 'new_message',
+              title: 'New Reporter Message',
+              message: `The anonymous reporter on case ${ref} has sent a new response.`,
+              caseId,
+            });
+          }
+          createNotification({
+            targetRole: 'Compliance_Officer',
+            type: 'new_message',
+            title: 'New Anonymous Reporter Message',
+            message: `An anonymous reporter responded on case ${ref}.`,
+            caseId,
+          });
+        }
+      }
+    } catch (_) {}
 
     return res.status(201).json({ message: 'Note added successfully' });
   } catch (err) {

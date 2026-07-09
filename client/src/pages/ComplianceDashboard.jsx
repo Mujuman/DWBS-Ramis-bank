@@ -7,7 +7,8 @@ import { format } from 'date-fns';
 import {
   RefreshCw, Search, UserCheck, ArrowUpCircle,
   AlertTriangle, CheckCircle, Clock, FileText,
-  TrendingUp, Shield, Users, ChevronRight, X,
+  TrendingUp, Shield, Users, ChevronRight, X, Filter,
+  Briefcase, BarChart3,
 } from 'lucide-react';
 
 const STATUSES   = ['New','Under_Review','Assigned','Investigating','Pending_Evidence','Resolved','Closed'];
@@ -132,7 +133,7 @@ export default function ComplianceDashboard() {
   const workload = investigators.map(inv => ({
     ...inv,
     count: cases.filter(c => c.assigned_investigator === inv.username).length,
-  })).sort((a, b) => a.count - b.count);
+  })).sort((a, b) => b.count - a.count);
 
   const ov = stats?.overview || {};
   const statCards = [
@@ -144,6 +145,9 @@ export default function ComplianceDashboard() {
     { label:'Unassigned',   value: cases.filter(c => !c.assigned_investigator).length,
       icon: Users, color:'#7c3aed', bg:'#ede9fe' },
   ];
+
+  // max count for workload bar chart
+  const maxWorkload = Math.max(1, ...workload.map(w => w.count));
 
   return (
     <div className="p-6 max-w-7xl mx-auto fade-in-up">
@@ -324,6 +328,267 @@ export default function ComplianceDashboard() {
             )}
           </div>
         </>
+      )}
+
+      {/* ══════════════ INVESTIGATOR WORKLOAD TAB ══════════════ */}
+      {activeTab === 'workload' && (
+        <div className="card overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <BarChart3 size={18} style={{ color: 'var(--color-navy-900)' }} />
+              <h2 className="text-base font-bold" style={{ color: 'var(--color-navy-900)' }}>
+                Investigator Workload
+              </h2>
+            </div>
+            <span className="text-xs text-slate-400">{investigators.length} active investigators</span>
+          </div>
+
+          {loading ? (
+            <div className="py-16 text-center"><span className="spinner spinner-navy mx-auto" /></div>
+          ) : investigators.length === 0 ? (
+            <div className="py-16 text-center">
+              <Users size={32} className="mx-auto mb-3 text-slate-300" />
+              <p className="text-slate-400">No active investigators found.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {workload.map(inv => (
+                <div key={inv.id} className="px-6 py-4 flex items-center gap-4 hover:bg-slate-50 transition-colors">
+                  {/* Avatar */}
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+                    style={{ background: 'var(--color-navy-900)', color: 'var(--color-gold-500)' }}>
+                    {inv.username?.charAt(0).toUpperCase() || '?'}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-semibold truncate" style={{ color: 'var(--color-navy-900)' }}>
+                        {inv.username}
+                      </span>
+                      {inv.department && (
+                        <span className="text-xs text-slate-400 truncate">· {inv.department}</span>
+                      )}
+                    </div>
+                    {/* Workload bar */}
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: '#e8edf5' }}>
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${Math.max(2, (inv.count / maxWorkload) * 100)}%`,
+                            background: inv.count >= 5 ? '#dc2626' : inv.count >= 3 ? '#f59e0b' : '#16a34a',
+                          }}
+                        />
+                      </div>
+                      <span className="text-xs font-bold w-16 text-right" style={{
+                        color: inv.count >= 5 ? '#dc2626' : inv.count >= 3 ? '#f59e0b' : '#16a34a',
+                      }}>
+                        {inv.count} {inv.count === 1 ? 'case' : 'cases'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Quick assign button */}
+                  <button
+                    onClick={() => {
+                      // Filter to unassigned cases and open assign modal for the first one
+                      const unassigned = cases.filter(c => !c.assigned_investigator);
+                      if (unassigned.length > 0) {
+                        setAssignModal(unassigned[0]);
+                        setAssignTarget(String(inv.id));
+                      } else {
+                        toast('No unassigned cases available', { icon: 'ℹ️' });
+                      }
+                    }}
+                    className="btn btn-outline text-xs py-1.5 px-3 flex-shrink-0"
+                    title={`Assign a case to ${inv.username}`}
+                  >
+                    <Briefcase size={12} /> Assign Case
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══════════════ ASSIGN MODAL ══════════════ */}
+      {assignModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(10,29,55,0.5)' }}>
+          <div className="card p-0 w-full max-w-md mx-4 fade-in-up" style={{ maxHeight: '90vh', overflow: 'auto' }}>
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <div>
+                <h3 className="text-base font-bold" style={{ color: 'var(--color-navy-900)' }}>
+                  Assign Investigator
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Case: <span className="font-mono font-bold">{assignModal.reference_id}</span>
+                </p>
+              </div>
+              <button onClick={() => { setAssignModal(null); setAssignTarget(''); }}
+                className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+                <X size={16} className="text-slate-400" />
+              </button>
+            </div>
+
+            {/* Modal body */}
+            <div className="px-6 py-5">
+              {/* Current status */}
+              <div className="rounded-xl p-3 mb-4" style={{ background: 'rgba(10,29,55,0.03)' }}>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500">Current Status</span>
+                  <span className={`badge ${STATUS_BADGE[assignModal.status] || 'badge-review'}`}>
+                    {assignModal.status?.replace(/_/g, ' ')}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs mt-2">
+                  <span className="text-slate-500">Currently Assigned</span>
+                  <span className="font-medium" style={{ color: 'var(--color-navy-900)' }}>
+                    {assignModal.assigned_investigator || 'Unassigned'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Investigator select */}
+              <label className="form-label">Select Investigator</label>
+              <select
+                className="form-select text-sm w-full"
+                value={assignTarget}
+                onChange={e => setAssignTarget(e.target.value)}
+              >
+                <option value="">— Choose an investigator —</option>
+                {investigators.map(inv => (
+                  <option key={inv.id} value={inv.id}>
+                    {inv.username} {inv.department ? `(${inv.department})` : ''}
+                  </option>
+                ))}
+              </select>
+
+              {/* Workload hint */}
+              {assignTarget && (() => {
+                const sel = investigators.find(i => String(i.id) === String(assignTarget));
+                const cnt = sel ? cases.filter(c => c.assigned_investigator === sel.username).length : 0;
+                return (
+                  <div className="mt-3 flex items-center gap-2 text-xs">
+                    <Briefcase size={12} className="text-slate-400" />
+                    <span className="text-slate-500">Current workload:</span>
+                    <span className="font-bold" style={{
+                      color: cnt >= 5 ? '#dc2626' : cnt >= 3 ? '#f59e0b' : '#16a34a'
+                    }}>
+                      {cnt} active {cnt === 1 ? 'case' : 'cases'}
+                    </span>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Modal footer */}
+            <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-slate-100">
+              <button onClick={() => { setAssignModal(null); setAssignTarget(''); }}
+                className="btn btn-ghost text-sm">
+                Cancel
+              </button>
+              <button onClick={doAssign} disabled={assigning || !assignTarget}
+                className="btn btn-primary text-sm">
+                {assigning
+                  ? <><span className="spinner" /> Assigning...</>
+                  : <><UserCheck size={14} /> Assign Case</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════ SEVERITY OVERRIDE MODAL ══════════════ */}
+      {severityModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(10,29,55,0.5)' }}>
+          <div className="card p-0 w-full max-w-md mx-4 fade-in-up" style={{ maxHeight: '90vh', overflow: 'auto' }}>
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <div>
+                <h3 className="text-base font-bold" style={{ color: 'var(--color-navy-900)' }}>
+                  Override Severity
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Case: <span className="font-mono font-bold">{severityModal.reference_id}</span>
+                </p>
+              </div>
+              <button onClick={() => { setSeverityModal(null); setNewSeverity(''); }}
+                className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+                <X size={16} className="text-slate-400" />
+              </button>
+            </div>
+
+            {/* Modal body */}
+            <div className="px-6 py-5">
+              {/* Current severity */}
+              <div className="rounded-xl p-3 mb-4" style={{ background: 'rgba(10,29,55,0.03)' }}>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500">Current Severity</span>
+                  <span className={`badge ${PRIORITY_BADGE[severityModal.priority] || 'badge-medium'}`}>
+                    {severityModal.priority}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs mt-2">
+                  <span className="text-slate-500">Category</span>
+                  <span className="font-medium" style={{ color: 'var(--color-navy-900)' }}>
+                    {severityModal.category?.replace(/_/g, ' ')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Severity select */}
+              <label className="form-label">New Severity Level</label>
+              <div className="grid grid-cols-2 gap-2">
+                {PRIORITIES.map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setNewSeverity(p)}
+                    className={`py-2.5 px-4 rounded-xl text-sm font-semibold border-2 transition-all ${
+                      newSeverity === p ? 'border-current shadow-sm' : 'border-transparent'
+                    }`}
+                    style={{
+                      background: newSeverity === p
+                        ? (p === 'Critical' ? '#fee2e2' : p === 'High' ? '#fef3c7' : p === 'Medium' ? '#dbeafe' : '#dcfce7')
+                        : 'rgba(10,29,55,0.03)',
+                      color: p === 'Critical' ? '#dc2626' : p === 'High' ? '#d97706' : p === 'Medium' ? '#3b82f6' : '#16a34a',
+                    }}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+
+              {/* Warning for Critical */}
+              {newSeverity === 'Critical' && severityModal.priority !== 'Critical' && (
+                <div className="mt-3 rounded-xl p-3 flex items-start gap-2"
+                  style={{ background: '#fef2f2', border: '1px solid #fecaca' }}>
+                  <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" style={{ color: '#dc2626' }} />
+                  <p className="text-xs" style={{ color: '#991b1b' }}>
+                    Setting severity to <strong>Critical</strong> will automatically escalate this case to the CEO dashboard.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal footer */}
+            <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-slate-100">
+              <button onClick={() => { setSeverityModal(null); setNewSeverity(''); }}
+                className="btn btn-ghost text-sm">
+                Cancel
+              </button>
+              <button onClick={doOverride}
+                disabled={overriding || !newSeverity || newSeverity === severityModal.priority}
+                className="btn btn-primary text-sm">
+                {overriding
+                  ? <><span className="spinner" /> Updating...</>
+                  : <><TrendingUp size={14} /> Update Severity</>}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

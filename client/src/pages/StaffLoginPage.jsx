@@ -21,6 +21,7 @@ export default function StaffLoginPage() {
       const user = await staffLogin(username, password, otp);
       toast.success(`Welcome, ${user.display_name}`);
       if (user.role === 'CEO') navigate('/executive');
+      else if (user.role === 'Compliance_Officer') navigate('/compliance');
       else if (user.role === 'System_Admin') navigate('/admin');
       else if (user.role === 'Auditor') navigate('/audit');
       else navigate('/dashboard');

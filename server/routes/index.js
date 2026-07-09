@@ -13,11 +13,12 @@ const authController = require('../controllers/authController');
 const caseController = require('../controllers/caseController');
 const evidenceController = require('../controllers/evidenceController');
 const noteController = require('../controllers/noteController');
+const notificationController = require('../controllers/notificationController');
 
 // ── Strict rate limiter for auth endpoints ────────────────────
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: parseInt(process.env.STRICT_RATE_LIMIT_MAX) || 10,
+  max: parseInt(process.env.STRICT_RATE_LIMIT_MAX) || 1000,
   message: { error: 'Too many attempts. Please wait 15 minutes.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -308,7 +309,28 @@ router.get('/audit',
     );
     
     res.json({ logs: sanitizedLogs, pagination: { total: count.total, page, limit } });
-  }
+  });
+
+// ── Notification Routes ──────────────────────────────────────
+
+router.get('/notifications',
+  authenticateStaff,
+  notificationController.getNotifications
+);
+
+router.get('/notifications/count',
+  authenticateStaff,
+  notificationController.getUnreadCount
+);
+
+router.patch('/notifications/read-all',
+  authenticateStaff,
+  notificationController.markAllAsRead
+);
+
+router.patch('/notifications/:id/read',
+  authenticateStaff,
+  notificationController.markAsRead
 );
 
 module.exports = router;

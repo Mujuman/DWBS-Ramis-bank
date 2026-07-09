@@ -2,6 +2,7 @@ const { pool } = require('../config/db');
 const { generateReferenceId, generateSecureToken } = require('../utils/tokenUtils');
 const { writeAuditLog } = require('../services/auditService');
 const emailService = require('../services/emailService');
+const { createNotification } = require('./notificationController');
 
 // ── Severity Classification Matrix ────────────────────────────
 // Maps case category to initial automatic severity level
@@ -112,6 +113,15 @@ const createCase = async (req, res) => {
       }
     } catch (_) {}
 
+    // In-app notification for compliance officers
+    createNotification({
+      targetRole: 'Compliance_Officer',
+      type: 'new_case',
+      title: 'New Case Submitted',
+      message: `A new ${category?.replace(/_/g, ' ')} case (${referenceId}) has been submitted and requires review.`,
+      caseId,
+    });
+
     return res.status(201).json({
       message: 'Report submitted successfully',
       case_id: caseId,
@@ -200,9 +210,7 @@ const listCases = async (req, res) => {
        FROM cases c
        LEFT JOIN users u ON c.assigned_investigator = u.user_id
        ${where}
-       ORDER BY
-         FIELD(c.severity_level, 'Critical', 'High', 'Medium', 'Low'),
-         c.created_at DESC
+       ORDER BY c.created_at DESC
        LIMIT ? OFFSET ?`,
       [...params, limit, offset]
     );
@@ -703,6 +711,26 @@ const updateCaseStatus = async (req, res) => {
           emailService.notifyAssignment(invRows[0].email).catch(() => {});
         }
       } catch (_) {}
+
+      // In-app notification for assigned investigator
+      createNotification({
+        userId: assigned_to,
+        type: 'case_assigned',
+        title: 'Case Assigned to You',
+        message: `Case ${prev.reference_id} (${prev.category?.replace(/_/g, ' ')}) has been assigned to you for investigation.`,
+        caseId,
+      });
+    }
+
+    // Notify status change to compliance officers
+    if (status && status !== prev.status) {
+      createNotification({
+        targetRole: 'Compliance_Officer',
+        type: 'status_change',
+        title: 'Case Status Updated',
+        message: `Case ${prev.reference_id} status changed from ${prev.status?.replace(/_/g, ' ')} to ${status?.replace(/_/g, ' ')}.`,
+        caseId,
+      });
     }
 
     return res.status(200).json({ message: 'Case updated successfully' });
@@ -847,6 +875,15 @@ const escalateCase = async (req, res) => {
         }).catch(() => {});
       }
     } catch (_) {}
+
+    // In-app notification for CEO
+    createNotification({
+      targetRole: 'CEO',
+      type: 'case_escalated',
+      title: 'Case Escalated',
+      message: `Case ${caseData.reference_id} (${caseData.category?.replace(/_/g, ' ')}) has been escalated and requires your attention.`,
+      caseId,
+    });
 
     return res.status(200).json({ message: 'Case escalated successfully' });
   } catch (err) {
