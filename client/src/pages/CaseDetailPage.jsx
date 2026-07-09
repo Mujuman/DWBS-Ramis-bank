@@ -36,6 +36,7 @@ export default function CaseDetailPage() {
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState(null);
   const [noteBody,    setNoteBody]    = useState('');
+  const [replyRecipient, setReplyRecipient] = useState('Investigator');
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [isInternal,  setIsInternal]  = useState(false);
   const [sendingNote, setSendingNote] = useState(false);
@@ -77,6 +78,12 @@ export default function CaseDetailPage() {
       return caseData?.submitted_by_type === 'anonymous' ? 'Anonymous Reporter' : 'Staff Reporter';
     }
     return 'Reporter';
+  };
+
+  const getNoteChannelLabel = (note) => {
+    if (note.audience_type === 'Compliance_Officer') return 'Compliance Lead Thread';
+    if (note.audience_type === 'Investigator') return 'Investigator Thread';
+    return 'General Thread';
   };
 
   const getNoteTone = (note) => {
@@ -175,7 +182,11 @@ export default function CaseDetailPage() {
     if (!noteBody.trim()) return;
     setSendingNote(true);
     try {
-      await api.post(`/cases/${id}/notes`, { body: noteBody, is_internal_only: isInternal });
+      await api.post(`/cases/${id}/notes`, {
+        body: noteBody,
+        is_internal_only: isInternal,
+        recipient_role: canManageOwnRequest ? replyRecipient : undefined,
+      });
       setNoteBody('');
       const res = await api.get(`/cases/${id}/notes`);
       setNotes(res.data.notes || []);
@@ -442,6 +453,11 @@ export default function CaseDetailPage() {
                       <span className="text-xs font-semibold" style={{ color: tone.labelColor }}>
                         {getNoteAuthorLabel(n)}
                       </span>
+                      {n.audience_type && (
+                        <span className="text-xs px-1.5 py-0.5 rounded font-medium bg-slate-100 text-slate-500">
+                          {getNoteChannelLabel(n)}
+                        </span>
+                      )}
                       {n.is_internal_only === 1 && (
                         <span className="text-xs px-1.5 py-0.5 rounded font-medium"
                           style={{ background: 'rgba(139,92,246,0.12)', color: '#7c3aed' }}>
@@ -471,6 +487,19 @@ export default function CaseDetailPage() {
                   value={noteBody}
                   onChange={e => setNoteBody(e.target.value)}
                 />
+                {canManageOwnRequest && (
+                  <div className="mb-3">
+                    <label className="form-label text-xs">Reply To</label>
+                    <select
+                      className="form-select text-sm"
+                      value={replyRecipient}
+                      onChange={e => setReplyRecipient(e.target.value)}
+                    >
+                      <option value="Investigator">Case Investigator</option>
+                      <option value="Compliance_Officer">Compliance Team Lead</option>
+                    </select>
+                  </div>
+                )}
                 <div className="flex items-center justify-between gap-3">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input

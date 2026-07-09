@@ -166,22 +166,6 @@ const createNote = async (req, res) => {
         const ref = caseInfo[0].reference_id;
         if (identity.type === 'staff' && ['Investigator', 'Compliance_Officer'].includes(senderType)) {
           // Investigator posted → notify Compliance Officer
-          createNotification({
-            targetRole: 'Compliance_Officer',
-            type: 'new_message',
-            title: senderType === 'Compliance_Officer' ? 'New Compliance Team Lead Message' : 'New Investigation Note',
-            message: `A new ${senderType === 'Compliance_Officer' ? 'compliance team lead message' : 'investigation note'} was added to case ${ref}.`,
-            caseId,
-          });
-          if (senderType === 'Compliance_Officer' && caseInfo[0].assigned_investigator) {
-            createNotification({
-              userId: caseInfo[0].assigned_investigator,
-              type: 'new_message',
-              title: 'New Compliance Team Lead Message',
-              message: `The Compliance Team Lead posted a new message on case ${ref}.`,
-              caseId,
-            });
-          }
           // Also notify the case owner (if authenticated staff reporter) about the investigator's message
           if (caseInfo[0].user_id) {
             createNotification({
@@ -194,7 +178,7 @@ const createNote = async (req, res) => {
           }
         } else if (identity.type === 'staff' && senderType === 'Reporter') {
           // Staff reporter (Employee/Branch_Manager) replied → notify assigned investigator
-          if (caseInfo[0].assigned_investigator) {
+          if (audienceType === 'Investigator' && caseInfo[0].assigned_investigator) {
             createNotification({
               userId: caseInfo[0].assigned_investigator,
               type: 'new_message',
@@ -204,16 +188,18 @@ const createNote = async (req, res) => {
             });
           }
           // Also notify compliance officers about staff reporter reply
-          createNotification({
-            targetRole: 'Compliance_Officer',
-            type: 'new_message',
-            title: 'New Staff Reporter Message',
-            message: `A staff reporter responded on case ${ref}.`,
-            caseId,
-          });
+          if (audienceType === 'Compliance_Officer') {
+            createNotification({
+              targetRole: 'Compliance_Officer',
+              type: 'new_message',
+              title: 'New Staff Reporter Message',
+              message: `A staff reporter responded to the Compliance Team Lead on case ${ref}.`,
+              caseId,
+            });
+          }
         } else if (identity.type === 'anonymous') {
           // Anonymous reporter posted via authenticated note route → notify investigator & compliance
-          if (caseInfo[0].assigned_investigator) {
+          if (audienceType === 'Investigator' && caseInfo[0].assigned_investigator) {
             createNotification({
               userId: caseInfo[0].assigned_investigator,
               type: 'new_message',
@@ -222,13 +208,15 @@ const createNote = async (req, res) => {
               caseId,
             });
           }
-          createNotification({
-            targetRole: 'Compliance_Officer',
-            type: 'new_message',
-            title: 'New Anonymous Reporter Message',
-            message: `An anonymous reporter responded on case ${ref}.`,
-            caseId,
-          });
+          if (audienceType === 'Compliance_Officer') {
+            createNotification({
+              targetRole: 'Compliance_Officer',
+              type: 'new_message',
+              title: 'New Anonymous Reporter Message',
+              message: `An anonymous reporter responded to the Compliance Team Lead on case ${ref}.`,
+              caseId,
+            });
+          }
         }
       }
     } catch (_) {}
@@ -265,15 +253,29 @@ const getNotes = async (req, res) => {
 
     if (identity.type === 'anonymous' || !highPriv) {
       // Reporter or low-privilege staff: only public notes
-      query = `SELECT note_id as id, sender_type as author_type, note_text as body, 
+      query = `SELECT note_id as id, sender_type as author_type, audience_type, note_text as body,
                       is_internal_only, created_at
                FROM investigationnotes
                WHERE case_id = ? AND is_internal_only = 0
                ORDER BY created_at ASC`;
       params = [caseId];
+    } else if (req.user?.role === 'Investigator') {
+      query = `SELECT note_id as id, sender_type as author_type, audience_type, note_text as body,
+                      is_internal_only, created_at
+               FROM investigationnotes
+               WHERE case_id = ? AND audience_type IN ('General', 'Investigator')
+               ORDER BY created_at ASC`;
+      params = [caseId];
+    } else if (req.user?.role === 'Compliance_Officer') {
+      query = `SELECT note_id as id, sender_type as author_type, audience_type, note_text as body,
+                      is_internal_only, created_at
+               FROM investigationnotes
+               WHERE case_id = ? AND audience_type IN ('General', 'Compliance_Officer')
+               ORDER BY created_at ASC`;
+      params = [caseId];
     } else {
       // High-privilege staff: see all notes including internal
-      query = `SELECT note_id as id, sender_type as author_type, note_text as body, 
+      query = `SELECT note_id as id, sender_type as author_type, audience_type, note_text as body,
                       is_internal_only, created_at
                FROM investigationnotes
                WHERE case_id = ?

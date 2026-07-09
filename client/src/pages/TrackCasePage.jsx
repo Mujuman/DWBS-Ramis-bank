@@ -45,6 +45,7 @@ export default function TrackCasePage() {
   // Form states for anonymous reply
   const [replyToken, setReplyToken] = useState('');
   const [replyBody, setReplyBody] = useState('');
+  const [replyRecipient, setReplyRecipient] = useState('Investigator');
   const [replyLoading, setReplyLoading] = useState(false);
 
   const getCorrespondenceLabel = (note) => {
@@ -83,6 +84,9 @@ export default function TrackCasePage() {
     try {
       const res = await api.get('/cases/track', { params: { reference_id: reference_id.toUpperCase().trim() } });
       setResult(res.data);
+      const hasInvestigatorMessage = res.data.correspondence?.some(note => note.sender_role === 'Investigator');
+      const hasComplianceMessage = res.data.correspondence?.some(note => note.sender_role === 'Compliance_Officer');
+      setReplyRecipient(hasInvestigatorMessage ? 'Investigator' : hasComplianceMessage ? 'Compliance_Officer' : 'Investigator');
       setEditCategory(res.data.case.category);
     } catch (err) {
       setError(err.response?.data?.error || 'No case found with that reference ID');
@@ -167,6 +171,7 @@ export default function TrackCasePage() {
       await api.post('/cases/anonymous/notes', {
         reference_id: result.case.reference_id,
         verification_token: replyToken.trim(),
+        recipient_role: replyRecipient,
         body: replyBody.trim(),
       });
       toast.success('Your reply has been submitted.');
@@ -180,6 +185,12 @@ export default function TrackCasePage() {
       setReplyLoading(false);
     }
   };
+
+  const availableReplyRecipients = result?.correspondence?.reduce((roles, note) => {
+    if (note.sender_role === 'Investigator' && !roles.includes('Investigator')) roles.push('Investigator');
+    if (note.sender_role === 'Compliance_Officer' && !roles.includes('Compliance_Officer')) roles.push('Compliance_Officer');
+    return roles;
+  }, []) || [];
 
   return (
     <div className="min-h-screen pt-16 pb-12" style={{ background: 'var(--color-slate-50)' }}>
@@ -381,6 +392,21 @@ export default function TrackCasePage() {
                       className="form-input font-mono"
                       placeholder="Enter your secret token"
                     />
+                  </div>
+                  <div>
+                    <label className="form-label font-semibold">Reply To</label>
+                    <select
+                      value={replyRecipient}
+                      onChange={(e) => setReplyRecipient(e.target.value)}
+                      className="form-select"
+                    >
+                      {availableReplyRecipients.includes('Investigator') && (
+                        <option value="Investigator">Case Investigator</option>
+                      )}
+                      {availableReplyRecipients.includes('Compliance_Officer') && (
+                        <option value="Compliance_Officer">Compliance Team Lead</option>
+                      )}
+                    </select>
                   </div>
                   <div>
                     <label className="form-label font-semibold">Your Response</label>
