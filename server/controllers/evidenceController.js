@@ -13,6 +13,29 @@ const decryptBuffer = (encryptedBuffer, ivHex) => {
   return Buffer.concat([decipher.update(encryptedBuffer), decipher.final()]);
 };
 
+const saveEvidenceRecord = async ({ caseId, file, uploadedBy = null, auditUserId = null, auditType = 'staff' }) => {
+  const fileName = file.processed?.originalFilename || file.raw?.originalname;
+  const filePath = file.processed?.storedFilename || file.raw?.filename || file.raw?.path;
+  const encryptionIv = file.processed?.encryptionIv || null;
+  const mimeType = file.processed?.mimeType || file.raw?.mimetype || 'application/octet-stream';
+
+  await pool.execute(
+    `INSERT INTO evidencefiles (case_id, file_name, file_path, encryption_iv, uploaded_by, mime_type)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [caseId, fileName, filePath, encryptionIv, uploadedBy, mimeType]
+  );
+
+  await writeAuditLog({
+    userId: auditUserId,
+    caseId,
+    action: 'EVIDENCE_UPLOADED',
+    performedByType: auditType,
+    metadata: { filename: fileName },
+  });
+
+  return { original_filename: fileName };
+};
+
 /**
  * POST /api/cases/:id/evidence
  * Saves uploaded file metadata to DB.
@@ -27,53 +50,95 @@ const uploadEvidence = async (req, res) => {
 
   try {
     const [cases] = await pool.execute(
-      `SELECT case_id FROM cases WHERE case_id = ?`, [caseId]
+      `SELECT case_id, user_id, assigned_investigator FROM cases WHERE case_id = ? AND deleted_at IS NULL`, [caseId]
     );
     if (cases.length === 0) {
       return res.status(404).json({ error: 'Case not found' });
     }
 
-    // Only assigned Investigators may upload evidence per BRD
-    if (!user || !user.userId || user.role !== 'Investigator') {
-      return res.status(403).json({ error: 'Only an assigned Investigator may upload evidence for a case.' });
+    const caseData = cases[0];
+    const isOwner = user?.userId && caseData.user_id === user.userId;
+    const isAssignedInvestigator = user?.userId && user.role === 'Investigator' && caseData.assigned_investigator === user.userId;
+    const isCompliance = user?.role === 'Compliance_Officer';
+
+    if (!isOwner && !isAssignedInvestigator && !isCompliance) {
+      return res.status(403).json({ error: 'Access denied to upload evidence for this case.' });
     }
 
-    // Verify investigator is assigned to this case
-    const [caseCheck] = await pool.execute(
-      `SELECT assigned_investigator FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
-      [caseId]
-    );
-    if (caseCheck.length === 0) return res.status(404).json({ error: 'Case not found' });
-    if (caseCheck[0].assigned_investigator !== user.userId) {
-      return res.status(403).json({ error: 'You can only upload evidence to cases assigned to you.' });
-    }
-
-    const uploadedBy = user.userId;
-    const fileName = req.processedFile?.originalFilename || req.file.originalname;
-    const filePath = req.processedFile?.storedFilename || req.file.filename || req.file.path;
-    const encryptionIv = req.processedFile?.encryptionIv || null;
-    const mimeType = req.processedFile?.mimetype || req.file.mimetype || 'application/octet-stream';
-
-    await pool.execute(
-      `INSERT INTO evidencefiles (case_id, file_name, file_path, encryption_iv, uploaded_by, mime_type)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [caseId, fileName, filePath, encryptionIv, uploadedBy, mimeType]
-    );
-
-    await writeAuditLog({
-      userId: uploadedBy,
+    const savedFile = await saveEvidenceRecord({
       caseId,
-      action: 'EVIDENCE_UPLOADED',
-      metadata: { filename: fileName },
+      file: { processed: req.processedFile, raw: req.file },
+      uploadedBy: user.userId,
+      auditUserId: user.userId,
     });
 
     return res.status(201).json({
       message: 'Evidence uploaded successfully',
-      file: { original_filename: fileName },
+      file: savedFile,
     });
   } catch (err) {
     console.error('[EVIDENCE] Upload error:', err.message);
     return res.status(500).json({ error: 'Failed to save evidence record' });
+  }
+};
+
+const getAnonymousCaseByToken = async (referenceId, verificationToken) => {
+  const [rows] = await pool.execute(
+    `SELECT case_id, verification_token FROM cases WHERE reference_id = ? AND deleted_at IS NULL`,
+    [String(referenceId || '').toUpperCase().trim()]
+  );
+  if (rows.length === 0) return { error: 'No case found with that reference ID', status: 404 };
+  if (rows[0].verification_token !== verificationToken) return { error: 'Invalid verification token', status: 401 };
+  return { caseData: rows[0] };
+};
+
+const uploadAnonymousEvidence = async (req, res) => {
+  const { reference_id, verification_token } = req.body;
+
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file provided' });
+  }
+
+  try {
+    const lookup = await getAnonymousCaseByToken(reference_id, verification_token);
+    if (lookup.error) return res.status(lookup.status).json({ error: lookup.error });
+
+    const savedFile = await saveEvidenceRecord({
+      caseId: lookup.caseData.case_id,
+      file: { processed: req.processedFile, raw: req.file },
+      uploadedBy: null,
+      auditType: 'anonymous',
+    });
+
+    return res.status(201).json({
+      message: 'Evidence uploaded successfully',
+      file: savedFile,
+    });
+  } catch (err) {
+    console.error('[EVIDENCE] Anonymous upload error:', err.message);
+    return res.status(500).json({ error: 'Failed to save evidence record' });
+  }
+};
+
+const listAnonymousEvidence = async (req, res) => {
+  const { reference_id, verification_token } = req.query;
+
+  try {
+    const lookup = await getAnonymousCaseByToken(reference_id, verification_token);
+    if (lookup.error) return res.status(lookup.status).json({ error: lookup.error });
+
+    const [files] = await pool.execute(
+      `SELECT file_id AS id, file_name AS original_filename, uploaded_at, mime_type
+       FROM evidencefiles
+       WHERE case_id = ?
+       ORDER BY uploaded_at ASC`,
+      [lookup.caseData.case_id]
+    );
+
+    return res.status(200).json({ evidence: files });
+  } catch (err) {
+    console.error('[EVIDENCE] Anonymous list error:', err.message);
+    return res.status(500).json({ error: 'Failed to fetch evidence list' });
   }
 };
 
@@ -140,7 +205,7 @@ const downloadEvidence = async (req, res) => {
   try {
     // Get case to check ownership
     const [caseRows] = await pool.execute(
-      `SELECT case_id, user_id FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
+      `SELECT case_id, user_id, assigned_investigator FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
       [caseId]
     );
 
@@ -222,4 +287,4 @@ const downloadEvidence = async (req, res) => {
   }
 };
 
-module.exports = { uploadEvidence, listEvidence, downloadEvidence };
+module.exports = { uploadEvidence, uploadAnonymousEvidence, listEvidence, listAnonymousEvidence, downloadEvidence };

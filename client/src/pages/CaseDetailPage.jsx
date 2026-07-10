@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import {
   ArrowLeft, FileText, Lock, Send, User,
-  Paperclip, Download, Edit3, Shield, AlertTriangle, Info, Zap
+  Paperclip, Download, Edit3, Shield, AlertTriangle, Info, Zap, Upload
 } from 'lucide-react';
 
 import {
@@ -687,6 +687,19 @@ export default function CaseDetailPage() {
                 style={{ color: 'var(--color-navy-900)' }}>
                 <Paperclip size={14} /> Evidence Files ({evidence.length})
               </h3>
+              {(canManageOwnRequest || isAssignedToMe || isSenior) && (
+                <label className="btn btn-outline w-full text-xs mb-3 cursor-pointer">
+                  {uploadingEvidence ? <span className="spinner" /> : <Upload size={13} />}
+                  {uploadingEvidence ? 'Uploading...' : 'Add Evidence'}
+                  <input
+                    type="file"
+                    className="hidden"
+                    disabled={uploadingEvidence}
+                    onChange={uploadEvidence}
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                  />
+                </label>
+              )}
               {evidence.length === 0 ? (
                 <p className="text-xs text-slate-400 text-center py-3">No evidence attached</p>
               ) : (

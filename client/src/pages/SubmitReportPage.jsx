@@ -104,12 +104,17 @@ export default function SubmitReportPage() {
       for (const file of files) {
         const formData = new FormData();
         formData.append('file', file);
-        await api.post(`/cases/${caseRes.data.case_id || 'unknown'}/evidence`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            Authorization: `Bearer ${token}`,
-          },
-        }).catch(() => {});
+        if (isStaffAuthenticated) {
+          await api.post(`/cases/${caseRes.data.case_id}/evidence`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          }).catch(() => {});
+        } else {
+          formData.append('reference_id', caseRes.data.reference_id);
+          formData.append('verification_token', caseRes.data.verification_token);
+          await api.post('/cases/anonymous/evidence', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          }).catch(() => {});
+        }
       }
 
       setSubmitted({

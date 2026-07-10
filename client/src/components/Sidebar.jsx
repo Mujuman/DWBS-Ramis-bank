@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, FileText, BarChart3, Users,
-  ClipboardList, Settings, ChevronRight
+  ClipboardList, ChevronRight
 } from 'lucide-react';
 
 const navItems = [
@@ -10,7 +10,13 @@ const navItems = [
     path: '/dashboard',
     label: 'Dashboard',
     icon: LayoutDashboard,
-    roles: ['Employee', 'Branch_Manager', 'Investigator', 'CEO', 'System_Admin'],
+    roles: ['Investigator', 'CEO', 'System_Admin'],
+  },
+  {
+    path: '/report',
+    label: 'Submit Report',
+    icon: FileText,
+    roles: ['Employee', 'Branch_Manager'],
   },
   {
     path: '/cases',
@@ -45,7 +51,7 @@ const navItems = [
 ];
 
 export default function Sidebar({ open }) {
-  const { user, hasRole } = useAuth();
+  const { user } = useAuth();
 
   const visibleItems = navItems.filter(item =>
     !item.roles || (user && item.roles.includes(user.role))

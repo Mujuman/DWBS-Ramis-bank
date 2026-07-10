@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import api from '../services/api';
-import { Search, Clock, CheckCircle, AlertTriangle, MessageSquare, ChevronRight, Edit3, Trash2, X } from 'lucide-react';
+import { Search, Clock, CheckCircle, AlertTriangle, MessageSquare, ChevronRight, Edit3, Trash2, X, Upload, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { STATUS_BADGE, formatStatus } from '../constants/caseWorkflow';
@@ -47,6 +47,10 @@ export default function TrackCasePage() {
   const [replyBody, setReplyBody] = useState('');
   const [replyRecipient, setReplyRecipient] = useState('Investigator');
   const [replyLoading, setReplyLoading] = useState(false);
+  const [evidenceToken, setEvidenceToken] = useState('');
+  const [evidenceFile, setEvidenceFile] = useState(null);
+  const [evidence, setEvidence] = useState([]);
+  const [evidenceLoading, setEvidenceLoading] = useState(false);
 
   const getCorrespondenceLabel = (note) => {
     if (note.author_label) return note.author_label;
@@ -84,10 +88,13 @@ export default function TrackCasePage() {
     try {
       const res = await api.get('/cases/track', { params: { reference_id: reference_id.toUpperCase().trim() } });
       setResult(res.data);
+      setEvidence([]);
+      setEvidenceFile(null);
       const hasInvestigatorMessage = res.data.correspondence?.some(note => note.sender_role === 'Investigator');
       const hasComplianceMessage = res.data.correspondence?.some(note => note.sender_role === 'Compliance_Officer');
       setReplyRecipient(hasInvestigatorMessage ? 'Investigator' : hasComplianceMessage ? 'Compliance_Officer' : 'Investigator');
       setEditCategory(res.data.case.category);
+      setEditLocation(res.data.case.branch_or_dept || '');
     } catch (err) {
       setError(err.response?.data?.error || 'No case found with that reference ID');
     } finally {
@@ -112,6 +119,7 @@ export default function TrackCasePage() {
         verification_token: editToken.trim(),
         category: editCategory,
         description: editDescription || undefined,
+        branch_or_dept: editLocation || undefined,
       });
       toast.success('Report updated successfully!');
       setIsEditModalOpen(false);
@@ -191,6 +199,57 @@ export default function TrackCasePage() {
     if (note.sender_role === 'Compliance_Officer' && !roles.includes('Compliance_Officer')) roles.push('Compliance_Officer');
     return roles;
   }, []) || [];
+
+  const loadAnonymousEvidence = async (token = evidenceToken) => {
+    if (!token) {
+      toast.error('Verification token is required');
+      return;
+    }
+    setEvidenceLoading(true);
+    try {
+      const res = await api.get('/cases/anonymous/evidence', {
+        params: {
+          reference_id: result.case.reference_id,
+          verification_token: token.trim(),
+        },
+      });
+      setEvidence(res.data.evidence || []);
+      toast.success('Evidence list updated');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to load evidence');
+    } finally {
+      setEvidenceLoading(false);
+    }
+  };
+
+  const handleAnonymousEvidenceSubmit = async (e) => {
+    e.preventDefault();
+    if (!evidenceToken) {
+      toast.error('Verification token is required');
+      return;
+    }
+    if (!evidenceFile) {
+      toast.error('Choose an evidence file to upload');
+      return;
+    }
+    setEvidenceLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('reference_id', result.case.reference_id);
+      formData.append('verification_token', evidenceToken.trim());
+      formData.append('file', evidenceFile);
+      await api.post('/cases/anonymous/evidence', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      toast.success('Evidence uploaded');
+      setEvidenceFile(null);
+      await loadAnonymousEvidence(evidenceToken);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Evidence upload failed');
+    } finally {
+      setEvidenceLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen pt-16 pb-12" style={{ background: 'var(--color-slate-50)' }}>
@@ -273,6 +332,12 @@ export default function TrackCasePage() {
                   </p>
                 </div>
                 <div className="p-3 rounded-lg" style={{ background: 'var(--color-slate-50)' }}>
+                  <p className="text-xs text-slate-400 mb-1">Branch / Department</p>
+                  <p className="text-sm font-semibold text-slate-700">
+                    {result.case.branch_or_dept || 'General'}
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg" style={{ background: 'var(--color-slate-50)' }}>
                   <p className="text-xs text-slate-400 mb-1">Last Updated</p>
                   <p className="text-sm font-semibold text-slate-700">
                     {format(new Date(result.case.updated_at), 'MMM d, yyyy')}
@@ -294,6 +359,59 @@ export default function TrackCasePage() {
                   <Trash2 size={14} /> Delete Report
                 </button>
               </div>
+            </div>
+
+            {/* Evidence Management */}
+            <div className="card p-6">
+              <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: 'var(--color-navy-900)' }}>
+                <Upload size={16} /> Evidence
+              </h3>
+              <form onSubmit={handleAnonymousEvidenceSubmit} className="space-y-4">
+                <div>
+                  <label className="form-label font-semibold">Verification Token</label>
+                  <input
+                    type="text"
+                    value={evidenceToken}
+                    onChange={(e) => setEvidenceToken(e.target.value)}
+                    className="form-input font-mono"
+                    placeholder="Enter your secret token"
+                  />
+                </div>
+                <div>
+                  <label className="form-label font-semibold">Additional Evidence</label>
+                  <input
+                    type="file"
+                    className="form-input"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                    onChange={(e) => setEvidenceFile(e.target.files?.[0] || null)}
+                  />
+                  {evidenceFile && (
+                    <p className="text-xs text-slate-500 mt-1">{evidenceFile.name}</p>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button type="submit" className="btn btn-primary px-5 py-2" disabled={evidenceLoading}>
+                    {evidenceLoading ? 'Uploading...' : 'Upload Evidence'}
+                  </button>
+                  <button type="button" className="btn btn-ghost px-5 py-2" disabled={evidenceLoading} onClick={() => loadAnonymousEvidence()}>
+                    View Evidence
+                  </button>
+                </div>
+              </form>
+
+              {evidence.length > 0 && (
+                <ul className="mt-5 space-y-2">
+                  {evidence.map(file => (
+                    <li key={file.id} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: 'var(--color-slate-50)' }}>
+                      <FileText size={15} className="text-slate-400 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-700 truncate">{file.original_filename}</p>
+                        <p className="text-xs text-slate-400">{format(new Date(file.uploaded_at), 'MMM d, yyyy')}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             {/* Status Timeline */}
@@ -497,7 +615,16 @@ export default function TrackCasePage() {
                 />
               </div>
 
-
+              <div>
+                <label className="form-label font-semibold">Branch / Department</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Enter updated branch or department"
+                  value={editLocation}
+                  onChange={(e) => setEditLocation(e.target.value)}
+                />
+              </div>
 
               <div className="flex gap-3 justify-end pt-4">
                 <button

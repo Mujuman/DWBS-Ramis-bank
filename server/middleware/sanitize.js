@@ -106,6 +106,12 @@ const validateEditCaseAnonymous = [
     .isLength({ min: 20, max: 10000 }).withMessage('Description must be 20–10,000 characters'),
 ];
 
+const validateAnonEditBranch = body('branch_or_dept')
+  .optional()
+  .isLength({ min: 2, max: 100 }).withMessage('Branch or department must be 2-100 characters');
+
+validateEditCaseAnonymous.push(validateAnonEditBranch);
+
 const validateCreateAnonNote = [
   body('reference_id')
     .notEmpty().withMessage('Reference ID is required')

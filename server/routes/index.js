@@ -154,6 +154,17 @@ router.post('/cases/:id/request-manager-help',
 
 // ── Evidence Routes ───────────────────────────────────────────
 
+router.post('/cases/anonymous/evidence',
+  upload.single('file'),
+  handleUploadErrors,
+  processAndSaveFile,
+  evidenceController.uploadAnonymousEvidence
+);
+
+router.get('/cases/anonymous/evidence',
+  evidenceController.listAnonymousEvidence
+);
+
 router.post('/cases/:id/evidence',
   authenticateAny,
   upload.single('file'),
@@ -164,7 +175,6 @@ router.post('/cases/:id/evidence',
 
 router.get('/cases/:id/evidence',
   authenticateStaff,
-  requireRole('Investigator', 'Compliance_Officer', 'CEO'),
   evidenceController.listEvidence
 );
 

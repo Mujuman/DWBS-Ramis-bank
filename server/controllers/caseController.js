@@ -538,7 +538,7 @@ const trackCase = async (req, res) => {
 
   try {
     const [rows] = await pool.execute(
-      `SELECT case_id, reference_id, category, status, severity_level, created_at, updated_at
+      `SELECT case_id, reference_id, category, status, severity_level, branch_or_dept, created_at, updated_at
        FROM cases WHERE reference_id = ? AND deleted_at IS NULL`,
       [reference_id.toUpperCase().trim()]
     );
@@ -579,6 +579,7 @@ const trackCase = async (req, res) => {
       case: {
         reference_id: caseData.reference_id,
         category: caseData.category,
+        branch_or_dept: caseData.branch_or_dept,
         status: caseData.status,
         priority: caseData.severity_level,
         created_at: caseData.created_at,
@@ -965,7 +966,7 @@ const escalateCase = async (req, res) => {
  * Requires reference_id and correct verification_token.
  */
 const editCaseAnonymous = async (req, res) => {
-  const { reference_id, verification_token, category, description } = req.body;
+  const { reference_id, verification_token, category, description, branch_or_dept } = req.body;
 
   try {
     const [rows] = await pool.execute(
@@ -994,6 +995,10 @@ const editCaseAnonymous = async (req, res) => {
       updates.push('description = ?');
       params.push(description);
     }
+    if (branch_or_dept) {
+      updates.push('branch_or_dept = ?');
+      params.push(branch_or_dept);
+    }
 
     if (updates.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
@@ -1010,7 +1015,7 @@ const editCaseAnonymous = async (req, res) => {
       performedByType: 'anonymous',
       metadata: {
         reference_id,
-        updated_fields: Object.keys(req.body).filter(k => ['category', 'description'].includes(k))
+        updated_fields: Object.keys(req.body).filter(k => ['category', 'description', 'branch_or_dept'].includes(k))
       },
     });
 
