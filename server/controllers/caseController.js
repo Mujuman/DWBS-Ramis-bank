@@ -49,8 +49,9 @@ const createCase = async (req, res) => {
       if (existing.length === 0) isUnique = true;
     }
 
-    const reporterType = identity.type === 'staff' ? 'Authenticated' : 'Anonymous';
-    const userId = identity.type === 'staff' ? identity.id : null;
+    const reporterType = identity && identity.type === 'staff' ? 'Authenticated' : 'Anonymous';
+    const userId = identity && identity.type === 'staff' ? identity.id : null;
+    const anonSessionId = identity && identity.type === 'anonymous' ? identity.id : null;
     const verificationToken = generateSecureToken(32);
     
     // Automatic severity classification based on category
@@ -59,14 +60,15 @@ const createCase = async (req, res) => {
 
     const [result] = await pool.execute(
       `INSERT INTO cases
-        (reference_id, verification_token, reporter_type, user_id, category,
+        (reference_id, verification_token, reporter_type, user_id, anon_session_id, category,
          branch_or_dept, severity_level, description, status, is_escalated)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'New', ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'New', ?)`,
       [
         referenceId,
         verificationToken,
         reporterType,
         userId,
+        anonSessionId,
         category,
         branch_or_dept || 'General',
         initialSeverity,
@@ -538,7 +540,7 @@ const trackCase = async (req, res) => {
 
   try {
     const [rows] = await pool.execute(
-      `SELECT case_id, reference_id, category, status, severity_level, branch_or_dept, created_at, updated_at
+      `SELECT case_id, reference_id, category, status, severity_level, branch_or_dept, description, created_at, updated_at
        FROM cases WHERE reference_id = ? AND deleted_at IS NULL`,
       [reference_id.toUpperCase().trim()]
     );
@@ -596,6 +598,7 @@ const trackCase = async (req, res) => {
         branch_or_dept: caseData.branch_or_dept,
         status: caseData.status,
         priority: caseData.severity_level,
+        description: caseData.description,
         created_at: caseData.created_at,
         updated_at: caseData.updated_at,
       },
@@ -604,6 +607,62 @@ const trackCase = async (req, res) => {
   } catch (err) {
     console.error('[CASE] Track error:', err.message);
     return res.status(500).json({ error: 'Failed to track case' });
+  }
+};
+
+/**
+ * GET /api/cases/anonymous
+ * Returns full case details (including description) for anonymous reporters
+ * when they provide the correct `reference_id` and `verification_token`.
+ */
+const getAnonymousCaseDetails = async (req, res) => {
+  const { reference_id, verification_token } = req.query;
+
+  if (!reference_id || !verification_token) {
+    return res.status(400).json({ error: 'reference_id and verification_token are required' });
+  }
+
+  try {
+    const [rows] = await pool.execute(
+      `SELECT case_id, reference_id, verification_token, category, branch_or_dept, status, severity_level, description, created_at, updated_at
+       FROM cases WHERE reference_id = ? AND deleted_at IS NULL`,
+      [String(reference_id || '').toUpperCase().trim()]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'No case found with that reference ID' });
+    }
+
+    const caseData = rows[0];
+    if (caseData.verification_token !== verification_token) {
+      return res.status(401).json({ error: 'Invalid verification token' });
+    }
+
+    // Return fuller details including description so the anonymous reporter
+    // can pre-fill the edit form safely.
+    const formatted = {
+      reference_id: caseData.reference_id,
+      category: caseData.category,
+      branch_or_dept: caseData.branch_or_dept,
+      status: caseData.status,
+      priority: caseData.severity_level,
+      description: caseData.description,
+      created_at: caseData.created_at,
+      updated_at: caseData.updated_at,
+    };
+
+    await writeAuditLog({
+      userId: null,
+      caseId: caseData.case_id,
+      action: 'ANON_CASE_DETAILS_VIEWED',
+      performedByType: 'anonymous',
+      metadata: { reference_id: caseData.reference_id },
+    });
+
+    return res.status(200).json({ case: formatted });
+  } catch (err) {
+    console.error('[CASE] Anonymous details error:', err.message);
+    return res.status(500).json({ error: 'Failed to fetch case details' });
   }
 };
 
@@ -1136,5 +1195,6 @@ module.exports = {
   escalateCase,
   editCaseAnonymous,
   deleteCaseAnonymous,
+  getAnonymousCaseDetails,
   requestManagerHelp
 };

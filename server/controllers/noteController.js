@@ -122,6 +122,14 @@ const createNote = async (req, res) => {
       return res.status(404).json({ error: 'Case not found' });
     }
 
+    // If the caller is an anonymous session, ensure it is the session that created the case
+    if (identity && identity.type === 'anonymous') {
+      const [caseRow] = await pool.execute(`SELECT anon_session_id FROM cases WHERE case_id = ?`, [caseId]);
+      if (caseRow.length === 0 || caseRow[0].anon_session_id !== identity.id) {
+        return res.status(403).json({ error: 'Access denied: anonymous session not authorized for this case.' });
+      }
+    }
+
     // Anonymous reporters cannot post internal notes
     const isInternal = identity.type === 'staff' ? (is_internal_only === true || is_internal_only === 'true') : false;
 

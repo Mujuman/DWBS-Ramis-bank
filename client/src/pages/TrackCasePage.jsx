@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import api from '../services/api';
-import { Search, Clock, CheckCircle, AlertTriangle, MessageSquare, ChevronRight, Edit3, Trash2, X, Upload, FileText } from 'lucide-react';
+import { Search, Clock, CheckCircle, AlertTriangle, MessageSquare, ChevronRight, Edit3, Trash2, X, Upload, FileText, Type, Bold, Italic, Underline, Heading, List, Code, Strikethrough } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { STATUS_BADGE, formatStatus } from '../constants/caseWorkflow';
@@ -94,6 +94,7 @@ export default function TrackCasePage() {
       const hasComplianceMessage = res.data.correspondence?.some(note => note.sender_role === 'Compliance_Officer');
       setReplyRecipient(hasInvestigatorMessage ? 'Investigator' : hasComplianceMessage ? 'Compliance_Officer' : 'Investigator');
       setEditCategory(res.data.case.category);
+      setEditDescription(res.data.case.description || '');
       setEditLocation(res.data.case.branch_or_dept || '');
     } catch (err) {
       setError(err.response?.data?.error || 'No case found with that reference ID');
@@ -222,6 +223,28 @@ export default function TrackCasePage() {
     }
   };
 
+  const deleteAnonymousEvidence = async (fileId) => {
+    if (!evidenceToken) {
+      toast.error('Verification token is required to delete evidence');
+      return;
+    }
+    setEvidenceLoading(true);
+    try {
+      await api.delete(`/cases/anonymous/evidence/${fileId}`, {
+        data: {
+          reference_id: result.case.reference_id,
+          verification_token: evidenceToken.trim(),
+        },
+      });
+      toast.success('Evidence deleted successfully');
+      await loadAnonymousEvidence(evidenceToken);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to delete evidence');
+    } finally {
+      setEvidenceLoading(false);
+    }
+  };
+
   const handleAnonymousEvidenceSubmit = async (e) => {
     e.preventDefault();
     if (!evidenceToken) {
@@ -342,6 +365,14 @@ export default function TrackCasePage() {
                   </p>
                 </div>
               </div>
+              {result.case.description && (
+                <div className="mt-6 p-4 rounded-xl" style={{ background: 'var(--color-slate-50)' }}>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Current Description</p>
+                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                    {result.case.description}
+                  </p>
+                </div>
+              )}
               <div className="border-t border-slate-100 mt-6 pt-4 flex gap-3 justify-end">
                 <button
                   onClick={() => setIsEditModalOpen(true)}
@@ -400,11 +431,26 @@ export default function TrackCasePage() {
               {evidence.length > 0 && (
                 <ul className="mt-5 space-y-2">
                   {evidence.map(file => (
-                    <li key={file.id} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: 'var(--color-slate-50)' }}>
-                      <FileText size={15} className="text-slate-400 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-700 truncate">{file.original_filename}</p>
-                        <p className="text-xs text-slate-400">{format(new Date(file.uploaded_at), 'MMM d, yyyy')}</p>
+                    <li key={file.id} className="flex flex-col gap-2 p-3 rounded-lg" style={{ background: 'var(--color-slate-50)' }}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <FileText size={15} className="text-slate-400 flex-shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-slate-700 truncate">{file.original_filename}</p>
+                            <p className="text-xs text-slate-400">{format(new Date(file.uploaded_at), 'MMM d, yyyy')}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            className="btn btn-danger px-3 py-2 text-sm rounded-full shadow-sm transition-all duration-150 hover:shadow-lg"
+                            onClick={() => deleteAnonymousEvidence(file.id)}
+                            disabled={evidenceLoading}
+                          >
+                            <Trash2 size={14} />
+                            Delete
+                          </button>
+                        </div>
                       </div>
                     </li>
                   ))}
@@ -604,7 +650,16 @@ export default function TrackCasePage() {
               </div>
 
               <div>
-                <label className="form-label font-semibold">Updated Description (Min 20 chars)</label>
+                <label className="form-label font-semibold">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-2">
+                      <Edit3 size={14} /> Updated Description Rich Text Editor (Min 20 chars)
+                    </span>
+                    <span className="inline-flex items-center gap-2 text-slate-400">
+                      <Type size={14} /> <Bold size={14} /> <Italic size={14} /> <Underline size={14} /> <Heading size={14} /> <List size={14} /> <Code size={14} /> <Strikethrough size={14} />
+                    </span>
+                  </div>
+                </label>
                 <textarea
                   className="form-input min-h-[120px]"
                   placeholder="Enter updated incident description..."

@@ -6,7 +6,8 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import {
   ArrowLeft, FileText, Lock, Send, User,
-  Paperclip, Download, Edit3, Shield, AlertTriangle, Info, Zap, Upload
+  Paperclip, Download, Edit3, Shield, AlertTriangle, Info, Zap, Upload,
+  Type, Bold, Italic, Underline, Heading, List, Code, Strikethrough
 } from 'lucide-react';
 
 import {
@@ -562,7 +563,16 @@ export default function CaseDetailPage() {
                   {canManageOwnRequest ? (
                     <>
                       <div>
-                        <label className="form-label text-xs">Description</label>
+                        <label className="form-label text-xs">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="inline-flex items-center gap-2 text-slate-700">
+                              <Edit3 size={12} /> Description Rich Text Editor
+                            </span>
+                            <span className="inline-flex items-center gap-2 text-slate-400">
+                              <Type size={12} /> <Bold size={12} /> <Italic size={12} /> <Underline size={12} /> <Heading size={12} /> <List size={12} /> <Code size={12} /> <Strikethrough size={12} />
+                            </span>
+                          </div>
+                        </label>
                         <textarea
                           className="form-textarea text-sm"
                           rows={4}

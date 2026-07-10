@@ -7,7 +7,8 @@ import toast from 'react-hot-toast';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import {
   Shield, CheckCircle, ChevronRight, ChevronLeft,
-  Upload, X, AlertTriangle, Lock, FileText, Copy
+  Upload, X, AlertTriangle, Lock, FileText, Copy, Edit3,
+  Type, Bold, Italic, Underline, Heading, List, Code, Strikethrough
 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 
@@ -100,6 +101,12 @@ export default function SubmitReportPage() {
         : await api.post('/cases', payload, {
             headers: token ? { Authorization: `Bearer ${token}` } : {},
           });
+
+      setSubmitted({
+        case_id: caseRes.data.case_id,
+        reference_id: caseRes.data.reference_id,
+        verification_token: caseRes.data.verification_token,
+      });
 
       const uploadErrors = [];
       for (const file of files) {
@@ -367,7 +374,16 @@ export default function SubmitReportPage() {
               </div>
 
               <div>
-                <label className="form-label">Description of Misconduct *</label>
+                <label className="form-label">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-2 font-semibold text-slate-800">
+                      <Edit3 size={14} /> Misconduct Rich Text Editor *
+                    </span>
+                    <span className="inline-flex items-center gap-2 text-slate-400">
+                      <Type size={14} /> <Bold size={14} /> <Italic size={14} /> <Underline size={14} /> <Heading size={14} /> <List size={14} /> <Code size={14} /> <Strikethrough size={14} />
+                    </span>
+                  </div>
+                </label>
                 <textarea
                   className="form-textarea"
                   rows={6}

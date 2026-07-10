@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const rateLimit = require('express-rate-limit');
 
 const { authenticateStaff, authenticateAnonymous, requireRole, authenticateAny } = require('../middleware/auth');
 const { sanitizeRequestBody, handleValidationErrors,
@@ -15,18 +14,8 @@ const evidenceController = require('../controllers/evidenceController');
 const noteController = require('../controllers/noteController');
 const notificationController = require('../controllers/notificationController');
 
-// ── Strict rate limiter for auth endpoints ────────────────────
-const authLimiter = process.env.DISABLE_RATE_LIMIT === 'true' ? (_req, _res, next) => next() : rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: parseInt(process.env.STRICT_RATE_LIMIT_MAX) || 1000,
-  message: { error: 'Too many attempts. Please wait 15 minutes.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
 // ── Auth Routes ───────────────────────────────────────────────
 router.post('/auth/anonymous',
-  authLimiter,
   sanitizeRequestBody,
   validateAnonSession,
   handleValidationErrors,
@@ -34,7 +23,6 @@ router.post('/auth/anonymous',
 );
 
 router.post('/auth/login',
-  authLimiter,
   sanitizeRequestBody,
   validateLogin,
   handleValidationErrors,
@@ -44,7 +32,6 @@ router.post('/auth/login',
 // Development-only registration endpoint
 if (process.env.NODE_ENV === 'development') {
   router.post('/auth/register',
-    authLimiter,
     sanitizeRequestBody,
     authController.registerUser
   );
@@ -83,6 +70,11 @@ router.delete('/cases/anonymous',
   validateDeleteCaseAnonymous,
   handleValidationErrors,
   caseController.deleteCaseAnonymous
+);
+
+// Anonymous get full case details (requires reference_id + verification_token)
+router.get('/cases/anonymous',
+  caseController.getAnonymousCaseDetails
 );
 
 // Executive stats (CEO, Compliance_Officer, System_Admin)
@@ -167,6 +159,11 @@ router.get('/cases/anonymous/evidence',
 
 router.get('/cases/anonymous/evidence/:fileId/download',
   evidenceController.downloadAnonymousEvidence
+);
+
+router.delete('/cases/anonymous/evidence/:fileId',
+  sanitizeRequestBody,
+  evidenceController.deleteAnonymousEvidence
 );
 
 router.post('/cases/:id/evidence',

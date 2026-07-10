@@ -71,20 +71,29 @@ const uploadEvidence = async (req, res) => {
 
   try {
     const [cases] = await pool.execute(
-      `SELECT case_id, user_id, assigned_investigator FROM cases WHERE case_id = ? AND deleted_at IS NULL`, [caseId]
+      `SELECT case_id, user_id, assigned_investigator, anon_session_id FROM cases WHERE case_id = ? AND deleted_at IS NULL`, [caseId]
     );
     if (cases.length === 0) {
       return res.status(404).json({ error: 'Case not found' });
     }
 
     const caseData = cases[0];
-    const isOwner = user?.userId && caseData.user_id === user.userId;
+      const isOwner = user?.userId && caseData.user_id === user.userId;
     const isAssignedInvestigator = user?.userId && user.role === 'Investigator' && caseData.assigned_investigator === user.userId;
     const isCompliance = user?.role === 'Compliance_Officer';
 
-    if (!isOwner && !isAssignedInvestigator && !isCompliance) {
-      return res.status(403).json({ error: 'Access denied to upload evidence for this case.' });
-    }
+      // If the caller is an anonymous session (authenticateAny set req.identity), ensure
+      // the anonymous session that created the case is the same as the session making this request.
+      if (req.identity && req.identity.type === 'anonymous') {
+        // caseData may include anon_session_id column if DB migrated
+        if (!caseData.anon_session_id || caseData.anon_session_id !== req.identity.id) {
+          return res.status(403).json({ error: 'Access denied: anonymous session not authorized for this case.' });
+        }
+      }
+
+      if (!isOwner && !isAssignedInvestigator && !isCompliance) {
+        return res.status(403).json({ error: 'Access denied to upload evidence for this case.' });
+      }
 
     const savedFile = await saveEvidenceRecord({
       caseId,
@@ -153,7 +162,7 @@ const listAnonymousEvidence = async (req, res) => {
       `SELECT file_id AS id, file_name AS original_filename, uploaded_at${hasMimeType ? ', mime_type' : ''}
        FROM evidencefiles
        WHERE case_id = ?
-       ORDER BY uploaded_at ASC`,
+       ORDER BY uploaded_at DESC`,
       [lookup.caseData.case_id]
     );
 
@@ -404,4 +413,63 @@ const downloadAnonymousEvidence = async (req, res) => {
   }
 };
 
-module.exports = { uploadEvidence, uploadAnonymousEvidence, listEvidence, listAnonymousEvidence, downloadEvidence, downloadAnonymousEvidence };
+/**
+ * DELETE /api/cases/anonymous/evidence/:fileId
+ * Allows anonymous reporters (with reference_id + verification_token) to delete a file
+ * they previously uploaded to their case.
+ */
+const deleteAnonymousEvidence = async (req, res) => {
+  const { reference_id, verification_token } = req.body;
+  const fileId = parseInt(req.params.fileId);
+
+  if (!reference_id || !verification_token) {
+    return res.status(400).json({ error: 'reference_id and verification_token are required' });
+  }
+
+  try {
+    const lookup = await getAnonymousCaseByToken(reference_id, verification_token);
+    if (lookup.error) return res.status(lookup.status).json({ error: lookup.error });
+
+    const caseId = lookup.caseData.case_id;
+    const hasMimeType = await hasEvidenceMimeTypeColumn();
+    const [rows] = await pool.execute(
+      `SELECT file_id, file_path, file_name FROM evidencefiles WHERE file_id = ? AND case_id = ?`,
+      [fileId, caseId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Evidence file not found' });
+    }
+
+    const file = rows[0];
+    let filePath = file.file_path;
+    if (!path.isAbsolute(filePath)) {
+      filePath = path.resolve(UPLOAD_DIR, path.basename(filePath));
+    }
+
+    // Delete DB record first
+    await pool.execute(`DELETE FROM evidencefiles WHERE file_id = ?`, [fileId]);
+
+    // Try removing file from disk, but don't fail if it is missing
+    try {
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    } catch (fsErr) {
+      console.error('[EVIDENCE] Anonymous delete file error:', fsErr.message, filePath);
+    }
+
+    await writeAuditLog({
+      userId: null,
+      caseId,
+      action: 'EVIDENCE_DELETED_ANON',
+      performedByType: 'anonymous',
+      metadata: { file_id: fileId, filename: file.file_name },
+    });
+
+    return res.status(200).json({ message: 'Evidence file deleted' });
+  } catch (err) {
+    console.error('[EVIDENCE] Anonymous delete error:', err.message);
+    return res.status(500).json({ error: 'Failed to delete evidence file' });
+  }
+};
+
+module.exports = { uploadEvidence, uploadAnonymousEvidence, listEvidence, listAnonymousEvidence, downloadEvidence, downloadAnonymousEvidence, deleteAnonymousEvidence };

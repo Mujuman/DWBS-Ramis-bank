@@ -78,6 +78,17 @@ const testConnection = async () => {
       console.error('[DB] Schema migration check failed for evidencefiles.mime_type:', migErr.message);
     }
 
+    // Automatic schema migration: add anon_session_id to cases for anonymous session binding
+    try {
+      const [cols] = await pool.execute("SHOW COLUMNS FROM cases LIKE 'anon_session_id'");
+      if (cols.length === 0) {
+        await pool.execute("ALTER TABLE cases ADD COLUMN anon_session_id int(11) DEFAULT NULL");
+        console.log('[DB] Migration: Added anon_session_id column to cases table');
+      }
+    } catch (migErr) {
+      console.error('[DB] Schema migration check failed for cases.anon_session_id:', migErr.message);
+    }
+
     // Automatic schema migration: create notifications table
     try {
       const [tables] = await pool.execute("SHOW TABLES LIKE 'notifications'");
