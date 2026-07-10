@@ -101,20 +101,28 @@ export default function SubmitReportPage() {
             headers: token ? { Authorization: `Bearer ${token}` } : {},
           });
 
+      const uploadErrors = [];
       for (const file of files) {
         const formData = new FormData();
         formData.append('file', file);
-        if (isStaffAuthenticated) {
-            await api.post(`/cases/${caseRes.data.case_id}/evidence`, formData).catch(() => {});
+        try {
+          if (isStaffAuthenticated) {
+            await api.post(`/cases/${caseRes.data.case_id}/evidence`, formData);
           } else {
             formData.append('reference_id', caseRes.data.reference_id);
             formData.append('verification_token', caseRes.data.verification_token);
-            await api.post('/cases/anonymous/evidence', formData).catch(() => {});
-        reference_id: caseRes.data.reference_id,
-        verification_token: caseRes.data.verification_token,
-        created_at: new Date().toISOString()
-      });
-      toast.success('Report submitted successfully!');
+            await api.post('/cases/anonymous/evidence', formData);
+          }
+        } catch (err) {
+          uploadErrors.push(err.response?.data?.error || err.message || 'Evidence upload failed');
+        }
+      }
+
+      if (uploadErrors.length > 0) {
+        toast.error(`Report submitted, but evidence upload failed: ${uploadErrors.join('; ')}`);
+      } else {
+        toast.success('Report submitted successfully!');
+      }
     } catch (err) {
       toast.error(err.response?.data?.error || 'Submission failed. Please try again.');
     } finally {

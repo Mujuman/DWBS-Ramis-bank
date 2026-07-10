@@ -204,6 +204,19 @@ export default function CaseDetailPage() {
       });
       const mime = response.headers['content-type'] || response.headers['Content-Type'] || '';
       const blob = new Blob([response.data], { type: mime });
+
+      // If the server returned JSON (error payload) as a blob, parse and display the error
+      if (mime.includes('application/json')) {
+        try {
+          const text = await blob.text();
+          const parsed = JSON.parse(text);
+          toast.error(parsed.error || 'Download failed');
+          return;
+        } catch (_) {
+          toast.error('Download failed');
+          return;
+        }
+      }
       const url = window.URL.createObjectURL(blob);
 
       // Preview inline for images, video, and PDFs; otherwise force download

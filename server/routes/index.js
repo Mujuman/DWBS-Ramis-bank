@@ -165,6 +165,10 @@ router.get('/cases/anonymous/evidence',
   evidenceController.listAnonymousEvidence
 );
 
+router.get('/cases/anonymous/evidence/:fileId/download',
+  evidenceController.downloadAnonymousEvidence
+);
+
 router.post('/cases/:id/evidence',
   authenticateAny,
   upload.single('file'),

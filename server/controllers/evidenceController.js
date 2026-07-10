@@ -5,6 +5,18 @@ const fs = require('fs');
 const crypto = require('crypto');
 
 const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
+const evidenceSchemaCache = { hasMimeType: null };
+
+const hasEvidenceMimeTypeColumn = async () => {
+  if (evidenceSchemaCache.hasMimeType !== null) return evidenceSchemaCache.hasMimeType;
+  try {
+    const [columns] = await pool.execute("SHOW COLUMNS FROM evidencefiles LIKE 'mime_type'");
+    evidenceSchemaCache.hasMimeType = columns.length > 0;
+  } catch (err) {
+    evidenceSchemaCache.hasMimeType = false;
+  }
+  return evidenceSchemaCache.hasMimeType;
+};
 
 const decryptBuffer = (encryptedBuffer, ivHex) => {
   const key = Buffer.from(process.env.FILE_ENC_KEY, 'hex');
@@ -18,12 +30,21 @@ const saveEvidenceRecord = async ({ caseId, file, uploadedBy = null, auditUserId
   const filePath = file.processed?.storedFilename || file.raw?.filename || file.raw?.path;
   const encryptionIv = file.processed?.encryptionIv || null;
   const mimeType = file.processed?.mimeType || file.raw?.mimetype || 'application/octet-stream';
+  const hasMimeType = await hasEvidenceMimeTypeColumn();
 
-  await pool.execute(
-    `INSERT INTO evidencefiles (case_id, file_name, file_path, encryption_iv, uploaded_by, mime_type)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [caseId, fileName, filePath, encryptionIv, uploadedBy, mimeType]
-  );
+  if (hasMimeType) {
+    await pool.execute(
+      `INSERT INTO evidencefiles (case_id, file_name, file_path, encryption_iv, uploaded_by, mime_type)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [caseId, fileName, filePath, encryptionIv, uploadedBy, mimeType]
+    );
+  } else {
+    await pool.execute(
+      `INSERT INTO evidencefiles (case_id, file_name, file_path, encryption_iv, uploaded_by)
+       VALUES (?, ?, ?, ?, ?)`,
+      [caseId, fileName, filePath, encryptionIv, uploadedBy]
+    );
+  }
 
   await writeAuditLog({
     userId: auditUserId,
@@ -127,15 +148,19 @@ const listAnonymousEvidence = async (req, res) => {
     const lookup = await getAnonymousCaseByToken(reference_id, verification_token);
     if (lookup.error) return res.status(lookup.status).json({ error: lookup.error });
 
+    const hasMimeType = await hasEvidenceMimeTypeColumn();
     const [files] = await pool.execute(
-      `SELECT file_id AS id, file_name AS original_filename, uploaded_at, mime_type
+      `SELECT file_id AS id, file_name AS original_filename, uploaded_at${hasMimeType ? ', mime_type' : ''}
        FROM evidencefiles
        WHERE case_id = ?
        ORDER BY uploaded_at ASC`,
       [lookup.caseData.case_id]
     );
 
-    return res.status(200).json({ evidence: files });
+    return res.status(200).json({ evidence: files.map(file => ({
+      ...file,
+      mime_type: file.mime_type || 'application/octet-stream',
+    })) });
   } catch (err) {
     console.error('[EVIDENCE] Anonymous list error:', err.message);
     return res.status(500).json({ error: 'Failed to fetch evidence list' });
@@ -159,9 +184,10 @@ const listEvidence = async (req, res) => {
       return res.status(404).json({ error: 'Case not found' });
     }
 
+    const hasMimeType = await hasEvidenceMimeTypeColumn();
     const [files] = await pool.execute(
       `SELECT file_id AS id, case_id, file_name AS original_filename,
-              file_path, uploaded_by, uploaded_at, mime_type
+              file_path, uploaded_by, uploaded_at${hasMimeType ? ', mime_type' : ''}
        FROM evidencefiles
        WHERE case_id = ?
        ORDER BY uploaded_at ASC`,
@@ -223,8 +249,10 @@ const downloadEvidence = async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
+    const hasMimeType = await hasEvidenceMimeTypeColumn();
     const [rows] = await pool.execute(
-      `SELECT file_id, case_id, file_name, file_path, encryption_iv, mime_type FROM evidencefiles WHERE file_id = ? AND case_id = ?`,
+      `SELECT file_id, case_id, file_name, file_path, encryption_iv${hasMimeType ? ', mime_type' : ''}
+       FROM evidencefiles WHERE file_id = ? AND case_id = ?`,
       [fileId, caseId]
     );
 
@@ -241,11 +269,18 @@ const downloadEvidence = async (req, res) => {
     }
 
     if (!fs.existsSync(filePath)) {
+      console.error('[EVIDENCE] Download error: file missing on disk', filePath);
       return res.status(404).json({ error: 'File not found on disk' });
     }
 
     // Read encrypted file from disk
-    const encryptedBuffer = fs.readFileSync(filePath);
+    let encryptedBuffer;
+    try {
+      encryptedBuffer = fs.readFileSync(filePath);
+    } catch (fsErr) {
+      console.error('[EVIDENCE] Read file error:', fsErr.message, filePath);
+      return res.status(500).json({ error: 'Failed to read evidence file from disk' });
+    }
     
     // Decrypt using stored IV
     let decryptedBuffer;
@@ -257,7 +292,10 @@ const downloadEvidence = async (req, res) => {
     try {
       decryptedBuffer = decryptBuffer(encryptedBuffer, file.encryption_iv);
     } catch (decryptErr) {
-      console.error('[EVIDENCE] Decryption error:', decryptErr.message);
+      console.error('[EVIDENCE] Decryption error:', decryptErr.message, { fileId: file.file_id });
+      if (process.env.NODE_ENV === 'development') {
+        return res.status(500).json({ error: `Failed to decrypt file: ${decryptErr.message}` });
+      }
       return res.status(500).json({ error: 'Failed to decrypt file' });
     }
 
@@ -288,3 +326,82 @@ const downloadEvidence = async (req, res) => {
 };
 
 module.exports = { uploadEvidence, uploadAnonymousEvidence, listEvidence, listAnonymousEvidence, downloadEvidence };
+// Anonymous download (for reporters using reference_id + verification_token)
+const downloadAnonymousEvidence = async (req, res) => {
+  const { reference_id, verification_token } = req.query;
+  const fileId = parseInt(req.params.fileId);
+
+  try {
+    const lookup = await getAnonymousCaseByToken(reference_id, verification_token);
+    if (lookup.error) return res.status(lookup.status).json({ error: lookup.error });
+
+    const caseId = lookup.caseData.case_id;
+    const hasMimeType = await hasEvidenceMimeTypeColumn();
+    const [rows] = await pool.execute(
+      `SELECT file_id, case_id, file_name, file_path, encryption_iv${hasMimeType ? ', mime_type' : ''}
+       FROM evidencefiles WHERE file_id = ? AND case_id = ?`,
+      [fileId, caseId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Evidence file not found' });
+    }
+
+    const file = rows[0];
+    let filePath = file.file_path;
+    if (!path.isAbsolute(filePath)) {
+      filePath = path.resolve(UPLOAD_DIR, path.basename(filePath));
+    }
+
+    if (!fs.existsSync(filePath)) {
+      console.error('[EVIDENCE] Anonymous download error: file missing on disk', filePath);
+      return res.status(404).json({ error: 'File not found on disk' });
+    }
+
+    let encryptedBuffer;
+    try {
+      encryptedBuffer = fs.readFileSync(filePath);
+    } catch (fsErr) {
+      console.error('[EVIDENCE] Anonymous read file error:', fsErr.message, filePath);
+      return res.status(500).json({ error: 'Failed to read evidence file from disk' });
+    }
+
+    if (!file.encryption_iv) {
+      console.error('[EVIDENCE] Anonymous download error: missing encryption IV for file', file.file_id);
+      return res.status(500).json({ error: 'Evidence file cannot be decrypted because required metadata is missing. Please re-upload the file.' });
+    }
+
+    let decryptedBuffer;
+    try {
+      decryptedBuffer = decryptBuffer(encryptedBuffer, file.encryption_iv);
+    } catch (decryptErr) {
+      console.error('[EVIDENCE] Anonymous decryption error:', decryptErr.message, { fileId: file.file_id });
+      return res.status(500).json({ error: 'Failed to decrypt file' });
+    }
+
+    const contentType = file.mime_type || 'application/octet-stream';
+    const downloadFlag = req.query.download === '1';
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Content-Type', contentType);
+    if (downloadFlag) {
+      res.setHeader('Content-Disposition', `attachment; filename="${file.file_name}"`);
+    } else {
+      res.setHeader('Content-Disposition', `inline; filename="${file.file_name}"`);
+    }
+
+    await writeAuditLog({
+      userId: null,
+      caseId,
+      action: 'EVIDENCE_DOWNLOADED_ANON',
+      performedByType: 'anonymous',
+      metadata: { file_id: fileId, filename: file.file_name },
+    });
+
+    return res.send(decryptedBuffer);
+  } catch (err) {
+    console.error('[EVIDENCE] Anonymous download error:', err.message);
+    return res.status(500).json({ error: 'Failed to retrieve file' });
+  }
+};
+
+module.exports = { uploadEvidence, uploadAnonymousEvidence, listEvidence, listAnonymousEvidence, downloadEvidence, downloadAnonymousEvidence };
