@@ -7,9 +7,10 @@ import toast from 'react-hot-toast';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import {
   Shield, CheckCircle, ChevronRight, ChevronLeft,
-  Upload, X, AlertTriangle, Lock, FileText, Copy, Edit3,
+  Upload, X, Lock, FileText, Copy, Edit3,
   Type, Bold, Italic, Underline, Heading, List, Code, Strikethrough
 } from 'lucide-react';
+import { renderRichText } from '../utils/formatting';
 import { useDropzone } from 'react-dropzone';
 
 const CATEGORIES = [
@@ -42,9 +43,57 @@ export default function SubmitReportPage() {
     setStep(isStaffAuthenticated ? 1 : 0);
   }, [isStaffAuthenticated]);
 
-  const { register, handleSubmit, watch, formState: { errors }, getValues } = useForm({
+  const { register, handleSubmit, watch, setValue, getValues, formState: { errors } } = useForm({
     defaultValues: { category: '', description: '', branch_or_dept: '', severity_level: 'Medium' },
   });
+  const descriptionRef = useRef(null);
+  const [descriptionLength, setDescriptionLength] = useState(0);
+
+  const updateDescriptionHtml = () => {
+    const html = descriptionRef.current?.innerHTML || '';
+    setValue('description', html, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+    setDescriptionLength(descriptionRef.current?.innerText?.trim().length || 0);
+  };
+
+  const applyFormatting = (action) => {
+    const editor = descriptionRef.current;
+    if (!editor) return;
+    editor.focus();
+
+    switch (action) {
+      case 'bold':
+        document.execCommand('bold');
+        break;
+      case 'italic':
+        document.execCommand('italic');
+        break;
+      case 'underline':
+        document.execCommand('underline');
+        break;
+      case 'strikethrough':
+        document.execCommand('strikeThrough');
+        break;
+      case 'code': {
+        const selection = document.getSelection();
+        const selectedText = selection?.toString() || 'code';
+        document.execCommand('insertHTML', false, `<code>${selectedText}</code>`);
+        break;
+      }
+      case 'heading':
+        document.execCommand('formatBlock', false, 'H3');
+        break;
+      case 'list':
+        document.execCommand('insertUnorderedList');
+        break;
+      case 'type':
+        document.execCommand('removeFormat');
+        break;
+      default:
+        break;
+    }
+
+    updateDescriptionHtml();
+  };
 
   // ── hCaptcha verified → create anonymous session ──────────
   const onCaptchaVerify = async (token) => {
@@ -379,22 +428,38 @@ export default function SubmitReportPage() {
                     <span className="inline-flex items-center gap-2 font-semibold text-slate-800">
                       <Edit3 size={14} /> Misconduct Rich Text Editor *
                     </span>
-                    <span className="inline-flex items-center gap-2 text-slate-400">
-                      <Type size={14} /> <Bold size={14} /> <Italic size={14} /> <Underline size={14} /> <Heading size={14} /> <List size={14} /> <Code size={14} /> <Strikethrough size={14} />
+                    <span className="inline-flex items-center gap-1 text-slate-400">
+                      <button type="button" aria-label="Plain text" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('type')}><Type size={14} /></button>
+                      <button type="button" aria-label="Bold" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('bold')}><Bold size={14} /></button>
+                      <button type="button" aria-label="Italic" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('italic')}><Italic size={14} /></button>
+                      <button type="button" aria-label="Underline" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('underline')}><Underline size={14} /></button>
+                      <button type="button" aria-label="Heading" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('heading')}><Heading size={14} /></button>
+                      <button type="button" aria-label="List" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('list')}><List size={14} /></button>
+                      <button type="button" aria-label="Code" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('code')}><Code size={14} /></button>
+                      <button type="button" aria-label="Strikethrough" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('strikethrough')}><Strikethrough size={14} /></button>
                     </span>
                   </div>
                 </label>
-                <textarea
-                  className="form-textarea"
-                  rows={6}
-                  placeholder="Describe the incident in detail: what happened, who was involved (without revealing your own identity), where it occurred, and any other relevant information..."
+                <input
+                  type="hidden"
                   {...register('description', {
                     required: 'Description is required',
                     minLength: { value: 20, message: 'Please provide at least 20 characters' },
                   })}
                 />
+
+                <div
+                  ref={descriptionRef}
+                  id="misconduct-description"
+                  className="form-textarea min-h-[150px] overflow-auto"
+                  contentEditable
+                  suppressContentEditableWarning
+                  onInput={updateDescriptionHtml}
+                  data-placeholder="Describe the incident in detail: what happened, who was involved (without revealing your own identity), where it occurred, and any other relevant information..."
+                  dangerouslySetInnerHTML={{ __html: getValues('description') || '' }}
+                />
                 {errors.description && <p className="form-error">{errors.description.message}</p>}
-                <p className="text-xs text-slate-400 mt-1">{watch('description')?.length || 0} characters</p>
+                <p className="text-xs text-slate-400 mt-1">{descriptionLength} characters</p>
               </div>
             </div>
 
@@ -482,16 +547,16 @@ export default function SubmitReportPage() {
                 </div>
                 <div className="p-4 rounded-xl" style={{ background: 'var(--color-slate-50)' }}>
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Description</p>
-                  <p className="text-sm text-slate-700 leading-relaxed line-clamp-4">{getValues('description')}</p>
+                  <div
+                    className="text-sm text-slate-700 leading-relaxed line-clamp-4"
+                    dangerouslySetInnerHTML={{ __html: renderRichText(getValues('description')) }}
+                  />
                 </div>
                 <div className="p-4 rounded-xl" style={{ background: 'var(--color-slate-50)' }}>
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1">Evidence Files</p>
                   <p className="text-sm text-slate-700">{files.length > 0 ? `${files.length} file(s) attached` : 'None attached'}</p>
                 </div>
               </div>
-
-
-
               <div className="flex gap-3">
                 <button type="button" onClick={() => setStep(2)} className="btn btn-ghost flex-1">
                   <ChevronLeft size={16} /> Back
@@ -505,7 +570,6 @@ export default function SubmitReportPage() {
             </div>
           </form>
         )}
-
       </div>
     </div>
   );

@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import api from '../services/api';
-import { Search, Clock, CheckCircle, AlertTriangle, MessageSquare, ChevronRight, Edit3, Trash2, X, Upload, FileText, Type, Bold, Italic, Underline, Heading, List, Code, Strikethrough } from 'lucide-react';
+import { Search, Clock, CheckCircle, AlertTriangle, MessageSquare, Edit3, Trash2, X, Upload, FileText, Type, Bold, Italic, Underline, Heading, List, Code, Strikethrough } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { STATUS_BADGE, formatStatus } from '../constants/caseWorkflow';
+import { renderRichText } from '../utils/formatting';
 
 const STATUS_LABELS = {
   New: { label: 'New', class: STATUS_BADGE.New },
@@ -47,10 +48,96 @@ export default function TrackCasePage() {
   const [replyBody, setReplyBody] = useState('');
   const [replyRecipient, setReplyRecipient] = useState('Investigator');
   const [replyLoading, setReplyLoading] = useState(false);
+  
   const [evidenceToken, setEvidenceToken] = useState('');
   const [evidenceFile, setEvidenceFile] = useState(null);
   const [evidence, setEvidence] = useState([]);
   const [evidenceLoading, setEvidenceLoading] = useState(false);
+  const editDescriptionRef = useRef(null);
+
+  const formatText = (text, action) => {
+    const original = text || '';
+    const trimmed = original.trim();
+    switch (action) {
+      case 'bold':
+        return trimmed ? `**${trimmed}**` : '**bold text**';
+      case 'italic':
+        return trimmed ? `_${trimmed}_` : '_italic text_';
+      case 'underline':
+        return trimmed ? `<u>${trimmed}</u>` : '<u>underlined text</u>';
+      case 'strikethrough':
+        return trimmed ? `~~${trimmed}~~` : '~~strikethrough text~~';
+      case 'code':
+        return trimmed.includes('\n')
+          ? `\`\`\`\n${trimmed}\n\`\`\``
+          : `\`${trimmed || 'code'}\``;
+      case 'heading': {
+        const lines = (trimmed || 'Heading text').split('\n');
+        return lines.map((line) => (line.startsWith('# ') ? line : `# ${line}`)).join('\n');
+      }
+      case 'list': {
+        const lines = (trimmed || 'List item').split('\n');
+        return lines.map((line) => line.replace(/^([-*+]\s*)?/, '- ')).join('\n');
+      }
+      case 'type': {
+        let result = trimmed;
+        result = result.replace(/^\*\*(.*)\*\*$/s, '$1');
+        result = result.replace(/^_(.*)_$/s, '$1');
+        result = result.replace(/^~~(.*)~~$/s, '$1');
+        result = result.replace(/^<u>(.*)<\/u>$/s, '$1');
+        result = result.replace(/^`(.*)`$/s, '$1');
+        return result || 'plain text';
+      }
+      default:
+        return trimmed || 'text';
+    }
+  };
+
+  const updateEditDescriptionHtml = () => {
+    const html = editDescriptionRef.current?.innerHTML || '';
+    setEditDescription(html);
+  };
+
+  const execFormatting = (ref, action) => {
+    const editor = ref?.current;
+    if (!editor) return;
+    editor.focus();
+
+    switch (action) {
+      case 'bold':
+        document.execCommand('bold');
+        break;
+      case 'italic':
+        document.execCommand('italic');
+        break;
+      case 'underline':
+        document.execCommand('underline');
+        break;
+      case 'strikethrough':
+        document.execCommand('strikeThrough');
+        break;
+      case 'code': {
+        const selection = document.getSelection();
+        const selectedText = selection?.toString() || 'code';
+        document.execCommand('insertHTML', false, `<code>${selectedText}</code>`);
+        break;
+      }
+      case 'heading':
+        document.execCommand('formatBlock', false, 'H3');
+        break;
+      case 'list':
+        document.execCommand('insertUnorderedList');
+        break;
+      case 'type':
+        document.execCommand('removeFormat');
+        break;
+      default:
+        break;
+    }
+
+    // Update the corresponding state value
+    if (ref === editDescriptionRef) updateEditDescriptionHtml();
+  };
 
   const getCorrespondenceLabel = (note) => {
     if (note.author_label) return note.author_label;
@@ -181,7 +268,7 @@ export default function TrackCasePage() {
         reference_id: result.case.reference_id,
         verification_token: replyToken.trim(),
         recipient_role: replyRecipient,
-        body: replyBody.trim(),
+        body: replyBody,
       });
       toast.success('Your reply has been submitted.');
       setReplyBody('');
@@ -368,9 +455,10 @@ export default function TrackCasePage() {
               {result.case.description && (
                 <div className="mt-6 p-4 rounded-xl" style={{ background: 'var(--color-slate-50)' }}>
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Current Description</p>
-                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
-                    {result.case.description}
-                  </p>
+                  <div
+                    className="text-sm text-slate-700 leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: renderRichText(result.case.description) }}
+                  />
                 </div>
               )}
               <div className="border-t border-slate-100 mt-6 pt-4 flex gap-3 justify-end">
@@ -528,7 +616,7 @@ export default function TrackCasePage() {
                           {format(new Date(note.created_at), 'MMM d, HH:mm')}
                         </span>
                       </div>
-                      <p className="text-sm text-slate-700 leading-relaxed">{note.body}</p>
+                      <div className="text-sm text-slate-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: renderRichText(note.body) }} />
                     </div>
                     );
                   })}
@@ -655,16 +743,26 @@ export default function TrackCasePage() {
                     <span className="inline-flex items-center gap-2">
                       <Edit3 size={14} /> Updated Description Rich Text Editor (Min 20 chars)
                     </span>
-                    <span className="inline-flex items-center gap-2 text-slate-400">
-                      <Type size={14} /> <Bold size={14} /> <Italic size={14} /> <Underline size={14} /> <Heading size={14} /> <List size={14} /> <Code size={14} /> <Strikethrough size={14} />
+                    <span className="inline-flex items-center gap-1 text-slate-400">
+                      <button type="button" aria-label="Plain text" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('type')}><Type size={14} /></button>
+                      <button type="button" aria-label="Bold" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('bold')}><Bold size={14} /></button>
+                      <button type="button" aria-label="Italic" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('italic')}><Italic size={14} /></button>
+                      <button type="button" aria-label="Underline" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('underline')}><Underline size={14} /></button>
+                      <button type="button" aria-label="Heading" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('heading')}><Heading size={14} /></button>
+                      <button type="button" aria-label="List" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('list')}><List size={14} /></button>
+                      <button type="button" aria-label="Code" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('code')}><Code size={14} /></button>
+                      <button type="button" aria-label="Strikethrough" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('strikethrough')}><Strikethrough size={14} /></button>
                     </span>
                   </div>
                 </label>
-                <textarea
-                  className="form-input min-h-[120px]"
-                  placeholder="Enter updated incident description..."
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
+                <div
+                  ref={editDescriptionRef}
+                  id="edit-description"
+                  className="form-input min-h-[120px] overflow-auto"
+                  contentEditable
+                  suppressContentEditableWarning
+                  onInput={updateEditDescriptionHtml}
+                  dangerouslySetInnerHTML={{ __html: editDescription || '' }}
                 />
               </div>
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -9,6 +9,7 @@ import {
   Paperclip, Download, Edit3, Shield, AlertTriangle, Info, Zap, Upload,
   Type, Bold, Italic, Underline, Heading, List, Code, Strikethrough
 } from 'lucide-react';
+import { renderRichText } from '../utils/formatting';
 
 import {
   COMPLIANCE_OFFICER_STATUSES,
@@ -38,13 +39,141 @@ export default function CaseDetailPage() {
   const [error,       setError]       = useState(null);
   const [noteBody,    setNoteBody]    = useState('');
   const [replyRecipient, setReplyRecipient] = useState('Investigator');
+  const [requestDescription, setRequestDescription] = useState('');
+  const requestDescriptionRef = useRef(null);
+  
+
+  const formatText = (text, action) => {
+    const original = text || '';
+    const trimmed = original.trim();
+    switch (action) {
+      case 'bold':
+        return trimmed ? `**${trimmed}**` : '**bold text**';
+      case 'italic':
+        return trimmed ? `_${trimmed}_` : '_italic text_';
+      case 'underline':
+        return trimmed ? `<u>${trimmed}</u>` : '<u>underlined text</u>';
+      case 'strikethrough':
+        return trimmed ? `~~${trimmed}~~` : '~~strikethrough text~~';
+      case 'code':
+        if (trimmed.includes('\n')) {
+          return '```\n' + trimmed + '\n```';
+        }
+        return '`' + (trimmed || 'code') + '`';
+      case 'heading': {
+        const lines = (trimmed || 'Heading text').split('\n');
+        return lines.map((line) => (line.startsWith('# ') ? line : `# ${line}`)).join('\n');
+      }
+      case 'list': {
+        const lines = (trimmed || 'List item').split('\n');
+        return lines.map((line) => line.replace(/^([-*+]\s*)?/, '- ')).join('\n');
+      }
+      case 'type': {
+        let result = trimmed;
+        result = result.replace(/^\*\*(.*)\*\*$/s, '$1');
+        result = result.replace(/^_(.*)_$/s, '$1');
+        result = result.replace(/^~~(.*)~~$/s, '$1');
+        result = result.replace(/^<u>(.*)<\/u>$/s, '$1');
+        result = result.replace(/^`(.*)`$/s, '$1');
+        return result || 'plain text';
+      }
+      default:
+        return trimmed || 'text';
+    }
+  };
+
+  const updateRequestDescriptionHtml = () => {
+    const html = requestDescriptionRef.current?.innerHTML || '';
+    setRequestDescription(html);
+  };
+
+  const applyFormatting = (action) => {
+    const editor = requestDescriptionRef.current;
+    if (!editor) return;
+    editor.focus();
+
+    switch (action) {
+      case 'bold':
+        document.execCommand('bold');
+        break;
+      case 'italic':
+        document.execCommand('italic');
+        break;
+      case 'underline':
+        document.execCommand('underline');
+        break;
+      case 'strikethrough':
+        document.execCommand('strikeThrough');
+        break;
+      case 'code': {
+        const selection = document.getSelection();
+        const selectedText = selection?.toString() || 'code';
+        document.execCommand('insertHTML', false, `<code>${selectedText}</code>`);
+        break;
+      }
+      case 'heading':
+        document.execCommand('formatBlock', false, 'H3');
+        break;
+      case 'list':
+        document.execCommand('insertUnorderedList');
+        break;
+      case 'type':
+        document.execCommand('removeFormat');
+        break;
+      default:
+        break;
+    }
+
+    updateRequestDescriptionHtml();
+  };
+
+  const execFormatting = (ref, action) => {
+    const editor = ref?.current;
+    if (!editor) return;
+    editor.focus();
+
+    switch (action) {
+      case 'bold':
+        document.execCommand('bold');
+        break;
+      case 'italic':
+        document.execCommand('italic');
+        break;
+      case 'underline':
+        document.execCommand('underline');
+        break;
+      case 'strikethrough':
+        document.execCommand('strikeThrough');
+        break;
+      case 'code': {
+        const selection = document.getSelection();
+        const selectedText = selection?.toString() || 'code';
+        document.execCommand('insertHTML', false, `<code>${selectedText}</code>`);
+        break;
+      }
+      case 'heading':
+        document.execCommand('formatBlock', false, 'H3');
+        break;
+      case 'list':
+        document.execCommand('insertUnorderedList');
+        break;
+      case 'type':
+        document.execCommand('removeFormat');
+        break;
+      default:
+        break;
+    }
+
+    if (ref === requestDescriptionRef) updateRequestDescriptionHtml();
+  };
+  
+
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [isInternal,  setIsInternal]  = useState(false);
   const [sendingNote, setSendingNote] = useState(false);
   const [editMode,    setEditMode]    = useState(false);
   const [newStatus,   setNewStatus]   = useState('');
   const [newPriority, setNewPriority] = useState('');
-  const [requestDescription, setRequestDescription] = useState('');
   const [requestBranch, setRequestBranch] = useState('');
   const [requestSeverity, setRequestSeverity] = useState('Medium');
   const [investigators, setInvestigators] = useState([]);
@@ -189,6 +318,7 @@ export default function CaseDetailPage() {
         recipient_role: canManageOwnRequest ? replyRecipient : undefined,
       });
       setNoteBody('');
+      if (noteRef.current) noteRef.current.innerHTML = '';
       const res = await api.get(`/cases/${id}/notes`);
       setNotes(res.data.notes || []);
       toast.success('Note added');
@@ -403,14 +533,13 @@ export default function CaseDetailPage() {
 
                 {/* Responsive description: wrap long words, allow pre-formatted newlines, and limit height on small screens */}
                 <div className="bg-slate-50 rounded-xl p-4">
-                  <p
+                  <div
                     className={`text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words ${
                       showFullDescription ? 'max-h-[none]' : 'max-h-40'
                     } overflow-auto`}
                     style={{ wordBreak: 'break-word' }}
-                  >
-                    {caseData.description}
-                  </p>
+                    dangerouslySetInnerHTML={{ __html: renderRichText(caseData.description) }}
+                  />
 
                   {/* Show more/less toggle for long descriptions */}
                   {String(caseData.description).length > 300 && (
@@ -483,7 +612,7 @@ export default function CaseDetailPage() {
                       {format(new Date(n.created_at), 'MMM d, HH:mm')}
                     </span>
                   </div>
-                  <p className="text-sm text-slate-700 leading-relaxed">{n.body}</p>
+                  <div className="text-sm text-slate-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: renderRichText(n.body) }} />
                 </div>
                 );
               })}
@@ -568,12 +697,20 @@ export default function CaseDetailPage() {
                             <span className="inline-flex items-center gap-2 text-slate-700">
                               <Edit3 size={12} /> Description Rich Text Editor
                             </span>
-                            <span className="inline-flex items-center gap-2 text-slate-400">
-                              <Type size={12} /> <Bold size={12} /> <Italic size={12} /> <Underline size={12} /> <Heading size={12} /> <List size={12} /> <Code size={12} /> <Strikethrough size={12} />
+                            <span className="inline-flex items-center gap-1 text-slate-400">
+                              <button type="button" aria-label="Plain text" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('type')}><Type size={12} /></button>
+                              <button type="button" aria-label="Bold" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('bold')}><Bold size={12} /></button>
+                              <button type="button" aria-label="Italic" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('italic')}><Italic size={12} /></button>
+                              <button type="button" aria-label="Underline" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('underline')}><Underline size={12} /></button>
+                              <button type="button" aria-label="Heading" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('heading')}><Heading size={12} /></button>
+                              <button type="button" aria-label="List" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('list')}><List size={12} /></button>
+                              <button type="button" aria-label="Code" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('code')}><Code size={12} /></button>
+                              <button type="button" aria-label="Strikethrough" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('strikethrough')}><Strikethrough size={12} /></button>
                             </span>
                           </div>
                         </label>
                         <textarea
+                          id="request-description"
                           className="form-textarea text-sm"
                           rows={4}
                           value={requestDescription}
