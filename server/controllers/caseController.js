@@ -549,14 +549,28 @@ const trackCase = async (req, res) => {
 
     const caseData = rows[0];
 
-    // Fetch non-internal notes for the reporter
-    const [notes] = await pool.execute(
-      `SELECT note_text AS body, sender_type AS author_type, audience_type, created_at
-       FROM investigationnotes
-       WHERE case_id = ? AND is_internal_only = 0
-       ORDER BY created_at ASC`,
-      [caseData.case_id]
-    );
+    // Fetch non-internal notes for the reporter. Fall back for databases that
+    // have not yet applied the audience_type migration.
+    let notes;
+    try {
+      [notes] = await pool.execute(
+        `SELECT note_text AS body, sender_type AS author_type, audience_type, created_at
+         FROM investigationnotes
+         WHERE case_id = ? AND is_internal_only = 0
+         ORDER BY created_at ASC`,
+        [caseData.case_id]
+      );
+    } catch (notesErr) {
+      if (!/audience_type/i.test(notesErr.message || '')) throw notesErr;
+      [notes] = await pool.execute(
+        `SELECT note_text AS body, sender_type AS author_type, created_at
+         FROM investigationnotes
+         WHERE case_id = ? AND is_internal_only = 0
+         ORDER BY created_at ASC`,
+        [caseData.case_id]
+      );
+      notes = notes.map(note => ({ ...note, audience_type: 'General' }));
+    }
 
     // Map to client format
     const formattedNotes = notes.map(n => {

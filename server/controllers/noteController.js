@@ -283,7 +283,24 @@ const getNotes = async (req, res) => {
       params = [caseId];
     }
 
-    const [notes] = await pool.execute(query, params);
+    let notes;
+    try {
+      [notes] = await pool.execute(query, params);
+    } catch (notesErr) {
+      if (!/audience_type/i.test(notesErr.message || '')) throw notesErr;
+      const legacyWhere = identity.type === 'anonymous' || !highPriv
+        ? 'WHERE case_id = ? AND is_internal_only = 0'
+        : 'WHERE case_id = ?';
+      [notes] = await pool.execute(
+        `SELECT note_id as id, sender_type as author_type, note_text as body,
+                is_internal_only, created_at
+         FROM investigationnotes
+         ${legacyWhere}
+         ORDER BY created_at ASC`,
+        [caseId]
+      );
+      notes = notes.map(note => ({ ...note, audience_type: 'General' }));
+    }
     return res.status(200).json({ notes });
   } catch (err) {
     console.error('[NOTE] Get error:', err.message);
