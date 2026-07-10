@@ -238,9 +238,7 @@ export default function TrackCasePage() {
       formData.append('reference_id', result.case.reference_id);
       formData.append('verification_token', evidenceToken.trim());
       formData.append('file', evidenceFile);
-      await api.post('/cases/anonymous/evidence', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      await api.post('/cases/anonymous/evidence', formData);
       toast.success('Evidence uploaded');
       setEvidenceFile(null);
       await loadAnonymousEvidence(evidenceToken);

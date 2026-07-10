@@ -102,6 +102,7 @@ CREATE TABLE `evidencefiles` (
   `file_path` varchar(500) NOT NULL,
   `encryption_iv` varchar(64) DEFAULT NULL,
   `uploaded_by` int(11) DEFAULT NULL,
+  `mime_type` varchar(100) DEFAULT NULL,
   `uploaded_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
