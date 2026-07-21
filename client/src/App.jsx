@@ -135,11 +135,9 @@ function AppRoutes() {
           <PageWrapper><StaffLoginPage /></PageWrapper>
         } />
         <Route path="/report" element={
-          <ProtectedRoute roles={['Employee', 'Branch_Manager']}>
-            <AppShell>
-              <PageWrapper><SubmitReportPage /></PageWrapper>
-            </AppShell>
-          </ProtectedRoute>
+          <FullWidthShell>
+            <PageWrapper><SubmitReportPage /></PageWrapper>
+          </FullWidthShell>
         } />
 
         {/* Staff-protected routes */}

@@ -199,7 +199,7 @@ const validateCreateNote = [
     .isBoolean().withMessage('is_internal_only must be boolean'),
   body('recipient_role')
     .optional()
-    .isIn(['Investigator', 'Compliance_Officer']).withMessage('Invalid note recipient'),
+    .isIn(['Investigator', 'Compliance_Officer', 'General']).withMessage('Invalid note recipient'),
 ];
 
 const validateTrackCase = [

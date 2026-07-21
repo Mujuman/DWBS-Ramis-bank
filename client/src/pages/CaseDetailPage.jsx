@@ -334,7 +334,10 @@ export default function CaseDetailPage() {
       setNotes(res.data.notes || []);
       toast.success('Note added');
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to send note');
+      const details = err.response?.data?.details;
+      const message = err.response?.data?.error || (Array.isArray(details) ? details.map(d => d.message).join('; ') : null) || 'Failed to send note';
+      toast.error(message);
+      console.error('Note send failed:', err);
     }
     setSendingNote(false);
   };
