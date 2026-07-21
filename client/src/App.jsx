@@ -121,11 +121,6 @@ function AppRoutes() {
             <PageWrapper><LandingPage /></PageWrapper>
           </FullWidthShell>
         } />
-        <Route path="/report" element={
-          <FullWidthShell>
-            <PageWrapper><SubmitReportPage /></PageWrapper>
-          </FullWidthShell>
-        } />
         <Route path="/track" element={
           <FullWidthShell>
             <PageWrapper><TrackCasePage /></PageWrapper>
@@ -137,24 +132,31 @@ function AppRoutes() {
         <Route path="/staff-login" element={
           <PageWrapper><StaffLoginPage /></PageWrapper>
         } />
+        <Route path="/report" element={
+          <ProtectedRoute roles={['Employee', 'Branch_Manager']}>
+            <AppShell>
+              <PageWrapper><SubmitReportPage /></PageWrapper>
+            </AppShell>
+          </ProtectedRoute>
+        } />
 
         {/* Staff-protected routes */}
         <Route path="/dashboard" element={
-          <ProtectedRoute roles={['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO']}>
+          <ProtectedRoute roles={['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer']}>
             <AppShell>
               <PageWrapper><DashboardPage /></PageWrapper>
             </AppShell>
           </ProtectedRoute>
         } />
         <Route path="/cases" element={
-          <ProtectedRoute roles={['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO']}>
+          <ProtectedRoute roles={['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer']}>
             <AppShell>
               <PageWrapper><CaseListPage /></PageWrapper>
             </AppShell>
           </ProtectedRoute>
         } />
         <Route path="/cases/:id" element={
-          <ProtectedRoute roles={['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO']}>
+          <ProtectedRoute roles={['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer']}>
             <AppShell>
               <PageWrapper><CaseDetailPage /></PageWrapper>
             </AppShell>

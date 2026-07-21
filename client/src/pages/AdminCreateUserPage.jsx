@@ -11,7 +11,6 @@ const roles = [
   { value: 'Investigator', label: 'Investigator', description: 'Compliance team member who investigates cases' },
   { value: 'Compliance_Officer', label: 'Compliance Officer', description: 'Senior compliance role with case overview access' },
   { value: 'CEO', label: 'CEO', description: 'Executive role with access to statistics and reports' },
-  { value: 'Auditor', label: 'Auditor', description: 'Read-only audit log access and review role' },
 ];
 
 export default function AdminCreateUserPage() {
@@ -113,7 +112,7 @@ export default function AdminCreateUserPage() {
                 name="username"
                 value={formData.username}
                 onChange={handleChange}
-                className="form-input pl-14"
+                className="form-input form-input-icon"
                 placeholder="e.g. jdoe"
               />
             </div>
@@ -128,7 +127,7 @@ export default function AdminCreateUserPage() {
                 value={formData.email}
                 onChange={handleChange}
                 type="email"
-                className="form-input pl-14"
+                className="form-input form-input-icon"
                 placeholder="jdoe@rammisbank.et"
               />
             </div>
@@ -143,7 +142,7 @@ export default function AdminCreateUserPage() {
                 value={formData.password}
                 onChange={handleChange}
                 type="password"
-                className="form-input pl-14"
+                className="form-input form-input-icon"
                 placeholder="Strong password"
               />
             </div>
@@ -158,7 +157,7 @@ export default function AdminCreateUserPage() {
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 type="password"
-                className="form-input pl-14"
+                className="form-input form-input-icon"
                 placeholder="Confirm password"
               />
             </div>
@@ -172,7 +171,7 @@ export default function AdminCreateUserPage() {
                 name="role"
                 value={formData.role}
                 onChange={handleChange}
-                className="form-select pl-14"
+                className="form-select form-select-icon"
               >
                 {roles.map((role) => (
                   <option key={role.value} value={role.value}>
@@ -194,7 +193,7 @@ export default function AdminCreateUserPage() {
                 name="department"
                 value={formData.department}
                 onChange={handleChange}
-                className="form-input pl-14"
+                className="form-input form-input-icon"
                 placeholder="e.g. Compliance, IT_Security"
               />
             </div>

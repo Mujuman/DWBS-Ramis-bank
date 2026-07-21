@@ -113,23 +113,23 @@ export default function ExecutiveDashboard() {
       <div className="card p-6 mb-6">
         <div className="flex items-center gap-2 mb-4">
           <AlertTriangle className="text-red-500" size={18} />
-          <h2 className="text-sm font-bold" style={{ color: 'var(--color-navy-900)' }}>
-            Escalated Cases for Immediate CEO Action
-          </h2>
+          <div>
+            <h2 className="text-sm font-bold" style={{ color: 'var(--color-navy-900)' }}>
+              Escalated Cases for Executive Review
+            </h2>
+            <p className="text-xs text-slate-500 mt-1">
+              Read-only summaries of critical escalated cases. The CEO cannot open or manage cases directly.
+            </p>
+          </div>
         </div>
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <label className="text-xs text-slate-500 flex items-center gap-2">
-              <input type="checkbox" id="fraudOnly" className="w-4 h-4" onChange={e => setFraudOnly(e.target.checked)} />
-              Show fraud/financial crime only
-            </label>
-          </div>
-          <div>
-            <span className="text-xs text-slate-400">Audit trail and executive view</span>
-          </div>
+          <label className="text-xs text-slate-500 flex items-center gap-2">
+            <input type="checkbox" id="fraudOnly" className="w-4 h-4" onChange={e => setFraudOnly(e.target.checked)} />
+            Show fraud/financial crime only
+          </label>
         </div>
         {!stats?.escalated_cases || stats.escalated_cases.length === 0 ? (
-          <p className="text-slate-400 text-xs py-4 text-center">No escalated cases pending action.</p>
+          <p className="text-slate-400 text-xs py-4 text-center">No escalated cases available for executive review.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="data-table text-xs">
@@ -141,7 +141,7 @@ export default function ExecutiveDashboard() {
                   <th>Status</th>
                   <th>Submitted</th>
                   <th>Assigned To</th>
-                  <th></th>
+                  <th>Audit</th>
                 </tr>
               </thead>
               <tbody>
@@ -166,10 +166,9 @@ export default function ExecutiveDashboard() {
                       {c.assigned_investigator || <span className="text-red-400 font-medium italic">Unassigned</span>}
                     </td>
                     <td>
-                      <div className="flex items-center gap-2">
-                        <a href={`/cases/${c.id}`} className="btn btn-ghost text-xs py-1 px-2">View Details</a>
-                        <a href={`/audit?case_id=${c.id}`} target="_blank" rel="noreferrer" className="btn btn-ghost text-xs py-1 px-2">Audit</a>
-                      </div>
+                      <a href={`/audit?case_id=${c.id}`} target="_blank" rel="noreferrer" className="btn btn-ghost text-xs py-1 px-2">
+                        View Audit
+                      </a>
                     </td>
                   </tr>
                 ))}

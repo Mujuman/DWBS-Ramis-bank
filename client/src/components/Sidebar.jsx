@@ -10,7 +10,7 @@ const navItems = [
     path: '/dashboard',
     label: 'Dashboard',
     icon: LayoutDashboard,
-    roles: ['Investigator', 'CEO'],
+    roles: ['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer'],
   },
   {
     path: '/report',

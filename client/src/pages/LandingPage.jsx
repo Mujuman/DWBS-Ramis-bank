@@ -138,9 +138,9 @@ export default function LandingPage() {
             transition={{ duration: 0.5, delay: 0.3 }}
             className="flex flex-col sm:flex-row gap-3 justify-center mb-12 px-4 sm:px-0"
           >
-            <Link to="/report" className="btn btn-gold text-sm sm:text-base px-6 sm:px-8 py-3 sm:py-3.5 w-full sm:w-auto">
+            <Link to="/staff-login" className="btn btn-gold text-sm sm:text-base px-6 sm:px-8 py-3 sm:py-3.5 w-full sm:w-auto">
               <AlertTriangle size={16} />
-              Submit a Report
+              Staff Login
               <ChevronRight size={16} />
             </Link>
             <Link
