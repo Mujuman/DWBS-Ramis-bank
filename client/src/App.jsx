@@ -122,9 +122,11 @@ function AppRoutes() {
           </FullWidthShell>
         } />
         <Route path="/track" element={
-          <FullWidthShell>
-            <PageWrapper><TrackCasePage /></PageWrapper>
-          </FullWidthShell>
+          <ProtectedRoute roles={['Employee', 'Branch_Manager']}>
+            <AppShell>
+              <PageWrapper><TrackCasePage /></PageWrapper>
+            </AppShell>
+          </ProtectedRoute>
         } />
         <Route path="/login" element={
           <PageWrapper><StaffLoginPage /></PageWrapper>

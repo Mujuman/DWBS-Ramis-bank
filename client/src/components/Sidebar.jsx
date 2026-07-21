@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, FileText, BarChart3, Users,
-  ClipboardList, ChevronRight, UserPlus
+  ClipboardList, ChevronRight, UserPlus, Search
 } from 'lucide-react';
 
 const navItems = [
@@ -16,6 +16,12 @@ const navItems = [
     path: '/report',
     label: 'Submit Report',
     icon: FileText,
+    roles: ['Employee', 'Branch_Manager'],
+  },
+  {
+    path: '/track',
+    label: 'Submitted Reports',
+    icon: Search,
     roles: ['Employee', 'Branch_Manager'],
   },
   {

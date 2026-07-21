@@ -34,6 +34,7 @@ export default function CaseDetailPage() {
 
   const [caseData,    setCaseData]    = useState(null);
   const [notes,       setNotes]       = useState([]);
+  const [notesError,  setNotesError]  = useState(null);
   const [evidence,    setEvidence]    = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState(null);
@@ -260,17 +261,20 @@ export default function CaseDetailPage() {
   const loadCase = async () => {
     setLoading(true);
     setError(null);
+    setNotesError(null);
     try {
-      // Case detail + notes in parallel
-      const [cRes, nRes] = await Promise.all([
-        api.get(`/cases/${id}`),
-        api.get(`/cases/${id}/notes`),
-      ]);
-
+      const cRes = await api.get(`/cases/${id}`);
       const c = cRes.data.case;
       setCaseData(c);
-      setNotes(nRes.data.notes || []);
-      
+
+      try {
+        const nRes = await api.get(`/cases/${id}/notes`);
+        setNotes(nRes.data.notes || []);
+      } catch (err) {
+        setNotes([]);
+        setNotesError(err.response?.data?.error || 'Failed to fetch notes');
+      }
+
       // Validate status is in allowed list for this user's role
       const allowedStatuses = isSenior ? COMPLIANCE_OFFICER_STATUSES : INVESTIGATOR_STATUSES;
       setNewStatus(c.status || allowedStatuses[0]);
@@ -581,7 +585,13 @@ export default function CaseDetailPage() {
             <h2 className="text-sm font-bold mb-4" style={{ color: 'var(--color-navy-900)' }}>
               Correspondence & Notes
             </h2>
-
+ 
+            {notesError && (
+              <div className="rounded-xl p-4 mb-4 text-sm text-amber-700 bg-amber-50 border border-amber-200">
+                {notesError}
+              </div>
+            )}
+ 
             <div className="space-y-3 mb-6 max-h-96 overflow-y-auto pr-1">
               {notes.length === 0 ? (
                 <p className="text-sm text-slate-400 text-center py-6">No notes yet.</p>
