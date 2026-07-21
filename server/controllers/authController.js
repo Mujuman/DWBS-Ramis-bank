@@ -276,9 +276,8 @@ const getMe = async (req, res) => {
 };
 
 /**
- * POST /api/auth/register (DEV ONLY)
- * Registers a new user account for testing purposes.
- * In production, users should be managed via LDAP or by System Admins.
+ * POST /api/users
+ * Creates a new staff user account. Only System Admins may create users.
  */
 const registerUser = async (req, res) => {
   const { username, email, password, role, department } = req.body;
@@ -319,9 +318,9 @@ const registerUser = async (req, res) => {
 
     await writeAuditLog({
       action: 'USER_REGISTERED',
-      performedBy: result.insertId,
-      performedByType: 'system',
-      metadata: { username, role, department, method: 'dev_registration' },
+      performedBy: req.user?.userId || result.insertId,
+      performedByType: req.user ? 'staff' : 'system',
+      metadata: { username, role, department, method: req.user ? 'admin_create' : 'dev_registration' },
     });
 
     return res.status(201).json({
@@ -340,4 +339,37 @@ const registerUser = async (req, res) => {
   }
 };
 
-module.exports = { initAnonymousSession, staffLogin, refreshToken, getMe, registerUser };
+const resetUserPassword = async (req, res) => {
+  const { id } = req.params;
+  const { password } = req.body;
+
+  if (!password || typeof password !== 'string' || password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  }
+
+  try {
+    const password_hash = await bcrypt.hash(password, 12);
+    const [result] = await pool.execute(
+      `UPDATE users SET password_hash = ? WHERE user_id = ?`,
+      [password_hash, id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    await writeAuditLog({
+      action: 'USER_PASSWORD_RESET',
+      performedBy: req.user.userId,
+      performedByType: 'staff',
+      metadata: { target_user_id: id },
+    });
+
+    return res.status(200).json({ message: 'Password reset successfully' });
+  } catch (err) {
+    console.error('[AUTH] Password reset error:', err.message);
+    return res.status(500).json({ error: 'Failed to reset password' });
+  }
+};
+
+module.exports = { initAnonymousSession, staffLogin, refreshToken, getMe, registerUser, resetUserPassword };

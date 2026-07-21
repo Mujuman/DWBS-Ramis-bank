@@ -211,8 +211,12 @@ export default function CaseDetailPage() {
   };
 
   const getNoteChannelLabel = (note) => {
-    if (note.audience_type === 'Compliance_Officer') return 'Compliance Lead Thread';
-    if (note.audience_type === 'Investigator') return 'Investigator Thread';
+    if (note.audience_type === 'Compliance_Officer') {
+      return note.author_type === 'Investigator' ? 'To: Compliance Lead' : 'Compliance Lead Thread';
+    }
+    if (note.audience_type === 'Investigator') {
+      return note.author_type === 'Compliance_Officer' ? 'To: Investigator' : 'Investigator Thread';
+    }
     return 'General Thread';
   };
 
@@ -315,9 +319,12 @@ export default function CaseDetailPage() {
       await api.post(`/cases/${id}/notes`, {
         body: noteBody,
         is_internal_only: isInternal,
-        recipient_role: canManageOwnRequest ? replyRecipient : undefined,
+        recipient_role: (canManageOwnRequest || (isInternal && (isInvestigator || isSenior))) ? replyRecipient : undefined,
       });
       setNoteBody('');
+      if (isInternal && (isInvestigator || isSenior)) {
+        setReplyRecipient('General');
+      }
       if (noteRef.current) noteRef.current.innerHTML = '';
       const res = await api.get(`/cases/${id}/notes`);
       setNotes(res.data.notes || []);
@@ -643,12 +650,35 @@ export default function CaseDetailPage() {
                     </select>
                   </div>
                 )}
+                {isInternal && (isInvestigator || isSenior) && (
+                  <div className="mb-3">
+                    <label className="form-label text-xs">Recipient</label>
+                    <select
+                      className="form-select text-sm"
+                      value={replyRecipient}
+                      onChange={e => setReplyRecipient(e.target.value)}
+                    >
+                      <option value="General">General / All Staff</option>
+                      {isInvestigator && (
+                        <option value="Compliance_Officer">Compliance Team Lead</option>
+                      )}
+                      {isSenior && (
+                        <option value="Investigator">Case Investigator</option>
+                      )}
+                    </select>
+                  </div>
+                )}
                 <div className="flex items-center justify-between gap-3">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={isInternal}
-                      onChange={e => setIsInternal(e.target.checked)}
+                      onChange={e => {
+                        setIsInternal(e.target.checked);
+                        if (e.target.checked) {
+                          setReplyRecipient('General');
+                        }
+                      }}
                       className="w-4 h-4 rounded"
                     />
                     <span className="text-xs text-slate-500 flex items-center gap-1">

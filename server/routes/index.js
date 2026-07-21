@@ -3,7 +3,7 @@ const router = express.Router();
 
 const { authenticateStaff, authenticateAnonymous, requireRole, authenticateAny } = require('../middleware/auth');
 const { sanitizeRequestBody, handleValidationErrors,
-        validateAnonSession, validateLogin, validateCreateCase,
+        validateAnonSession, validateLogin, validateCreateUser, validateResetPassword, validateCreateCase,
         validateStatusUpdate, validateCreateNote, validateTrackCase,
         validateEditCaseAnonymous, validateDeleteCaseAnonymous, validateCreateAnonNote } = require('../middleware/sanitize');
 const { upload, processAndSaveFile, handleUploadErrors } = require('../middleware/upload');
@@ -28,14 +28,6 @@ router.post('/auth/login',
   handleValidationErrors,
   authController.staffLogin
 );
-
-// Development-only registration endpoint
-if (process.env.NODE_ENV === 'development') {
-  router.post('/auth/register',
-    sanitizeRequestBody,
-    authController.registerUser
-  );
-}
 
 router.post('/auth/refresh',
   sanitizeRequestBody,
@@ -77,7 +69,7 @@ router.get('/cases/anonymous',
   caseController.getAnonymousCaseDetails
 );
 
-// Executive stats (CEO, Compliance_Officer, System_Admin)
+// Executive stats (CEO, Compliance_Officer)
 router.get('/cases/stats',
   authenticateStaff,
   requireRole('CEO', 'Compliance_Officer', 'System_Admin'),
@@ -96,18 +88,21 @@ router.post('/cases',
 // List cases (staff only, role-filtered)
 router.get('/cases',
   authenticateStaff,
+  requireRole('Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO'),
   caseController.listCases
 );
 
 // Get single case
 router.get('/cases/:id',
   authenticateStaff,
+  requireRole('Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO'),
   caseController.getCaseById
 );
 
 // Update authenticated staff request details
 router.patch('/cases/:id',
   authenticateStaff,
+  requireRole('Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO'),
   sanitizeRequestBody,
   caseController.editCase
 );
@@ -115,6 +110,7 @@ router.patch('/cases/:id',
 // Soft delete authenticated staff request
 router.delete('/cases/:id',
   authenticateStaff,
+  requireRole('Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO'),
   sanitizeRequestBody,
   caseController.deleteCase
 );
@@ -167,7 +163,8 @@ router.delete('/cases/anonymous/evidence/:fileId',
 );
 
 router.post('/cases/:id/evidence',
-  authenticateAny,
+  authenticateStaff,
+  requireRole('Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO'),
   upload.single('file'),
   handleUploadErrors,
   processAndSaveFile,
@@ -176,11 +173,13 @@ router.post('/cases/:id/evidence',
 
 router.get('/cases/:id/evidence',
   authenticateStaff,
+  requireRole('Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO'),
   evidenceController.listEvidence
 );
 
 router.get('/cases/:id/evidence/:fileId/download',
   authenticateStaff,
+  requireRole('Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO'),
   evidenceController.downloadEvidence
 );
 
@@ -197,12 +196,14 @@ router.post('/cases/:id/notes',
   sanitizeRequestBody,
   validateCreateNote,
   handleValidationErrors,
-  authenticateAny,
+  authenticateStaff,
+  requireRole('Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO'),
   noteController.createNote
 );
 
 router.get('/cases/:id/notes',
-  authenticateAny,
+  authenticateStaff,
+  requireRole('Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO'),
   noteController.getNotes
 );
 
@@ -219,6 +220,15 @@ router.get('/users',
     );
     res.json({ users });
   }
+);
+
+router.post('/users',
+  sanitizeRequestBody,
+  validateCreateUser,
+  handleValidationErrors,
+  authenticateStaff,
+  requireRole('System_Admin'),
+  authController.registerUser
 );
 
 router.patch('/users/:id/role',
@@ -245,6 +255,15 @@ router.patch('/users/:id/active',
     await pool.execute(`UPDATE Users SET is_active = ? WHERE user_id = ?`, [is_active ? 1 : 0, req.params.id]);
     res.json({ message: `User ${is_active ? 'activated' : 'deactivated'}` });
   }
+);
+
+router.patch('/users/:id/password',
+  sanitizeRequestBody,
+  validateResetPassword,
+  handleValidationErrors,
+  authenticateStaff,
+  requireRole('System_Admin'),
+  authController.resetUserPassword
 );
 
 // ── Audit Log Route ───────────────────────────────────────────

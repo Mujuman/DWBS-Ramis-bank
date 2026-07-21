@@ -11,7 +11,6 @@ import LandingPage from './pages/LandingPage';
 import SubmitReportPage from './pages/SubmitReportPage';
 import TrackCasePage from './pages/TrackCasePage';
 import StaffLoginPage from './pages/StaffLoginPage';
-import RegistrationPage from './pages/RegistrationPage';
 import DashboardPage from './pages/DashboardPage';
 import CaseListPage from './pages/CaseListPage';
 import CaseDetailPage from './pages/CaseDetailPage';
@@ -128,41 +127,38 @@ function AppRoutes() {
         <Route path="/staff-login" element={
           <PageWrapper><StaffLoginPage /></PageWrapper>
         } />
-        <Route path="/register" element={
-          <PageWrapper><RegistrationPage /></PageWrapper>
-        } />
 
         {/* Staff-protected routes */}
         <Route path="/dashboard" element={
-          <ProtectedRoute>
+          <ProtectedRoute roles={['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO']}>
             <AppShell>
               <PageWrapper><DashboardPage /></PageWrapper>
             </AppShell>
           </ProtectedRoute>
         } />
         <Route path="/cases" element={
-          <ProtectedRoute roles={['Investigator', 'Compliance_Officer', 'CEO', 'System_Admin']}>
+          <ProtectedRoute roles={['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO']}>
             <AppShell>
               <PageWrapper><CaseListPage /></PageWrapper>
             </AppShell>
           </ProtectedRoute>
         } />
         <Route path="/cases/:id" element={
-          <ProtectedRoute>
+          <ProtectedRoute roles={['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO']}>
             <AppShell>
               <PageWrapper><CaseDetailPage /></PageWrapper>
             </AppShell>
           </ProtectedRoute>
         } />
         <Route path="/executive" element={
-          <ProtectedRoute roles={['CEO', 'System_Admin']}>
+          <ProtectedRoute roles={['CEO']}>
             <AppShell>
               <PageWrapper><ExecutiveDashboard /></PageWrapper>
             </AppShell>
           </ProtectedRoute>
         } />
         <Route path="/compliance" element={
-          <ProtectedRoute roles={['Compliance_Officer', 'System_Admin']}>
+          <ProtectedRoute roles={['Compliance_Officer']}>
             <AppShell>
               <PageWrapper><ComplianceDashboard /></PageWrapper>
             </AppShell>
@@ -176,7 +172,7 @@ function AppRoutes() {
           </ProtectedRoute>
         } />
         <Route path="/audit" element={
-          <ProtectedRoute roles={['Auditor', 'System_Admin', 'Compliance_Officer', 'CEO']}>
+          <ProtectedRoute roles={['Auditor', 'Compliance_Officer', 'CEO']}>
             <AppShell>
               <PageWrapper><AuditDashboard /></PageWrapper>
             </AppShell>

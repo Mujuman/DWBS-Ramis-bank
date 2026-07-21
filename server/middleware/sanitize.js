@@ -63,6 +63,34 @@ const validateLogin = [
     .isLength({ min: 1, max: 256 }),
 ];
 
+const validateCreateUser = [
+  body('username')
+    .notEmpty().withMessage('Username is required')
+    .matches(/^[a-zA-Z0-9._-]+$/).withMessage('Invalid username format')
+    .trim(),
+  body('email')
+    .notEmpty().withMessage('Email is required')
+    .isEmail().withMessage('Invalid email address')
+    .trim(),
+  body('password')
+    .notEmpty().withMessage('Password is required')
+    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+  body('role')
+    .notEmpty().withMessage('Role is required')
+    .isIn(['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO', 'System_Admin', 'Auditor'])
+    .withMessage('Invalid role'),
+  body('department')
+    .notEmpty().withMessage('Department is required')
+    .isLength({ min: 2, max: 100 }).withMessage('Department must be 2-100 characters')
+    .trim(),
+];
+
+const validateResetPassword = [
+  body('password')
+    .notEmpty().withMessage('Password is required')
+    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+];
+
 const validateCreateCase = [
   body('category')
     .notEmpty().withMessage('Category is required')
@@ -186,6 +214,8 @@ module.exports = {
   sanitizeRequestBody,
   validateAnonSession,
   validateLogin,
+  validateCreateUser,
+  validateResetPassword,
   validateCreateCase,
   validateEditCaseAnonymous,
   validateDeleteCaseAnonymous,

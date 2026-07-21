@@ -78,7 +78,7 @@ export default function StaffLoginPage() {
 
         <div className="text-xs text-white/30">
           © {new Date().getFullYear()} Rammis Bank S.C. — DWBS v1.0<br />
-          Baankii Raammis • ሓሚስ ባንከ
+          Baankii Raammis • ራሚስ ባንከ
         </div>
       </div>
 
@@ -198,18 +198,6 @@ export default function StaffLoginPage() {
                 Forgot your password? Contact IT Support<br />
                 or the Active Directory administrator.
               </p>
-              {process.env.NODE_ENV === 'development' && (
-                <div className="mt-3">
-                  <p className="text-xs text-gray-500 mb-2">Development Mode:</p>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/register')}
-                    className="text-sm text-indigo-600 hover:text-indigo-700 font-medium transition-colors underline"
-                  >
-                    Create Test Account for Any Role →
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </div>

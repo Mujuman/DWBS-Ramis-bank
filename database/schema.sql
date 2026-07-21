@@ -275,7 +275,7 @@ VALUES
   (
     'sysadmin',
     'sysadmin@rammisbank.et',
-    '$2b$12$KIXuMCWkMqCovUFvBn5m8.QzHVxvWPTfI.0W5ylQb2FZXmZsDI6/K',
+    '$2a$12$g4Uf7j4fi4atlpbKnlJoheZAOVpGwk/9pZfZKCboEQjX2OT3IBCYK',
     'System_Admin',
     'IT_Security',
     1
@@ -299,7 +299,7 @@ VALUES
   (
     'auditor',
     'auditor@rammisbank.et',
-    '$2b$12$KIXuMCWkMqCovUFvBn5m8.QzHVxvWPTfI.0W5ylQb2FZXmZsDI6/K',
+    '$2a$12$g4Uf7j4fi4atlpbKnlJoheZAOVpGwk/9pZfZKCboEQjX2OT3IBCYK',
     'Auditor',
     'Internal_Audit',
     1

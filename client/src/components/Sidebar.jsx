@@ -10,7 +10,7 @@ const navItems = [
     path: '/dashboard',
     label: 'Dashboard',
     icon: LayoutDashboard,
-    roles: ['Investigator', 'CEO', 'System_Admin'],
+    roles: ['Investigator', 'CEO'],
   },
   {
     path: '/report',
@@ -22,25 +22,25 @@ const navItems = [
     path: '/cases',
     label: 'Case Management',
     icon: FileText,
-    roles: ['Investigator', 'System_Admin'],
+    roles: ['Investigator'],
   },
   {
     path: '/compliance',
     label: 'Compliance Dashboard',
     icon: BarChart3,
-    roles: ['Compliance_Officer', 'System_Admin'],
+    roles: ['Compliance_Officer'],
   },
   {
     path: '/executive',
     label: 'Executive Dashboard',
     icon: BarChart3,
-    roles: ['CEO', 'System_Admin'],
+    roles: ['CEO'],
   },
   {
     path: '/audit',
     label: 'Audit Logs',
     icon: ClipboardList,
-    roles: ['Auditor', 'System_Admin', 'CEO'],
+    roles: ['Auditor', 'CEO'],
   },
   {
     path: '/admin',
