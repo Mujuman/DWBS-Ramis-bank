@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, FileText, BarChart3, Users,
-  ClipboardList, ChevronRight
+  ClipboardList, ChevronRight, UserPlus
 } from 'lucide-react';
 
 const navItems = [
@@ -44,7 +44,19 @@ const navItems = [
   },
   {
     path: '/admin',
-    label: 'Administration',
+    label: 'Admin Dashboard',
+    icon: Users,
+    roles: ['System_Admin'],
+  },
+  {
+    path: '/admin/create',
+    label: 'Create Staff Account',
+    icon: UserPlus,
+    roles: ['System_Admin'],
+  },
+  {
+    path: '/admin/users',
+    label: 'Staff Accounts',
     icon: Users,
     roles: ['System_Admin'],
   },
@@ -78,11 +90,12 @@ export default function Sidebar({ open }) {
             <NavLink
               key={item.path}
               to={item.path}
+              end
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 text-sm font-medium transition-all duration-150 no-underline group ${
                   isActive
                     ? 'text-navy-900 shadow-sm'
-                    : 'text-slate-400 hover:text-white hover:bg-white/8'
+                    : 'text-slate-400 hover:text-white'
                 }`
               }
               style={({ isActive }) =>

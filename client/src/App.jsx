@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
@@ -17,6 +17,8 @@ import CaseDetailPage from './pages/CaseDetailPage';
 import ExecutiveDashboard from './pages/ExecutiveDashboard';
 import ComplianceDashboard from './pages/ComplianceDashboard';
 import AdminPage from './pages/AdminPage';
+import AdminCreateUserPage from './pages/AdminCreateUserPage';
+import AdminStaffAccountsPage from './pages/AdminStaffAccountsPage';
 import AuditDashboard from './pages/AuditDashboard';
 
 // ── Page transition variants ──────────────────────────────────
@@ -72,7 +74,15 @@ const ProtectedRoute = ({ children, roles }) => {
 // ── App shell with sidebar/navbar ─────────────────────────────
 const AppShell = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isDesktop, setIsDesktop] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
   const { user } = useAuth();
+
+  useEffect(() => {
+    const updateViewport = () => setIsDesktop(window.matchMedia('(min-width: 1024px)').matches);
+    updateViewport();
+    window.addEventListener('resize', updateViewport);
+    return () => window.removeEventListener('resize', updateViewport);
+  }, []);
 
   return (
     <>
@@ -81,7 +91,7 @@ const AppShell = ({ children }) => {
       <motion.main
         className="min-h-screen"
         style={{ paddingTop: '80px' }}
-        animate={{ marginLeft: user && sidebarOpen ? '260px' : 0 }}
+        animate={{ marginLeft: user && sidebarOpen && isDesktop ? '260px' : 0 }}
         transition={{ duration: 0.3, ease: 'easeInOut' }}
       >
         {children}
@@ -168,6 +178,20 @@ function AppRoutes() {
           <ProtectedRoute roles={['System_Admin']}>
             <AppShell>
               <PageWrapper><AdminPage /></PageWrapper>
+            </AppShell>
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/create" element={
+          <ProtectedRoute roles={['System_Admin']}>
+            <AppShell>
+              <PageWrapper><AdminCreateUserPage /></PageWrapper>
+            </AppShell>
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/users" element={
+          <ProtectedRoute roles={['System_Admin']}>
+            <AppShell>
+              <PageWrapper><AdminStaffAccountsPage /></PageWrapper>
             </AppShell>
           </ProtectedRoute>
         } />
