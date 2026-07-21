@@ -9,6 +9,7 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token') || sessionStorage.getItem('anon_token');
   if (token) {
+    config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
   }
 
@@ -36,6 +37,7 @@ api.interceptors.response.use(
         });
         const { access_token } = res.data;
         localStorage.setItem('access_token', access_token);
+        originalRequest.headers = originalRequest.headers || {};
         originalRequest.headers.Authorization = `Bearer ${access_token}`;
         return api(originalRequest);
       } catch (_) {
@@ -48,3 +50,5 @@ api.interceptors.response.use(
 );
 
 export default api;
+
+

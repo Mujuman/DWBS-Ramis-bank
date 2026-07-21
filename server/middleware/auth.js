@@ -18,6 +18,7 @@ const authenticateStaff = async (req, res, next) => {
       return res.status(403).json({ error: 'Staff access required' });
     }
     req.user = payload;
+    req.identity = { type: 'staff', id: payload.userId, label: payload.username };
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Invalid or expired token' });
@@ -55,6 +56,7 @@ const authenticateAnonymous = async (req, res, next) => {
     }
 
     req.anonSession = session;
+    req.identity = { type: 'anonymous', id: session.session_id, label: 'ANONYMOUS' };
     next();
   } catch (err) {
     console.error('[AUTH] Anonymous session validation error:', err.message);
