@@ -89,6 +89,17 @@ const testConnection = async () => {
       console.error('[DB] Schema migration check failed for cases.anon_session_id:', migErr.message);
     }
 
+    // Automatic schema migration: check and add is_escalated to cases
+    try {
+      const [escCols] = await pool.execute("SHOW COLUMNS FROM cases LIKE 'is_escalated'");
+      if (escCols.length === 0) {
+        await pool.execute("ALTER TABLE cases ADD COLUMN is_escalated tinyint(1) DEFAULT 0");
+        console.log('[DB] Migration: Added is_escalated column to cases table');
+      }
+    } catch (migErr) {
+      console.error('[DB] Schema migration check failed for cases.is_escalated:', migErr.message);
+    }
+
     // Automatic schema migration: create notifications table
     try {
       const [tables] = await pool.execute("SHOW TABLES LIKE 'notifications'");

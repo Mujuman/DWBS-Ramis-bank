@@ -3,8 +3,11 @@ const { writeAuditLog } = require('../services/auditService');
 const { createNotification } = require('./notificationController');
 const { TERMINAL_STATUSES } = require('../constants/caseWorkflow');
 
-const normalizeRecipientRole = (recipientRole) =>
-  recipientRole === 'Compliance_Officer' ? 'Compliance_Officer' : 'Investigator';
+const normalizeRecipientRole = (recipientRole) => {
+  if (recipientRole === 'Compliance_Officer') return 'Compliance_Officer';
+  if (recipientRole === 'CEO') return 'CEO';
+  return 'Investigator';
+};
 
 const addReporterNote = async (caseId, noteBody, recipientRole = 'Investigator') => {
   const audienceType = normalizeRecipientRole(recipientRole);
@@ -18,7 +21,7 @@ const addReporterNote = async (caseId, noteBody, recipientRole = 'Investigator')
 
 /**
  * POST /api/cases/anonymous/notes
- * Allows anonymous reporters to reply to investigator/compliance messages
+ * Allows anonymous reporters to reply to investigator/compliance/CEO messages
  * using their reference ID and verification token.
  */
 const createAnonNote = async (req, res) => {
@@ -41,11 +44,12 @@ const createAnonNote = async (req, res) => {
       return res.status(401).json({ error: 'Invalid verification token' });
     }
 
+    // Check if any staff member (Investigator, Compliance_Officer, or CEO) has posted a public message
     const [staffNotes] = await pool.execute(
       `SELECT note_id FROM investigationnotes
-       WHERE case_id = ? AND sender_type = ? AND is_internal_only = 0
+       WHERE case_id = ? AND sender_type IN ('Investigator', 'Compliance_Officer', 'CEO') AND is_internal_only = 0
        LIMIT 1`,
-      [caseData.case_id, recipientRole]
+      [caseData.case_id]
     );
 
     if (staffNotes.length === 0) {
@@ -69,7 +73,7 @@ const createAnonNote = async (req, res) => {
       metadata: { reference_id, recipient_role: audienceType },
     });
 
-    // Notify assigned investigator and compliance officers about the anonymous reply
+    // Notify relevant staff about the anonymous reply
     try {
       const [caseInfo] = await pool.execute(
         `SELECT assigned_investigator, reference_id FROM cases WHERE case_id = ?`,
@@ -90,15 +94,29 @@ const createAnonNote = async (req, res) => {
             targetRole: 'Compliance_Officer',
             type: 'new_message',
             title: 'New Anonymous Reporter Message',
-            message: `An anonymous reporter responded to the Compliance Team Lead on case ${caseInfo[0].reference_id}.`,
+            message: `An anonymous reporter responded to the Ethics & Anti-Corruption Office on case ${caseInfo[0].reference_id}.`,
+            caseId: caseData.case_id,
+          });
+        }
+        if (audienceType === 'CEO') {
+          createNotification({
+            targetRole: 'CEO',
+            type: 'new_message',
+            title: 'New Anonymous Reporter Message',
+            message: `An anonymous reporter responded to the CEO on case ${caseInfo[0].reference_id}.`,
             caseId: caseData.case_id,
           });
         }
       }
     } catch (_) {}
 
+    const recipientLabel =
+      audienceType === 'Compliance_Officer' ? 'Ethics & Anti-Corruption Office' :
+      audienceType === 'CEO' ? 'CEO' :
+      'Case Investigator';
+
     return res.status(201).json({
-      message: `Your response has been sent to the ${audienceType === 'Compliance_Officer' ? 'Compliance Team Lead' : 'Case Investigator'}.`,
+      message: `Your response has been sent to the ${recipientLabel}.`,
     });
   } catch (err) {
     console.error('[NOTE] Anonymous create error:', err.message);
@@ -109,6 +127,7 @@ const createAnonNote = async (req, res) => {
 /**
  * POST /api/cases/:id/notes
  * Adds a note to the investigation correspondence thread.
+ * Audience types: Investigator | Compliance_Officer | CEO | Reporter | General
  * is_internal_only=true notes are only visible to staff.
  */
 const createNote = async (req, res) => {
@@ -133,16 +152,28 @@ const createNote = async (req, res) => {
     // Anonymous reporters cannot post internal notes
     const isInternal = identity.type === 'staff' ? (is_internal_only === true || is_internal_only === 'true') : false;
 
-    // Determine sender_type: staff owners are modeled as 'Reporter' so their clarifications appear as correspondence.
+    // Determine sender_type
     const isStaffReporter = identity.type === 'staff' && ['Employee', 'Branch_Manager'].includes(req.user?.role);
-    const senderType = identity.type === 'staff' && !isStaffReporter
-      ? (req.user?.role === 'Compliance_Officer' ? 'Compliance_Officer' : 'Investigator')
-      : 'Reporter';
-    const audienceType = senderType === 'Reporter'
-      ? normalizeRecipientRole(recipient_role)
-      : (recipient_role && ['Investigator', 'Compliance_Officer', 'General'].includes(recipient_role)
-          ? recipient_role
-          : senderType);
+    let senderType;
+    if (identity.type === 'staff' && !isStaffReporter) {
+      if (req.user?.role === 'Compliance_Officer') senderType = 'Compliance_Officer';
+      else if (req.user?.role === 'CEO') senderType = 'CEO';
+      else senderType = 'Investigator';
+    } else {
+      senderType = 'Reporter';
+    }
+
+    // Determine audience_type
+    // Allowed audience values for staff: Reporter, Investigator, Compliance_Officer, CEO, General
+    const VALID_AUDIENCES = ['Reporter', 'Investigator', 'Compliance_Officer', 'CEO', 'General'];
+    let audienceType;
+    if (senderType === 'Reporter') {
+      audienceType = normalizeRecipientRole(recipient_role);
+    } else {
+      audienceType = (recipient_role && VALID_AUDIENCES.includes(recipient_role))
+        ? recipient_role
+        : senderType;
+    }
 
     await pool.execute(
       `INSERT INTO investigationnotes (case_id, sender_type, audience_type, note_text, is_internal_only)
@@ -165,10 +196,10 @@ const createNote = async (req, res) => {
       action: 'NOTE_ADDED',
       performedBy: identity.label,
       performedByType: identity.type,
-      metadata: { is_internal_only: isInternal, recipient_role: audienceType },
+      metadata: { is_internal_only: isInternal, sender_type: senderType, audience_type: audienceType },
     });
 
-    // Create notification for relevant parties about the new message
+    // Notify relevant parties
     try {
       const [caseInfo] = await pool.execute(
         `SELECT assigned_investigator, reference_id, user_id FROM cases WHERE case_id = ?`,
@@ -176,18 +207,20 @@ const createNote = async (req, res) => {
       );
       if (caseInfo.length > 0) {
         const ref = caseInfo[0].reference_id;
-        if (identity.type === 'staff' && ['Investigator', 'Compliance_Officer'].includes(senderType)) {
-          // Notify the case owner only if the message is public
-          if (!isInternal && caseInfo[0].user_id) {
+
+        if (identity.type === 'staff' && ['Investigator', 'Compliance_Officer', 'CEO'].includes(senderType)) {
+          // Notify the reporter if message is public and directed to them
+          if (!isInternal && (audienceType === 'Reporter' || audienceType === 'General') && caseInfo[0].user_id) {
             createNotification({
               userId: caseInfo[0].user_id,
               type: 'new_message',
               title: 'New Message on Your Case',
-              message: `The ${senderType === 'Compliance_Officer' ? 'Compliance Team Lead' : 'Case Investigator'} has posted a new message on your case ${ref}.`,
+              message: `The ${senderType === 'Compliance_Officer' ? 'Ethics & Anti-Corruption Office' : senderType === 'CEO' ? 'CEO' : 'Case Investigator'} has posted a new message on your case ${ref}.`,
               caseId,
             });
           }
-          // Notify other staff roles
+
+          // Notify Ethics office when investigator posts
           if (senderType === 'Investigator') {
             createNotification({
               targetRole: 'Compliance_Officer',
@@ -196,17 +229,43 @@ const createNote = async (req, res) => {
               message: `The Case Investigator has posted a ${isInternal ? 'private ' : ''}message on case ${ref}.`,
               caseId,
             });
-          } else if (senderType === 'Compliance_Officer' && caseInfo[0].assigned_investigator) {
+          }
+
+          // Notify investigator when Ethics office posts
+          if (senderType === 'Compliance_Officer' && caseInfo[0].assigned_investigator) {
             createNotification({
               userId: caseInfo[0].assigned_investigator,
               type: 'new_message',
-              title: 'New Compliance Message',
-              message: `The Compliance Team Lead has posted a ${isInternal ? 'private ' : ''}message on case ${ref}.`,
+              title: 'New Message from Ethics & Anti-Corruption Office',
+              message: `The Ethics & Anti-Corruption Office has posted a ${isInternal ? 'private ' : ''}message on case ${ref}.`,
               caseId,
             });
           }
+
+          // Notify Ethics office when CEO posts
+          if (senderType === 'CEO') {
+            createNotification({
+              targetRole: 'Compliance_Officer',
+              type: 'new_message',
+              title: 'New Message from CEO',
+              message: `The CEO has posted a message on case ${ref}.`,
+              caseId,
+            });
+          }
+
+          // Notify CEO when Ethics office directs message to CEO
+          if (senderType === 'Compliance_Officer' && audienceType === 'CEO') {
+            createNotification({
+              targetRole: 'CEO',
+              type: 'new_message',
+              title: 'New Message from Ethics & Anti-Corruption Office',
+              message: `The Ethics & Anti-Corruption Office has sent you a message on case ${ref}.`,
+              caseId,
+            });
+          }
+
         } else if (identity.type === 'staff' && senderType === 'Reporter') {
-          // Staff reporter (Employee/Branch_Manager) replied → notify assigned investigator
+          // Staff reporter replied
           if (audienceType === 'Investigator' && caseInfo[0].assigned_investigator) {
             createNotification({
               userId: caseInfo[0].assigned_investigator,
@@ -216,18 +275,16 @@ const createNote = async (req, res) => {
               caseId,
             });
           }
-          // Also notify compliance officers about staff reporter reply
           if (audienceType === 'Compliance_Officer') {
             createNotification({
               targetRole: 'Compliance_Officer',
               type: 'new_message',
               title: 'New Staff Reporter Message',
-              message: `A staff reporter responded to the Compliance Team Lead on case ${ref}.`,
+              message: `A staff reporter responded to the Ethics & Anti-Corruption Office on case ${ref}.`,
               caseId,
             });
           }
         } else if (identity.type === 'anonymous') {
-          // Anonymous reporter posted via authenticated note route → notify investigator & compliance
           if (audienceType === 'Investigator' && caseInfo[0].assigned_investigator) {
             createNotification({
               userId: caseInfo[0].assigned_investigator,
@@ -242,7 +299,16 @@ const createNote = async (req, res) => {
               targetRole: 'Compliance_Officer',
               type: 'new_message',
               title: 'New Anonymous Reporter Message',
-              message: `An anonymous reporter responded to the Compliance Team Lead on case ${ref}.`,
+              message: `An anonymous reporter responded to the Ethics & Anti-Corruption Office on case ${ref}.`,
+              caseId,
+            });
+          }
+          if (audienceType === 'CEO') {
+            createNotification({
+              targetRole: 'CEO',
+              type: 'new_message',
+              title: 'New Anonymous Reporter Message',
+              message: `An anonymous reporter responded to the CEO on case ${ref}.`,
               caseId,
             });
           }
@@ -260,8 +326,6 @@ const createNote = async (req, res) => {
 /**
  * GET /api/cases/:id/notes
  * Fetches the correspondence thread for a case.
- * - Anonymous reporters see only is_internal_only=0 notes
- * - Staff see all notes (respects is_internal_only filter by default, unless Investigator+)
  */
 const getNotes = async (req, res) => {
   const caseId = parseInt(req.params.id);
@@ -276,34 +340,41 @@ const getNotes = async (req, res) => {
     let query;
     let params;
 
-    // Privilege-aware filter
+    const role = req.user?.role;
     const highPriv = identity.type === 'staff' &&
-      ['Investigator', 'Compliance_Officer', 'CEO'].includes(req.user?.role);
+      ['Investigator', 'Compliance_Officer', 'CEO'].includes(role);
 
     if (identity.type === 'anonymous' || !highPriv) {
-      // Reporter or low-privilege staff: only public notes
+      // Reporter: public notes only
       query = `SELECT note_id as id, sender_type as author_type, audience_type, note_text as body,
                       is_internal_only, created_at
                FROM investigationnotes
                WHERE case_id = ? AND is_internal_only = 0
                ORDER BY created_at ASC`;
       params = [caseId];
-    } else if (req.user?.role === 'Investigator') {
+    } else if (role === 'Investigator') {
       query = `SELECT note_id as id, sender_type as author_type, audience_type, note_text as body,
                       is_internal_only, created_at
                FROM investigationnotes
                WHERE case_id = ? AND (is_internal_only = 0 OR audience_type IN ('General', 'Investigator') OR sender_type = 'Investigator')
                ORDER BY created_at ASC`;
       params = [caseId];
-    } else if (req.user?.role === 'Compliance_Officer') {
+    } else if (role === 'Compliance_Officer') {
       query = `SELECT note_id as id, sender_type as author_type, audience_type, note_text as body,
                       is_internal_only, created_at
                FROM investigationnotes
-               WHERE case_id = ? AND (is_internal_only = 0 OR audience_type IN ('General', 'Compliance_Officer') OR sender_type = 'Compliance_Officer')
+               WHERE case_id = ? AND (is_internal_only = 0 OR audience_type IN ('General', 'Compliance_Officer', 'CEO') OR sender_type IN ('Compliance_Officer', 'CEO'))
+               ORDER BY created_at ASC`;
+      params = [caseId];
+    } else if (role === 'CEO') {
+      query = `SELECT note_id as id, sender_type as author_type, audience_type, note_text as body,
+                      is_internal_only, created_at
+               FROM investigationnotes
+               WHERE case_id = ? AND (is_internal_only = 0 OR audience_type IN ('General', 'CEO', 'Compliance_Officer') OR sender_type IN ('CEO', 'Compliance_Officer'))
                ORDER BY created_at ASC`;
       params = [caseId];
     } else {
-      // High-privilege staff: see all notes including internal
+      // High-privilege or other staff: all notes
       query = `SELECT note_id as id, sender_type as author_type, audience_type, note_text as body,
                       is_internal_only, created_at
                FROM investigationnotes

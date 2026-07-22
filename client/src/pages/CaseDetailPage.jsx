@@ -183,7 +183,7 @@ export default function CaseDetailPage() {
   const [updating,    setUpdating]    = useState(false);
   const [uploadingEvidence, setUploadingEvidence] = useState(false);
 
-  // ── Per-spec permission flags ─────────────────────────────
+  // ── Per-spec permission flags ───────────────────────────────
   // JWT payload uses `userId` (not `id`)
   const myUserId       = user?.userId ?? user?.id;
   const isInvestigator = user?.role === 'Investigator';
@@ -192,13 +192,15 @@ export default function CaseDetailPage() {
   const isOwner        = Boolean(caseData && caseData.owner_id === myUserId);
   const canManageOwnRequest = ['Employee', 'Branch_Manager'].includes(user?.role) && isOwner && caseData?.submitted_by_type !== 'anonymous';
   const canViewEvidence = ['Investigator', 'Compliance_Officer', 'CEO'].includes(user?.role) || canManageOwnRequest;
-  // Compliance Officer can always assign. CEO can only assign on escalated (Critical) cases.
+  // Ethics & Anti-Corruption Officer can always assign. CEO can only assign on escalated (Critical) cases.
   const canAssign      = isSenior || (isCEO && Boolean(caseData?.is_escalated));
 
   // Investigators can ONLY edit cases explicitly assigned to them (assigned_to = their userId)
   const isAssignedToMe = caseData ? (caseData.assigned_to === myUserId) : false;
-  // CEO can edit (assign) escalated cases; Compliance Officer can always edit; Investigator only their own
+  // CEO can edit (assign) escalated cases; Ethics Office can always edit; Investigator only their own
   const canEditNow     = isSenior || (isInvestigator && isAssignedToMe) || canManageOwnRequest || (isCEO && Boolean(caseData?.is_escalated));
+  // CEO can also send notes on escalated cases (for CEO ↔ Ethics chat)
+  const canSendNote    = canEditNow || (isCEO && Boolean(caseData?.is_escalated));
 
   const allowedStatusOptions = caseData
     ? [...new Set([
@@ -208,7 +210,8 @@ export default function CaseDetailPage() {
     : (isSenior ? COMPLIANCE_OFFICER_STATUSES : isCEO ? CEO_STATUSES : INVESTIGATOR_STATUSES);
 
   const getNoteAuthorLabel = (note) => {
-    if (note.author_type === 'Compliance_Officer') return 'Ethics & Anticorruption Officer';
+    if (note.author_type === 'Compliance_Officer') return 'Ethics & Anti-Corruption Office';
+    if (note.author_type === 'CEO') return 'CEO';
     if (note.author_type === 'Investigator') return 'Case Investigator';
     if (note.author_type === 'Reporter') {
       return caseData?.submitted_by_type === 'anonymous' ? 'Anonymous Reporter' : 'Staff Reporter';
@@ -217,11 +220,17 @@ export default function CaseDetailPage() {
   };
 
   const getNoteChannelLabel = (note) => {
+    if (note.audience_type === 'CEO') {
+      return note.author_type === 'Compliance_Officer' ? 'To: CEO' : 'CEO Thread';
+    }
     if (note.audience_type === 'Compliance_Officer') {
-      return note.author_type === 'Investigator' ? 'To: Ethics & Anticorruption' : 'Ethics & Anticorruption Thread';
+      return note.author_type === 'Investigator' ? 'To: Ethics & Anti-Corruption' : 'Ethics & Anti-Corruption Thread';
     }
     if (note.audience_type === 'Investigator') {
       return note.author_type === 'Compliance_Officer' ? 'To: Investigator' : 'Investigator Thread';
+    }
+    if (note.audience_type === 'Reporter') {
+      return 'To: Reporter';
     }
     return 'General Thread';
   };
@@ -328,7 +337,8 @@ export default function CaseDetailPage() {
       await api.post(`/cases/${id}/notes`, {
         body: noteBody,
         is_internal_only: isInternal,
-        recipient_role: (canManageOwnRequest || (isInternal && (isInvestigator || isSenior))) ? replyRecipient : undefined,
+        recipient_role: (isCEO) ? 'Compliance_Officer'
+          : (canManageOwnRequest || (isInternal && (isInvestigator || isSenior))) ? replyRecipient : undefined,
       });
       setNoteBody('');
       if (isInternal && (isInvestigator || isSenior)) {
@@ -652,8 +662,8 @@ export default function CaseDetailPage() {
               })}
             </div>
 
-            {/* Add note — only for editors or own request owners */}
-            {canEditNow && (
+            {/* Add note — for editors, CEO on escalated cases, or own request owners */}
+            {canSendNote && (
               <div className="border-t border-slate-100 pt-4">
                 <textarea
                   className="form-textarea mb-3"
@@ -673,8 +683,14 @@ export default function CaseDetailPage() {
                       onChange={e => setReplyRecipient(e.target.value)}
                     >
                       <option value="Investigator">Case Investigator</option>
-                      <option value="Compliance_Officer">Ethics & Anticorruption Team Lead</option>
+                      <option value="Compliance_Officer">Ethics & Anti-Corruption Office</option>
                     </select>
+                  </div>
+                )}
+                {isCEO && (
+                  <div className="mb-3 rounded-lg px-3 py-2 text-xs text-slate-500"
+                    style={{ background: 'rgba(37,99,235,0.06)', border: '1px solid rgba(37,99,235,0.15)' }}>
+                    💬 This message will be sent to the <strong>Ethics & Anti-Corruption Office</strong>.
                   </div>
                 )}
                 {isInternal && (isInvestigator || isSenior) && (
@@ -687,10 +703,13 @@ export default function CaseDetailPage() {
                     >
                       <option value="General">General / All Staff</option>
                       {isInvestigator && (
-                        <option value="Compliance_Officer">Ethics & Anticorruption Team Lead</option>
+                        <option value="Compliance_Officer">Ethics & Anti-Corruption Office</option>
                       )}
                       {isSenior && (
                         <option value="Investigator">Case Investigator</option>
+                      )}
+                      {(isInvestigator || isSenior) && (
+                        <option value="Reporter">Reporter (Public Message)</option>
                       )}
                     </select>
                   </div>

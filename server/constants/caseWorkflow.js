@@ -31,7 +31,11 @@ const INVESTIGATOR_STATUSES = ['Investigating', 'Pending_Evidence', 'Substantiat
 const CEO_STATUSES = ['Assigned'];
 
 const STATUS_TRANSITIONS = {
-  New: { Compliance_Officer: ['Under_Review'] },
+  New: {
+    Compliance_Officer: ['Under_Review'],
+    // CEO can assign investigator directly on auto-escalated cases (Corruption/Bribery) that start as New
+    CEO: ['Assigned'],
+  },
   Under_Review: {
     Compliance_Officer: ['Complaint_Dismissed', 'Assigned'],
     // CEO can assign investigator on escalated cases that Ethics Office reported to them

@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import {
   TrendingUp, AlertTriangle, Clock, CheckCircle, FileText,
-  Activity, UserCheck, X, Briefcase, Zap, RefreshCw
+  Activity, UserCheck, X, Briefcase, Zap, RefreshCw, MessageSquare, Send, Shield
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -44,6 +44,13 @@ export default function ExecutiveDashboard() {
   const [assignTarget, setAssignTarget] = useState('');
   const [assigning, setAssigning] = useState(false);
 
+  // CEO ↔ Ethics chat state
+  const [selectedChatCase, setSelectedChatCase] = useState(null);
+  const [chatNotes, setChatNotes] = useState([]);
+  const [chatMessage, setChatMessage] = useState('');
+  const [sendingChat, setSendingChat] = useState(false);
+  const [chatLoading, setChatLoading] = useState(false);
+
   const loadData = () => {
     setLoading(true);
     Promise.all([
@@ -63,6 +70,46 @@ export default function ExecutiveDashboard() {
   };
 
   useEffect(() => { loadData(); }, []);
+
+  // ── CEO ↔ Ethics chat functions ────────────────────────────
+  const loadChatNotes = async (caseId) => {
+    setChatLoading(true);
+    try {
+      const res = await api.get(`/cases/${caseId}/notes`);
+      const relevant = (res.data.notes || []).filter(n =>
+        n.author_type === 'CEO' || n.author_type === 'Compliance_Officer' ||
+        n.audience_type === 'CEO' || n.audience_type === 'Compliance_Officer'
+      );
+      setChatNotes(relevant);
+    } catch {
+      setChatNotes([]);
+    }
+    setChatLoading(false);
+  };
+
+  const selectChatCase = async (c) => {
+    setSelectedChatCase(c);
+    setChatMessage('');
+    await loadChatNotes(c.id);
+  };
+
+  const sendChatMessage = async () => {
+    if (!chatMessage.trim() || !selectedChatCase) return;
+    setSendingChat(true);
+    try {
+      await api.post(`/cases/${selectedChatCase.id}/notes`, {
+        body: chatMessage.trim(),
+        recipient_role: 'Compliance_Officer',
+        is_internal_only: false,
+      });
+      setChatMessage('');
+      await loadChatNotes(selectedChatCase.id);
+      toast.success('Message sent to Ethics & Anti-Corruption Office');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to send message');
+    }
+    setSendingChat(false);
+  };
 
   // ── Assign investigator (CEO action) ───────────────────────
   const doAssign = async () => {
@@ -253,6 +300,111 @@ export default function ExecutiveDashboard() {
           </div>
         )}
       </div>
+
+      {/* ── CEO ↔ Ethics & Anti-Corruption Chat ── */}
+      {escalatedCases.length > 0 && (
+        <div className="card p-6 mb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: '#dbeafe' }}>
+              <MessageSquare size={18} className="text-blue-700" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold" style={{ color: 'var(--color-navy-900)' }}>
+                Messages with Ethics & Anti-Corruption Office
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Direct channel for escalated case discussions
+              </p>
+            </div>
+          </div>
+
+          <div className="grid lg:grid-cols-5 gap-4">
+            {/* Case list */}
+            <div className="lg:col-span-2 rounded-xl overflow-hidden border border-slate-100">
+              <div className="px-4 py-2.5 border-b border-slate-100" style={{ background: 'rgba(10,29,55,0.03)' }}>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Escalated Cases</p>
+              </div>
+              <div className="divide-y divide-slate-100 overflow-y-auto" style={{ maxHeight: '320px' }}>
+                {escalatedCases.map(c => (
+                  <button key={c.id} onClick={() => selectChatCase(c)}
+                    className={`w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors ${selectedChatCase?.id === c.id ? 'bg-blue-50 border-l-2 border-blue-500' : ''}`}>
+                    <p className="text-xs font-mono font-bold" style={{ color: 'var(--color-navy-900)' }}>{c.reference_id}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{c.category?.replace(/_/g, ' ')}</p>
+                    <span className={`badge badge-${c.priority?.toLowerCase()} mt-1 text-xs`}>{c.priority}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Chat window */}
+            <div className="lg:col-span-3 flex flex-col rounded-xl border border-slate-100 overflow-hidden" style={{ minHeight: '320px' }}>
+              {!selectedChatCase ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
+                  <Shield size={24} className="text-slate-300 mb-2" />
+                  <p className="text-sm text-slate-400">Select a case to view the conversation</p>
+                </div>
+              ) : (
+                <>
+                  <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between" style={{ background: 'rgba(10,29,55,0.02)' }}>
+                    <div>
+                      <p className="text-xs font-bold" style={{ color: 'var(--color-navy-900)' }}>{selectedChatCase.reference_id}</p>
+                      <p className="text-xs text-slate-400">{selectedChatCase.category?.replace(/_/g, ' ')}</p>
+                    </div>
+                  </div>
+
+                  {/* Messages */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-2" style={{ maxHeight: '220px' }}>
+                    {chatLoading ? (
+                      <div className="text-center py-6"><span className="spinner spinner-navy mx-auto" /></div>
+                    ) : chatNotes.length === 0 ? (
+                      <p className="text-sm text-slate-400 text-center py-6">No messages yet in this case thread.</p>
+                    ) : (
+                      chatNotes.map((note, i) => {
+                        const isCEO = note.author_type === 'CEO';
+                        return (
+                          <div key={i} className={`p-3 rounded-xl text-sm ${isCEO ? 'ml-6' : 'mr-6'}`}
+                            style={{
+                              background: isCEO ? 'rgba(249,168,38,0.08)' : 'rgba(37,99,235,0.06)',
+                              border: `1px solid ${isCEO ? 'rgba(249,168,38,0.2)' : 'rgba(37,99,235,0.15)'}`,
+                            }}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs font-bold" style={{ color: isCEO ? '#92400e' : '#1d4ed8' }}>
+                                {isCEO ? 'CEO (You)' : 'Ethics & Anti-Corruption Office'}
+                              </span>
+                              <span className="text-xs text-slate-400">{format(new Date(note.created_at), 'MMM d, HH:mm')}</span>
+                            </div>
+                            <p className="text-slate-700 whitespace-pre-wrap text-xs leading-relaxed">{note.body}</p>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Input */}
+                  <div className="px-4 py-3 border-t border-slate-100 flex gap-2">
+                    <input
+                      type="text"
+                      className="form-input flex-1 text-sm"
+                      placeholder="Reply to Ethics & Anti-Corruption Office..."
+                      value={chatMessage}
+                      onChange={e => setChatMessage(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') sendChatMessage(); }}
+                    />
+                    <button
+                      onClick={sendChatMessage}
+                      disabled={sendingChat || !chatMessage.trim()}
+                      className="btn btn-primary px-3 flex-shrink-0"
+                    >
+                      {sendingChat ? <span className="spinner" /> : <Send size={15} />}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-3 gap-6 mb-6">
         {/* Monthly Trend */}

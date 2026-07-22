@@ -567,14 +567,16 @@ const trackCase = async (req, res) => {
 
     // Map to client format
     const formattedNotes = notes.map(n => {
-      const isStaffMessage = ['Investigator', 'Compliance_Officer'].includes(n.author_type);
+      const isStaffMessage = ['Investigator', 'Compliance_Officer', 'CEO'].includes(n.author_type);
       return {
         body: n.body,
         author_type: isStaffMessage ? 'staff' : 'anonymous',
         sender_role: n.author_type,
         recipient_role: n.audience_type,
         author_label: n.author_type === 'Compliance_Officer'
-          ? 'Compliance Team Lead'
+          ? 'Ethics & Anti-Corruption Office'
+          : n.author_type === 'CEO'
+          ? 'CEO'
           : n.author_type === 'Investigator'
           ? 'Case Investigator'
           : 'You (Anonymous Reporter)',
@@ -923,7 +925,9 @@ const getCaseStats = async (req, res) => {
               c.created_at, u.username AS assigned_investigator
        FROM cases c
        LEFT JOIN users u ON c.assigned_investigator = u.user_id
-       WHERE c.is_escalated = 1 AND c.deleted_at IS NULL
+       WHERE c.is_escalated = 1
+         AND c.deleted_at IS NULL
+         AND c.status NOT IN ('Substantiated', 'Complaint_Dismissed', 'Dismissed_No_Evidence')
        ORDER BY c.created_at DESC`
     );
 
@@ -965,15 +969,17 @@ const getCaseStats = async (req, res) => {
   }
 };
 
-// ── Escalate Case to CEO ──────────────────────────────────────
+// ── Escalate Case to CEO ───────────────────────────────
 
 /**
  * POST /api/cases/:id/escalate
- * Compliance Officers can manually escalate a case to the CEO.
+ * Ethics & Anti-Corruption Officers escalate a case to the CEO.
+ * Optional body: { escalation_note: string } — posted as a CEO-directed note.
  */
 const escalateCase = async (req, res) => {
   const user = req.user;
   const caseId = parseInt(req.params.id);
+  const { escalation_note } = req.body;
 
   try {
     const [existing] = await pool.execute(
@@ -990,9 +996,8 @@ const escalateCase = async (req, res) => {
       return res.status(400).json({ error: 'Case is already escalated' });
     }
 
-    // Only Compliance Officers may manually escalate per BRD
     if (user.role !== 'Compliance_Officer') {
-      return res.status(403).json({ error: 'Only a Compliance Officer may escalate a case to the CEO.' });
+      return res.status(403).json({ error: 'Only the Ethics & Anti-Corruption Office may escalate a case to the CEO.' });
     }
 
     await pool.execute(
@@ -1000,11 +1005,21 @@ const escalateCase = async (req, res) => {
       [caseId]
     );
 
+    // Post a CEO-directed note with the escalation description
+    const noteBody = escalation_note && escalation_note.trim().length > 0
+      ? `**Escalation Report from Ethics & Anti-Corruption Office**\n\n${escalation_note.trim()}`
+      : `**Case Escalated to CEO**\n\nThe Ethics & Anti-Corruption Office has reviewed case **${caseData.reference_id}** (${caseData.category?.replace(/_/g, ' ')}) and determined it requires CEO-level oversight. Please assign an investigator to proceed.`;
+
+    await pool.execute(
+      `INSERT INTO investigationnotes (case_id, sender_type, audience_type, note_text, is_internal_only) VALUES (?, 'Compliance_Officer', 'CEO', ?, 0)`,
+      [caseId, noteBody]
+    );
+
     await writeAuditLog({
       userId: user.userId,
       caseId,
       action: 'CASE_ESCALATED',
-      metadata: { reference_id: caseData.reference_id },
+      metadata: { reference_id: caseData.reference_id, has_escalation_note: Boolean(escalation_note?.trim()) },
     });
 
     try {
@@ -1019,12 +1034,11 @@ const escalateCase = async (req, res) => {
       }
     } catch (_) {}
 
-    // In-app notification for CEO — Ethics & Anti-Corruption Office has escalated this case
     createNotification({
       targetRole: 'CEO',
       type: 'case_escalated',
-      title: 'Critical Case Escalated by Ethics Office',
-      message: `The Ethics & Anti-Corruption Office has escalated Case ${caseData.reference_id} (${caseData.category?.replace(/_/g, ' ')}) to you. Please review and assign an investigator.`,
+      title: 'Critical Case Escalated by Ethics & Anti-Corruption Office',
+      message: `The Ethics & Anti-Corruption Office has escalated Case ${caseData.reference_id} (${caseData.category?.replace(/_/g, ' ')}) to you. ${escalation_note?.trim() ? 'A detailed report has been attached.' : 'Please review and assign an investigator.'}`,
       caseId,
     });
 

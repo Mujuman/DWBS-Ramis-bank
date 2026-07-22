@@ -63,7 +63,11 @@ export const isTerminalStatus = (status) => TERMINAL_STATUSES.includes(status);
 
 export const getNextStatusesForRole = (role, currentStatus) => {
   const transitions = {
-    New: { Compliance_Officer: ['Under_Review'] },
+    New: {
+      Compliance_Officer: ['Under_Review'],
+      // CEO can assign investigator directly on auto-escalated cases (Corruption/Bribery) in New status
+      CEO: ['Assigned'],
+    },
     Under_Review: {
       Compliance_Officer: ['Complaint_Dismissed', 'Assigned'],
       // CEO can assign investigator on escalated cases
