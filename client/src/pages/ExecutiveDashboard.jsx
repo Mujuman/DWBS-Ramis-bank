@@ -219,7 +219,7 @@ export default function ExecutiveDashboard() {
               Critical Cases — Escalated by Ethics & Anti-Corruption Office
             </h2>
             <p className="text-xs text-slate-500 mt-1">
-              Only <strong>Critical</strong> cases escalated to you appear here. Assign an investigator to proceed.
+              Showing only <span className="inline-flex items-center gap-1 font-bold px-1.5 py-0.5 rounded text-red-700" style={{background:'#fee2e2'}}>🔴 Priority = Critical</span> cases escalated to you. Assign an investigator to proceed.
             </p>
           </div>
           <span className="text-xs font-bold px-2.5 py-1 rounded-full"
@@ -243,6 +243,7 @@ export default function ExecutiveDashboard() {
                 <tr>
                   <th>Reference</th>
                   <th>Category</th>
+                  <th>Priority</th>
                   <th>Status</th>
                   <th>Submitted</th>
                   <th>Assigned To</th>
@@ -259,6 +260,9 @@ export default function ExecutiveDashboard() {
                       </Link>
                     </td>
                     <td className="text-slate-600">{c.category?.replace(/_/g, ' ') || '—'}</td>
+                    <td>
+                      <span className="badge badge-critical">🔴 Critical</span>
+                    </td>
                     <td>
                       <span className={`badge ${STATUS_BADGE[c.status] || 'badge-review'}`}>
                         {formatStatus(c.status)}
