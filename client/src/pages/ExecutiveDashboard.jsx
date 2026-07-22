@@ -101,13 +101,15 @@ export default function ExecutiveDashboard() {
     setChatLoading(true);
     try {
       const res = await api.get(`/cases/${caseId}/notes`);
-      // Only show notes that are actually part of the CEO ↔ Ethics thread:
-      // - sent BY CEO (to Ethics or General)
-      // - sent BY Compliance_Officer TO CEO specifically
-      // This excludes Ethics messages directed at Investigator or Reporter
+      // CEO chat panel shows only:
+      // 1. Messages sent BY CEO
+      // 2. Messages from Compliance_Officer TO CEO
+      // 3. Reporter messages explicitly addressed TO CEO
+      // Everything else (reporter→Investigator, reporter→Ethics, etc.) is excluded
       const relevant = (res.data.notes || []).filter(n =>
         n.author_type === 'CEO' ||
-        (n.author_type === 'Compliance_Officer' && n.audience_type === 'CEO')
+        (n.author_type === 'Compliance_Officer' && n.audience_type === 'CEO') ||
+        (n.author_type === 'Reporter' && n.audience_type === 'CEO')
       );
       setChatNotes(relevant);
     } catch { setChatNotes([]); }
@@ -357,15 +359,26 @@ export default function ExecutiveDashboard() {
             ) : (
               chatNotes.map((note, i) => {
                 const isCEO = note.author_type === 'CEO';
+                const isReporter = note.author_type === 'Reporter';
                 return (
                   <div key={i} className={`p-3 rounded-xl ${isCEO ? 'ml-12' : 'mr-12'}`}
                     style={{
-                      background: isCEO ? 'rgba(249,168,38,0.08)' : 'rgba(37,99,235,0.06)',
-                      border: `1px solid ${isCEO ? 'rgba(249,168,38,0.22)' : 'rgba(37,99,235,0.16)'}`,
+                      background: isCEO
+                        ? 'rgba(249,168,38,0.08)'
+                        : isReporter
+                        ? 'rgba(16,185,129,0.07)'
+                        : 'rgba(37,99,235,0.06)',
+                      border: `1px solid ${isCEO
+                        ? 'rgba(249,168,38,0.22)'
+                        : isReporter
+                        ? 'rgba(16,185,129,0.22)'
+                        : 'rgba(37,99,235,0.16)'}`,
                     }}>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-bold" style={{ color: isCEO ? '#92400e' : '#1d4ed8' }}>
-                        {isCEO ? 'CEO (You)' : 'Ethics & Anti-Corruption Office'}
+                      <span className="text-xs font-bold" style={{
+                        color: isCEO ? '#92400e' : isReporter ? '#065f46' : '#1d4ed8'
+                      }}>
+                        {isCEO ? 'CEO (You)' : isReporter ? 'Reporter' : 'Ethics & Anti-Corruption Office'}
                       </span>
                       <span className="text-xs text-slate-400">{format(new Date(note.created_at), 'MMM d, HH:mm')}</span>
                     </div>

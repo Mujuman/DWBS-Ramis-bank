@@ -284,7 +284,19 @@ export default function CaseDetailPage() {
 
       try {
         const nRes = await api.get(`/cases/${id}/notes`);
-        setNotes(nRes.data.notes || []);
+        // Staff reporters (Employee/Branch_Manager) must only see messages
+        // directed at the Reporter or General audience, plus their own sent messages.
+        // This is also enforced server-side but we guard here too.
+        const isStaffReporter = ['Employee', 'Branch_Manager'].includes(user?.role);
+        const allNotes = nRes.data.notes || [];
+        setNotes(isStaffReporter
+          ? allNotes.filter(n =>
+              n.audience_type === 'Reporter' ||
+              n.audience_type === 'General' ||
+              n.author_type === 'Reporter'
+            )
+          : allNotes
+        );
       } catch (err) {
         setNotes([]);
         setNotesError(err.response?.data?.error || 'Failed to fetch notes');
@@ -363,7 +375,16 @@ export default function CaseDetailPage() {
       setIsInternal(false);
       if (noteRef.current) noteRef.current.innerHTML = '';
       const res = await api.get(`/cases/${id}/notes`);
-      setNotes(res.data.notes || []);
+      const isStaffReporter = ['Employee', 'Branch_Manager'].includes(user?.role);
+      const allNotes = res.data.notes || [];
+      setNotes(isStaffReporter
+        ? allNotes.filter(n =>
+            n.audience_type === 'Reporter' ||
+            n.audience_type === 'General' ||
+            n.author_type === 'Reporter'
+          )
+        : allNotes
+      );
       toast.success('Note added');
     } catch (err) {
       const details = err.response?.data?.details;

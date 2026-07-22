@@ -570,10 +570,15 @@ const trackCase = async (req, res) => {
       );
     } catch (notesErr) {
       if (!/audience_type/i.test(notesErr.message || '')) throw notesErr;
+      // Legacy fallback: audience_type column not yet migrated.
+      // We cannot filter by audience so we exclude known staff-only senders
+      // (CEO→Ethics, Ethics→CEO) by excluding their sender/audience combinations.
       [notes] = await pool.execute(
         `SELECT note_text AS body, sender_type AS author_type, created_at
          FROM investigationnotes
-         WHERE case_id = ? AND is_internal_only = 0
+         WHERE case_id = ?
+           AND is_internal_only = 0
+           AND sender_type NOT IN ('CEO')
          ORDER BY created_at ASC`,
         [caseData.case_id]
       );

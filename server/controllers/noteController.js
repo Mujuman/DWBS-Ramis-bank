@@ -398,18 +398,17 @@ const getNotes = async (req, res) => {
                ORDER BY created_at ASC`;
       params = [caseId];
     } else if (role === 'CEO') {
-      // CEO sees:
-      //   - all public notes (to stay informed on case progress)
-      //   - notes in the CEO thread: sent by CEO, or sent by Compliance_Officer TO CEO
-      //   - reporter messages directed to CEO
-      // CEO does NOT see internal Compliance_Officer↔Investigator notes
+      // CEO sees ONLY the CEO-specific thread:
+      //   - messages sent BY CEO
+      //   - messages sent BY Compliance_Officer TO CEO
+      //   - messages sent BY Reporter TO CEO specifically (not to Investigator/Ethics)
+      // Public notes for Investigator/Reporter/Ethics threads are NOT shown here
       query = `SELECT note_id as id, sender_type as author_type, audience_type, note_text as body,
                       is_internal_only, created_at
                FROM investigationnotes
                WHERE case_id = ?
                  AND (
-                   is_internal_only = 0
-                   OR sender_type = 'CEO'
+                   sender_type = 'CEO'
                    OR (sender_type = 'Compliance_Officer' AND audience_type = 'CEO')
                    OR (sender_type = 'Reporter' AND audience_type = 'CEO')
                  )
@@ -430,8 +429,13 @@ const getNotes = async (req, res) => {
       [notes] = await pool.execute(query, params);
     } catch (notesErr) {
       if (!/audience_type/i.test(notesErr.message || '')) throw notesErr;
-      const legacyWhere = identity.type === 'anonymous' || !highPriv
-        ? 'WHERE case_id = ? AND is_internal_only = 0'
+      // Legacy fallback when audience_type column not yet migrated.
+      // For reporters, exclude CEO and Compliance_Officer sender types
+      // so CEO↔Ethics messages never leak to the reporter view.
+      const isReporter = identity.type === 'anonymous' || !highPriv;
+      const legacyWhere = isReporter
+        ? `WHERE case_id = ? AND is_internal_only = 0
+             AND sender_type NOT IN ('CEO', 'Compliance_Officer')`
         : 'WHERE case_id = ?';
       [notes] = await pool.execute(
         `SELECT note_id as id, sender_type as author_type, note_text as body,
