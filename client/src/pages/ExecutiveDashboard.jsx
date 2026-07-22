@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import {
-  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+  BarChart, Bar, LineChart, Line,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
 import {
   TrendingUp, AlertTriangle, Clock, CheckCircle, FileText,
@@ -388,28 +388,22 @@ export default function ExecutiveDashboard() {
         {/* Cases by Status */}
         <div className="card p-6">
           <h2 className="text-sm font-bold mb-4" style={{ color: 'var(--color-navy-900)' }}>Cases by Status</h2>
-          <ResponsiveContainer width="100%" height={180}>
-            <PieChart>
-              <Pie data={statusChartData} cx="50%" cy="50%" innerRadius={50} outerRadius={75}
-                dataKey="value" nameKey="name">
-                {statusChartData.map((entry, idx) => (
-                  <Cell key={idx} fill={entry.fill} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(v, n) => [v, n]} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="space-y-1 mt-2">
-            {statusChartData.filter(s => s.value > 0).map(s => (
-              <div key={s.name} className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ background: s.fill }} />
-                  <span className="text-slate-600">{s.name}</span>
-                </div>
-                <span className="font-bold" style={{ color: 'var(--color-navy-900)' }}>{s.value}</span>
-              </div>
-            ))}
-          </div>
+          {statusChartData.every(s => s.value === 0) ? (
+            <div className="flex items-center justify-center h-40 text-slate-300 text-sm">No data yet</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={statusChartData} layout="vertical" margin={{ top: 0, right: 30, bottom: 0, left: 70 }}>
+                <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} allowDecimals={false} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} width={68} />
+                <Tooltip formatter={(v) => [v, 'Cases']} />
+                <Bar dataKey="value" name="Cases" radius={[0, 4, 4, 0]}>
+                  {statusChartData.map((entry, idx) => (
+                    <Cell key={idx} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
