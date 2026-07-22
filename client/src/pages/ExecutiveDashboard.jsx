@@ -66,17 +66,25 @@ export default function ExecutiveDashboard() {
 
   const loadData = useCallback(() => {
     setLoading(true);
-    Promise.all([
+    Promise.allSettled([
       api.get('/cases/stats'),
       api.get('/users'),
     ])
-      .then(([statsRes, usersRes]) => {
-        setStats(statsRes.data);
-        setInvestigators(
-          (usersRes.data.users || [])
-            .filter(u => u.role === 'Investigator' && u.is_active)
-            .sort((a, b) => (a.username || '').localeCompare(b.username || ''))
-        );
+      .then(([statsResult, usersResult]) => {
+        if (statsResult.status === 'fulfilled') {
+          setStats(statsResult.value.data);
+        } else {
+          console.warn('[CEO Dashboard] Stats failed:', statsResult.reason?.message);
+        }
+        if (usersResult.status === 'fulfilled') {
+          setInvestigators(
+            (usersResult.value.data.users || [])
+              .filter(u => u.role === 'Investigator' && u.is_active)
+              .sort((a, b) => (a.username || '').localeCompare(b.username || ''))
+          );
+        } else {
+          console.warn('[CEO Dashboard] Users failed:', usersResult.reason?.message);
+        }
         setLoading(false);
       })
       .catch(() => setLoading(false));

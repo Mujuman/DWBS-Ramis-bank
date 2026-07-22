@@ -212,7 +212,7 @@ router.get('/cases/:id/notes',
 
 router.get('/users',
   authenticateStaff,
-  requireRole('System_Admin', 'Compliance_Officer'),
+  requireRole('System_Admin', 'Compliance_Officer', 'CEO'),
   async (req, res) => {
     const { pool } = require('../config/db');
     const [users] = await pool.execute(
