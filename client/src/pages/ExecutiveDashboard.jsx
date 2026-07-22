@@ -142,9 +142,9 @@ export default function ExecutiveDashboard() {
 
   const o = stats?.overview || {};
 
-  // CEO only sees CRITICAL escalated cases
+  // CEO only sees cases with Priority = Critical
   const escalatedCases = (stats?.escalated_cases || []).filter(
-    c => c.priority === 'Critical' || c.is_escalated
+    c => c.priority === 'Critical'
   );
 
   const kpiCards = [

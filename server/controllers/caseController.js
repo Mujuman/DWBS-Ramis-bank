@@ -929,6 +929,7 @@ const getCaseStats = async (req, res) => {
        FROM cases c
        LEFT JOIN users u ON c.assigned_investigator = u.user_id
        WHERE c.is_escalated = 1
+         AND c.severity_level = 'Critical'
          AND c.deleted_at IS NULL
          AND c.status NOT IN ('Substantiated', 'Complaint_Dismissed', 'Dismissed_No_Evidence')
        ORDER BY c.created_at DESC`
