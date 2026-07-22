@@ -218,9 +218,6 @@ export default function ExecutiveDashboard() {
             <h2 className="text-sm font-bold" style={{ color: 'var(--color-navy-900)' }}>
               Critical Cases — Escalated by Ethics & Anti-Corruption Office
             </h2>
-            <p className="text-xs text-slate-500 mt-1">
-              Showing only <span className="inline-flex items-center gap-1 font-bold px-1.5 py-0.5 rounded text-red-700" style={{background:'#fee2e2'}}>🔴 Priority = Critical</span> cases escalated to you. Assign an investigator to proceed.
-            </p>
           </div>
           <span className="text-xs font-bold px-2.5 py-1 rounded-full"
             style={{ background: '#fee2e2', color: '#dc2626' }}>
