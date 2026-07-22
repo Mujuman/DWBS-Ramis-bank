@@ -405,7 +405,7 @@ export default function CaseDetailPage() {
       if (canManageOwnRequest) {
         body.description = requestDescription;
         body.branch_or_dept = requestBranch;
-        body.severity_level = requestSeverity;
+        // Severity can only be changed by Ethics & Anti-Corruption Office
       } else if (isCEO) {
         // CEO can only assign an investigator on escalated cases
         if (!assignTo) {
@@ -417,7 +417,8 @@ export default function CaseDetailPage() {
         body.assigned_to = parseInt(assignTo, 10);
       } else {
         body.status = newStatus;
-        body.priority = newPriority;
+        // Only Ethics & Anti-Corruption Office (Compliance_Officer) may change severity
+        if (isSenior && newPriority) body.priority = newPriority;
         if (assignTo) body.assigned_to = parseInt(assignTo, 10);
       }
 
@@ -851,7 +852,7 @@ export default function CaseDetailPage() {
                       <div>
                         <div className="flex items-center justify-between mb-1">
                           <label className="form-label text-xs">Severity / Priority</label>
-                          <span className="text-xs text-slate-400">(Ethics & Anticorruption Officer only)</span>
+                          <span className="text-xs text-slate-400">(Ethics &amp; Anti-Corruption Office only)</span>
                         </div>
                         {isSenior ? (
                           <>
