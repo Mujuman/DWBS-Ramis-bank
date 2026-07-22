@@ -227,3 +227,278 @@ export default function AdminStaffAccountsPage() {
         </div>
       </div>
 
+      {/* ── Table ── */}
+      <div className="card overflow-hidden">
+        {loading ? (
+          <div className="py-20 text-center"><span className="spinner spinner-navy mx-auto" /></div>
+        ) : filteredUsers.length === 0 ? (
+          <div className="py-20 text-center">
+            <Users size={36} className="mx-auto mb-3 text-slate-300" />
+            <p className="text-slate-400 font-medium">No accounts match your filters.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Department</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th className="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.map(u => {
+                  const rc = ROLE_COLORS[u.role] || { bg:'#f1f5f9', color:'#475569' };
+                  const isSelf = u.id === me?.userId;
+                  return (
+                    <tr key={u.id}>
+                      {/* User */}
+                      <td>
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                            style={{ background:'var(--color-navy-900)', color:'var(--color-gold-500)' }}>
+                            {u.username?.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-slate-800 leading-tight">{u.username}</p>
+                            {isSelf && <span className="text-xs font-semibold px-1.5 py-0.5 rounded" style={{ background:'#dbeafe', color:'#1d4ed8' }}>You</span>}
+                          </div>
+                        </div>
+                      </td>
+                      {/* Email */}
+                      <td className="text-xs text-slate-500 max-w-40 truncate">{u.email}</td>
+                      {/* Role badge */}
+                      <td>
+                        <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                          style={{ background: rc.bg, color: rc.color }}>
+                          {ROLE_LABELS[u.role] || u.role.replace(/_/g,' ')}
+                        </span>
+                      </td>
+                      {/* Dept */}
+                      <td className="text-xs text-slate-500">{u.department || '—'}</td>
+                      {/* Status */}
+                      <td>
+                        <span className={`badge ${u.is_active ? 'badge-resolved' : 'badge-closed'}`}>
+                          {u.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      {/* Date */}
+                      <td className="text-xs text-slate-400 tabular-nums">
+                        {u.created_at ? format(new Date(u.created_at),'MMM d, yyyy') : '—'}
+                      </td>
+                      {/* Actions — icon buttons */}
+                      <td>
+                        <div className="flex items-center justify-end gap-0.5">
+                          {/* Edit */}
+                          <ActionBtn onClick={() => openEdit(u)} title="Edit user details"
+                            icon={Edit3} hoverBg="#dbeafe" hoverColor="#1d4ed8" />
+                          {/* Toggle active */}
+                          <ActionBtn onClick={() => toggleActive(u)} disabled={isSelf}
+                            title={isSelf ? 'Cannot change your own status' : u.is_active ? 'Deactivate' : 'Activate'}
+                            icon={u.is_active ? ToggleLeft : ToggleRight}
+                            color={u.is_active ? '#d97706' : '#15803d'}
+                            hoverBg={u.is_active ? '#fef3c7' : '#dcfce7'}
+                            hoverColor={u.is_active ? '#b45309' : '#166534'} />
+                          {/* Reset password */}
+                          <ActionBtn onClick={() => openResetPw(u)} title="Reset password"
+                            icon={KeyRound} hoverBg="#ede9fe" hoverColor="#6d28d9" />
+                          {/* Delete */}
+                          <ActionBtn onClick={() => setDeleteTarget(u)} disabled={isSelf}
+                            title={isSelf ? 'Cannot delete your own account' : 'Delete user'}
+                            icon={Trash2} hoverBg="#fee2e2" hoverColor="#b91c1c" color="#94a3b8" />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {/* Row count */}
+        {!loading && filteredUsers.length > 0 && (
+          <div className="px-6 py-3 border-t border-slate-100 flex items-center justify-between">
+            <p className="text-xs text-slate-400">
+              Showing <strong className="text-slate-600">{filteredUsers.length}</strong> of <strong className="text-slate-600">{users.length}</strong> accounts
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* ══ EDIT MODAL ══ */}
+      {editTarget && (
+        <Modal title="Edit User" subtitle={`Editing @${editTarget.username}`}
+          icon={Edit3} iconBg="#1d4ed8" onClose={() => setEditTarget(null)}
+          footer={<>
+            <button onClick={() => setEditTarget(null)} className="btn btn-ghost text-sm">Cancel</button>
+            <button onClick={saveEdit} disabled={saving} className="btn btn-primary text-sm">
+              {saving ? <><span className="spinner" /> Saving…</> : <><Save size={14} /> Save Changes</>}
+            </button>
+          </>}>
+          <div className="space-y-4">
+            {/* current user strip */}
+            <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background:'rgba(10,29,55,0.04)' }}>
+              <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0"
+                style={{ background:'var(--color-navy-900)', color:'var(--color-gold-500)' }}>
+                {editTarget.username?.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <p className="text-sm font-bold text-slate-800">{editTarget.username}</p>
+                <p className="text-xs text-slate-400">{editTarget.email}</p>
+              </div>
+            </div>
+            <div>
+              <label className="form-label text-xs">Username <span className="text-red-500">*</span></label>
+              <input className="form-input text-sm" value={editUsername} onChange={e => setEditUsername(e.target.value)} placeholder="Username" />
+            </div>
+            <div>
+              <label className="form-label text-xs">Email <span className="text-red-500">*</span></label>
+              <input className="form-input text-sm" type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} placeholder="Email address" />
+            </div>
+            <div>
+              <label className="form-label text-xs">Department</label>
+              <input className="form-input text-sm" value={editDept} onChange={e => setEditDept(e.target.value)} placeholder="e.g. Finance, IT, Operations" />
+            </div>
+            <div>
+              <label className="form-label text-xs">Role</label>
+              <select className="form-select text-sm" value={editRole} onChange={e => setEditRole(e.target.value)}>
+                {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+              </select>
+              {editRole !== editTarget.role && (
+                <div className="mt-2 flex items-start gap-2 text-xs px-3 py-2 rounded-lg"
+                  style={{ background:'#fef3c7', color:'#92400e' }}>
+                  <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
+                  Role changing: <strong>{ROLE_LABELS[editTarget.role]}</strong> → <strong>{ROLE_LABELS[editRole]}</strong>
+                </div>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ══ DELETE MODAL ══ */}
+      {deleteTarget && (
+        <Modal title="Delete Account" subtitle="Permanent — cannot be undone"
+          icon={Trash2} iconBg="#dc2626" onClose={() => setDeleteTarget(null)}
+          footer={<>
+            <button onClick={() => setDeleteTarget(null)} className="btn btn-ghost text-sm">Cancel</button>
+            <button onClick={doDelete} disabled={deleting} className="btn btn-danger text-sm">
+              {deleting ? <><span className="spinner" /> Deleting…</> : <><Trash2 size={14} /> Delete User</>}
+            </button>
+          </>}>
+          <div className="space-y-4">
+            {/* warning */}
+            <div className="flex items-start gap-3 p-4 rounded-xl"
+              style={{ background:'#fef2f2', border:'1px solid #fecaca' }}>
+              <AlertTriangle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-bold text-red-800">Permanently delete this account?</p>
+                <p className="text-xs text-red-600 mt-0.5">All system access will be revoked immediately. This action cannot be reversed.</p>
+              </div>
+            </div>
+            {/* user card */}
+            <div className="p-4 rounded-xl" style={{ background:'rgba(10,29,55,0.04)', border:'1px solid rgba(10,29,55,0.08)' }}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+                  style={{ background:'var(--color-navy-900)', color:'var(--color-gold-500)' }}>
+                  {deleteTarget.username?.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-800">{deleteTarget.username}</p>
+                  <p className="text-xs text-slate-500">{deleteTarget.email}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {[['Role', ROLE_LABELS[deleteTarget.role]], ['Department', deleteTarget.department || '—'],
+                  ['Status', deleteTarget.is_active ? 'Active' : 'Inactive'],
+                  ['Created', deleteTarget.created_at ? format(new Date(deleteTarget.created_at),'MMM d, yyyy') : '—']
+                ].map(([k,v]) => (
+                  <div key={k} className="text-xs">
+                    <p className="text-slate-400 mb-0.5">{k}</p>
+                    <p className="font-semibold text-slate-700">{v}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ══ RESET PASSWORD MODAL ══ */}
+      {pwTarget && (
+        <Modal title="Reset Password" subtitle={`New password for @${pwTarget.username}`}
+          icon={KeyRound} iconBg="#6d28d9" onClose={() => setPwTarget(null)}
+          footer={<>
+            <button onClick={() => setPwTarget(null)} className="btn btn-ghost text-sm">Cancel</button>
+            <button onClick={doResetPassword} disabled={resetting || newPw.length < 8 || newPw !== confirmPw}
+              className="btn btn-primary text-sm">
+              {resetting ? <><span className="spinner" /> Resetting…</> : <><ShieldCheck size={14} /> Reset Password</>}
+            </button>
+          </>}>
+          <div className="space-y-4">
+            {/* user strip */}
+            <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background:'rgba(10,29,55,0.04)' }}>
+              <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                style={{ background:'var(--color-navy-900)', color:'var(--color-gold-500)' }}>
+                {pwTarget.username?.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <p className="text-sm font-bold text-slate-800">{pwTarget.username}</p>
+                <p className="text-xs text-slate-400">{ROLE_LABELS[pwTarget.role]} · {pwTarget.department || 'No dept'}</p>
+              </div>
+            </div>
+            {/* new password */}
+            <div>
+              <label className="form-label text-xs">New Password <span className="text-red-500">*</span></label>
+              <div className="relative">
+                <input className="form-input text-sm pr-10" type={showPw ? 'text' : 'password'}
+                  value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="At least 8 characters" />
+                <button type="button" onClick={() => setShowPw(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+                  {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+              {/* strength bar */}
+              {newPw.length > 0 && (
+                <div className="mt-2 flex items-center gap-1.5">
+                  {[[4,'#ef4444'],[8,'#f59e0b'],[12,'#22c55e']].map(([len, col], i) => (
+                    <div key={i} className="flex-1 h-1.5 rounded-full transition-all duration-300"
+                      style={{ background: newPw.length >= len ? col : '#e2e8f0' }} />
+                  ))}
+                  <span className="text-xs font-medium ml-1"
+                    style={{ color: newPw.length < 4 ? '#ef4444' : newPw.length < 8 ? '#f59e0b' : newPw.length < 12 ? '#22c55e' : '#16a34a' }}>
+                    {newPw.length < 4 ? 'Too short' : newPw.length < 8 ? 'Weak' : newPw.length < 12 ? 'Good' : 'Strong'}
+                  </span>
+                </div>
+              )}
+            </div>
+            {/* confirm */}
+            <div>
+              <label className="form-label text-xs">Confirm Password <span className="text-red-500">*</span></label>
+              <input className="form-input text-sm" type={showPw ? 'text' : 'password'}
+                value={confirmPw} onChange={e => setConfirmPw(e.target.value)} placeholder="Re-enter password" />
+              {confirmPw.length > 0 && (
+                <p className={`text-xs mt-1.5 flex items-center gap-1 font-medium ${newPw === confirmPw ? 'text-green-600' : 'text-red-500'}`}>
+                  {newPw === confirmPw ? <><UserCheck size={11} /> Passwords match</> : <><AlertTriangle size={11} /> Passwords do not match</>}
+                </p>
+              )}
+            </div>
+            {/* notice */}
+            <div className="flex items-start gap-2.5 p-3 rounded-xl"
+              style={{ background:'rgba(109,40,217,0.06)', border:'1px solid rgba(109,40,217,0.18)' }}>
+              <ShieldCheck size={14} className="flex-shrink-0 mt-0.5" style={{ color:'#6d28d9' }} />
+              <p className="text-xs" style={{ color:'#4c1d95' }}>
+                The user must use this new password on their next login. Notify them through a secure channel.
+              </p>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+    </div>
+  );
+}
