@@ -267,6 +267,108 @@ router.patch('/users/:id/password',
   authController.resetUserPassword
 );
 
+// Update user details (username, email, department)
+router.patch('/users/:id',
+  sanitizeRequestBody,
+  authenticateStaff,
+  requireRole('System_Admin'),
+  async (req, res) => {
+    const { pool } = require('../config/db');
+    const { writeAuditLog } = require('../services/auditService');
+    const userId = parseInt(req.params.id);
+    const { username, email, department } = req.body;
+
+    if (!username && !email && !department) {
+      return res.status(400).json({ error: 'Provide at least one field to update' });
+    }
+
+    try {
+      // Check user exists
+      const [existing] = await pool.execute(
+        `SELECT user_id FROM users WHERE user_id = ?`, [userId]
+      );
+      if (existing.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Check uniqueness of username/email if changing
+      if (username || email) {
+        const [conflict] = await pool.execute(
+          `SELECT user_id FROM users WHERE (username = ? OR email = ?) AND user_id != ?`,
+          [username || '', email || '', userId]
+        );
+        if (conflict.length > 0) {
+          return res.status(409).json({ error: 'Username or email already in use' });
+        }
+      }
+
+      const updates = [];
+      const params = [];
+      if (username) { updates.push('username = ?'); params.push(username.trim()); }
+      if (email)    { updates.push('email = ?');    params.push(email.trim()); }
+      if (department) { updates.push('department = ?'); params.push(department.trim()); }
+      params.push(userId);
+
+      await pool.execute(
+        `UPDATE users SET ${updates.join(', ')} WHERE user_id = ?`, params
+      );
+
+      await writeAuditLog({
+        userId: req.user.userId,
+        action: 'USER_UPDATED',
+        performedBy: req.user.username,
+        performedByType: 'staff',
+        metadata: { target_user_id: userId, updated_fields: updates.map(u => u.split('=')[0].trim()) },
+      });
+
+      res.json({ message: 'User updated successfully' });
+    } catch (err) {
+      console.error('[ADMIN] User update error:', err.message);
+      res.status(500).json({ error: 'Failed to update user' });
+    }
+  }
+);
+
+// Hard delete a user account (System Admin only)
+router.delete('/users/:id',
+  authenticateStaff,
+  requireRole('System_Admin'),
+  async (req, res) => {
+    const { pool } = require('../config/db');
+    const { writeAuditLog } = require('../services/auditService');
+    const userId = parseInt(req.params.id);
+
+    // Prevent self-deletion
+    if (userId === req.user.userId) {
+      return res.status(400).json({ error: 'You cannot delete your own account' });
+    }
+
+    try {
+      const [existing] = await pool.execute(
+        `SELECT user_id, username, role FROM users WHERE user_id = ?`, [userId]
+      );
+      if (existing.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      await pool.execute(`DELETE FROM users WHERE user_id = ?`, [userId]);
+
+      await writeAuditLog({
+        userId: req.user.userId,
+        action: 'USER_DELETED',
+        performedBy: req.user.username,
+        performedByType: 'staff',
+        metadata: { deleted_user_id: userId, deleted_username: existing[0].username, deleted_role: existing[0].role },
+      });
+
+      res.json({ message: 'User deleted successfully' });
+    } catch (err) {
+      console.error('[ADMIN] User delete error:', err.message);
+      res.status(500).json({ error: 'Failed to delete user' });
+    }
+  }
+);
+
 // ── Audit Log Route ───────────────────────────────────────────
 
 router.get('/audit',
