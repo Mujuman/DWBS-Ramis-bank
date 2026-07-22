@@ -399,7 +399,7 @@ export default function NavBar({ onMenuToggle, sidebarOpen }) {
                       {user.display_name}
                     </div>
                     <div className={`text-xs px-1.5 py-0.5 rounded-full inline-block font-semibold ${roleColors[user.role] || 'bg-slate-100 text-slate-600'}`}>
-                      {user.role?.replace(/_/g, ' ')}
+                      {user.role === 'Compliance_Officer' ? 'Ethics & Anti-Corruption' : user.role?.replace(/_/g, ' ')}
                     </div>
                   </div>
                   <motion.div

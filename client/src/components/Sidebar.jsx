@@ -132,7 +132,7 @@ export default function Sidebar({ open }) {
               <div className="overflow-hidden">
                 <div className="text-sm font-semibold text-white truncate">{user.display_name}</div>
                 <div className="text-xs truncate" style={{ color: 'var(--color-gold-500)' }}>
-                  {user.role?.replace(/_/g, ' ')}
+                  {user.role === 'Compliance_Officer' ? 'Ethics & Anti-Corruption' : user.role?.replace(/_/g, ' ')}
                 </div>
               </div>
             </div>
