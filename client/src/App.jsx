@@ -108,6 +108,13 @@ const FullWidthShell = ({ children }) => (
   </>
 );
 
+// ── Redirects Compliance_Officer to their dedicated dashboard ─
+const DashboardRedirectOrPage = () => {
+  const { user } = useAuth();
+  if (user?.role === 'Compliance_Officer') return <Navigate to="/compliance" replace />;
+  return <DashboardPage />;
+};
+
 // ── Animated routes ───────────────────────────────────────────
 function AppRoutes() {
   const location = useLocation();
@@ -142,7 +149,10 @@ function AppRoutes() {
         <Route path="/dashboard" element={
           <ProtectedRoute roles={['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer']}>
             <AppShell>
-              <PageWrapper><DashboardPage /></PageWrapper>
+              <PageWrapper>
+                {/* Compliance Officers have their own dedicated dashboard */}
+                <DashboardRedirectOrPage />
+              </PageWrapper>
             </AppShell>
           </ProtectedRoute>
         } />

@@ -10,7 +10,7 @@ const navItems = [
     path: '/dashboard',
     label: 'Dashboard',
     icon: LayoutDashboard,
-    roles: ['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer'],
+    roles: ['Employee', 'Branch_Manager', 'Investigator'],
   },
   {
     path: '/report',
@@ -34,6 +34,12 @@ const navItems = [
     path: '/compliance',
     label: 'Ethics & Anticorruption',
     icon: BarChart3,
+    roles: ['Compliance_Officer'],
+  },
+  {
+    path: '/cases',
+    label: 'Case Management',
+    icon: FileText,
     roles: ['Compliance_Officer'],
   },
   {
