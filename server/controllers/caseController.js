@@ -142,7 +142,7 @@ const listCases = async (req, res) => {
   const page = Math.max(1, parseInt(req.query.page) || 1);
   const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
   const offset = (page - 1) * limit;
-  const { status, severity_level, category, search, branch_or_dept, from_date, to_date, case_id } = req.query;
+  const { status, severity_level, category, search, branch_or_dept, from_date, to_date, case_id, is_escalated } = req.query;
 
   try {
     let whereConditions = ['c.deleted_at IS NULL'];
@@ -188,6 +188,11 @@ const listCases = async (req, res) => {
     if (search) {
       whereConditions.push('(c.reference_id LIKE ? OR c.category LIKE ? OR c.branch_or_dept LIKE ?)');
       params.push(`${search.toUpperCase()}%`, `%${search}%`, `%${search}%`);
+    }
+    // Only Compliance Officers and CEO may filter by escalation status
+    if (is_escalated !== undefined && ['Compliance_Officer', 'CEO'].includes(user.role)) {
+      whereConditions.push('c.is_escalated = ?');
+      params.push(is_escalated === '1' || is_escalated === 'true' ? 1 : 0);
     }
 
     const where = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
