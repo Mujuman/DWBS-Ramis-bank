@@ -21,7 +21,7 @@ const RegistrationPage = () => {
     { value: 'Employee', label: 'Employee', description: 'Standard bank employee - can submit reports' },
     { value: 'Branch_Manager', label: 'Branch Manager', description: 'Manager of specific branch - limited case access' },
     { value: 'Investigator', label: 'Investigator', description: 'Compliance team - investigates cases' },
-    { value: 'Compliance_Officer', label: 'Compliance Officer', description: 'Senior compliance role - full case access' },
+    { value: 'Compliance_Officer', label: 'Ethics and Anticorruption', description: 'Ethics & Anticorruption Office — full case access' },
     { value: 'CEO', label: 'CEO', description: 'Executive dashboard - read-only statistics' },
     { value: 'System_Admin', label: 'System Administrator', description: 'IT admin - user management' },
     { value: 'Auditor', label: 'Auditor', description: 'Independent auditor - read-only audit logs' },

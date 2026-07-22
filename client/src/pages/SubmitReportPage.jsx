@@ -241,7 +241,7 @@ export default function SubmitReportPage() {
               <li>• Save **both** your Reference Code and Verification Token. They cannot be recovered.</li>
               <li>• The Reference Code is public and allows you to view status.</li>
               <li>• The Verification Token is private and acts as a password to edit or delete your report.</li>
-              <li>• This report is associated with your authenticated staff account and handled confidentially.</li>
+              <li>• No account or email is linked to this report.</li>
             </ul>
           </div>
 
@@ -261,15 +261,15 @@ export default function SubmitReportPage() {
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-4 px-3 py-1.5 rounded-full text-sm font-medium"
             style={{ background: 'var(--color-navy-900)', color: 'var(--color-gold-500)' }}>
-            <Lock size={14} /> Secure Staff Submission
+            <Lock size={14} /> Fully Anonymous Submission
           </div>
           <h1 className="text-3xl font-bold" style={{ color: 'var(--color-navy-900)' }}>
             {isStaffAuthenticated ? 'Submit a Staff Request' : 'Submit a Report'}
           </h1>
           <p className="text-slate-500 mt-2">
             {isStaffAuthenticated
-              ? 'Provide a detailed report with your department and context. Your submission is handled securely and confidentially.'
-              : 'Please log in to submit a staff report.'}
+              ? 'Provide a detailed request with your identity and the relevant branch or department context.'
+              : 'Your identity is fully protected. Complete each step below.'}
           </p>
         </div>
 

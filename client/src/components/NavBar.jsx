@@ -449,7 +449,7 @@ export default function NavBar({ onMenuToggle, sidebarOpen }) {
                   className="text-xs sm:text-sm font-semibold py-1.5 sm:py-2 px-3 sm:px-5 rounded-lg inline-block"
                   style={{ background: BRAND_GOLD, color: BRAND_NAVY }}
                 >
-                  Submit Report
+                  Anonymous user
                 </Link>
               </motion.div>
               <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
@@ -460,7 +460,7 @@ export default function NavBar({ onMenuToggle, sidebarOpen }) {
                   onMouseEnter={e => { e.currentTarget.style.background = BRAND_NAVY; e.currentTarget.style.color = 'white'; }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = BRAND_NAVY; }}
                 >
-                  Staff Login
+                  Non Anonymous
                 </Link>
               </motion.div>
             </div>

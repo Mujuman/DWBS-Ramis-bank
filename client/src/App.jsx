@@ -122,11 +122,9 @@ function AppRoutes() {
           </FullWidthShell>
         } />
         <Route path="/track" element={
-          <ProtectedRoute roles={['Employee', 'Branch_Manager']}>
-            <AppShell>
-              <PageWrapper><TrackCasePage /></PageWrapper>
-            </AppShell>
-          </ProtectedRoute>
+          <AppShell>
+            <PageWrapper><TrackCasePage /></PageWrapper>
+          </AppShell>
         } />
         <Route path="/login" element={
           <PageWrapper><StaffLoginPage /></PageWrapper>
@@ -149,14 +147,14 @@ function AppRoutes() {
           </ProtectedRoute>
         } />
         <Route path="/cases" element={
-          <ProtectedRoute roles={['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer']}>
+          <ProtectedRoute roles={['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO']}>
             <AppShell>
               <PageWrapper><CaseListPage /></PageWrapper>
             </AppShell>
           </ProtectedRoute>
         } />
         <Route path="/cases/:id" element={
-          <ProtectedRoute roles={['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer']}>
+          <ProtectedRoute roles={['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO']}>
             <AppShell>
               <PageWrapper><CaseDetailPage /></PageWrapper>
             </AppShell>

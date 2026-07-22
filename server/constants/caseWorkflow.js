@@ -1,6 +1,13 @@
 /**
  * Compliance-aligned case workflow for Rammis Bank DWBS.
- * Maps to the A&RC whistleblowing procedure.
+ *
+ * Flow:
+ *  User (anonymous or non-anonymous)
+ *    → Ethics & Anti-Corruption Office (Compliance_Officer)
+ *        → [Critical] Escalates to CEO
+ *            → CEO assigns Investigator
+ *        → [Non-Critical] Compliance Officer assigns Investigator directly
+ *    → Investigator investigates
  */
 
 const CASE_STATUSES = [
@@ -20,9 +27,16 @@ const COMPLIANCE_OFFICER_STATUSES = ['Under_Review', 'Complaint_Dismissed', 'Ass
 
 const INVESTIGATOR_STATUSES = ['Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence'];
 
+// CEO can assign investigators on escalated/critical cases reported by Ethics Office
+const CEO_STATUSES = ['Assigned'];
+
 const STATUS_TRANSITIONS = {
   New: { Compliance_Officer: ['Under_Review'] },
-  Under_Review: { Compliance_Officer: ['Complaint_Dismissed', 'Assigned'] },
+  Under_Review: {
+    Compliance_Officer: ['Complaint_Dismissed', 'Assigned'],
+    // CEO can assign investigator on escalated cases that Ethics Office reported to them
+    CEO: ['Assigned'],
+  },
   Assigned: { Investigator: ['Investigating'] },
   Investigating: { Investigator: ['Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence'] },
   Pending_Evidence: { Investigator: ['Investigating', 'Substantiated', 'Dismissed_No_Evidence'] },
@@ -44,6 +58,7 @@ const isTerminalStatus = (status) => TERMINAL_STATUSES.includes(status);
 const getAllowedStatusesForRole = (role) => {
   if (role === 'Compliance_Officer') return COMPLIANCE_OFFICER_STATUSES;
   if (role === 'Investigator') return INVESTIGATOR_STATUSES;
+  if (role === 'CEO') return CEO_STATUSES;
   return [];
 };
 
@@ -66,11 +81,13 @@ const getNextStatusesForRole = (role, currentStatus) => {
   return STATUS_TRANSITIONS[currentStatus]?.[role] || [];
 };
 
+
 module.exports = {
   CASE_STATUSES,
   TERMINAL_STATUSES,
   COMPLIANCE_OFFICER_STATUSES,
   INVESTIGATOR_STATUSES,
+  CEO_STATUSES,
   STATUS_TRANSITIONS,
   STATUS_LABELS,
   isTerminalStatus,

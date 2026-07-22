@@ -111,7 +111,7 @@ const AuditDashboard = () => {
               </div>
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">Audit Dashboard</h1>
-                <p className="text-gray-600 mt-1">Independent oversight and compliance monitoring</p>
+                <p className="text-gray-600 mt-1">Independent oversight and Ethics & Anticorruption monitoring</p>
               </div>
             </div>
             <button
@@ -335,7 +335,7 @@ const AuditDashboard = () => {
             <p className="font-semibold mb-1">Auditor Access Notice</p>
             <p>
               You have read-only access to audit logs. These records are immutable and cannot be modified or deleted.
-              All system activities are automatically logged for compliance and oversight purposes.
+              All system activities are automatically logged for Ethics & Anticorruption and oversight purposes.
             </p>
           </div>
         </motion.div>

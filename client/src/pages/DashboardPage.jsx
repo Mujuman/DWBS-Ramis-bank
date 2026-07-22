@@ -26,7 +26,7 @@ export default function DashboardPage() {
           const statsRes = await api.get('/cases/stats');
           setStats(statsRes.data);
         }
-      } catch (_) {}
+      } catch (_) { }
       setLoading(false);
     };
     fetchData();

@@ -18,6 +18,7 @@ const CATEGORY_SEVERITY_MAP = {
 const {
   COMPLIANCE_OFFICER_STATUSES,
   INVESTIGATOR_STATUSES,
+  CEO_STATUSES,
   validateStatusTransition,
 } = require('../constants/caseWorkflow');
 
@@ -93,22 +94,7 @@ const createCase = async (req, res) => {
       },
     });
 
-    // If Critical, notify CEO immediately
-    if (isEscalated) {
-      try {
-        const [ceoRows] = await pool.execute(
-          `SELECT email FROM users WHERE role = 'CEO' AND is_active = 1 LIMIT 1`
-        );
-        if (ceoRows.length > 0) {
-          emailService.notifyCEOEscalation(ceoRows[0].email, {
-            reference_id: referenceId,
-            category,
-          }).catch(() => {});
-        }
-      } catch (_) {}
-    }
-
-    // Notify compliance team
+    // Always notify Ethics & Anti-Corruption Office (Compliance Officers) of new report
     try {
       const [compRows] = await pool.execute(
         `SELECT email FROM users WHERE role = 'Compliance_Officer' AND is_active = 1 LIMIT 3`
@@ -117,6 +103,10 @@ const createCase = async (req, res) => {
         emailService.notifyNewCaseToCompliance(c.email).catch(() => {});
       }
     } catch (_) {}
+
+    // NOTE: CEO is NOT notified at submission time.
+    // The Ethics & Anti-Corruption Office must review the case first.
+    // If they determine it is Critical, they escalate it to the CEO manually.
 
     // In-app notification for compliance officers
     createNotification({
@@ -424,9 +414,10 @@ const editCase = async (req, res) => {
     }
     const effectiveAssignment = assigned_to ?? assigned_investigator;
     if (effectiveAssignment !== undefined) {
-      // Only Compliance Officers may assign/reassign cases per BRD
-      if (!isCompliance) {
-        return res.status(403).json({ error: 'Only Compliance Officers may assign or reassign cases.' });
+      const isCEO = user.role === 'CEO';
+      // CEO can only assign on escalated cases (cases reported to them by Ethics Office)
+      if (!isCompliance && !(isCEO && caseData.is_escalated)) {
+        return res.status(403).json({ error: 'Only Compliance Officers may assign or reassign cases. The CEO may assign investigators on escalated cases.' });
       }
       updates.push('assigned_investigator = ?');
       params.push(effectiveAssignment);
@@ -690,10 +681,18 @@ const updateCaseStatus = async (req, res) => {
 
     const prev = existing[0];
 
-    // Only Investigators and Compliance Officers can update status/priority/assignee
-    if (user.role !== 'Compliance_Officer' && user.role !== 'Investigator') {
+    // Only Investigators, Compliance Officers, and CEO (for escalated cases) can update
+    const isCEO = user.role === 'CEO';
+    if (user.role !== 'Compliance_Officer' && user.role !== 'Investigator' && !isCEO) {
       return res.status(403).json({
-        error: 'Access denied. Only Investigators and Compliance Officers can update case status or assignments.',
+        error: 'Access denied. Only Investigators, Compliance Officers, and the CEO (for escalated cases) can update case status or assignments.',
+      });
+    }
+
+    // CEO can only act on escalated (Critical) cases reported to them by the Ethics Office
+    if (isCEO && !prev.is_escalated) {
+      return res.status(403).json({
+        error: 'The CEO can only assign investigators on cases escalated by the Ethics & Anti-Corruption Office.',
       });
     }
 
@@ -706,10 +705,10 @@ const updateCaseStatus = async (req, res) => {
       }
     }
 
-    // ── Reassignment restriction: Only Compliance Officer can assign or reassign ──
-    if (assigned_to !== undefined && user.role !== 'Compliance_Officer') {
+    // ── Reassignment restriction: Compliance Officer or CEO (on escalated cases) ──
+    if (assigned_to !== undefined && user.role !== 'Compliance_Officer' && !isCEO) {
       return res.status(403).json({
-        error: 'Only a Compliance Officer / Team Lead can assign or reassign cases.',
+        error: 'Only a Compliance Officer or the CEO (on escalated cases) can assign or reassign cases.',
       });
     }
 
@@ -730,13 +729,16 @@ const updateCaseStatus = async (req, res) => {
         if (user.role === 'Compliance_Officer' && !COMPLIANCE_OFFICER_STATUSES.includes(status)) {
           return res.status(403).json({ error: 'Compliance Officers may only update status during validation and assignment stages.' });
         }
+        if (isCEO && !CEO_STATUSES.includes(status)) {
+          return res.status(403).json({ error: 'The CEO may only assign an investigator (set status to Assigned) on escalated cases.' });
+        }
 
-        // Valid complaint approval requires investigator assignment
-        if (status === 'Assigned' && user.role === 'Compliance_Officer') {
+        // Valid complaint approval requires investigator assignment (both Compliance Officer and CEO)
+        if (status === 'Assigned' && (user.role === 'Compliance_Officer' || isCEO)) {
           const assignee = assigned_to !== undefined ? assigned_to : prev.assigned_investigator;
           if (!assignee) {
             return res.status(400).json({
-              error: 'A Case Investigator must be assigned when approving a valid complaint.',
+              error: 'A Case Investigator must be assigned when setting a case to Assigned.',
             });
           }
         }
@@ -758,7 +760,7 @@ const updateCaseStatus = async (req, res) => {
       }
     }
     if (assigned_to !== undefined &&
-        user.role !== 'Investigator')   { updates.push('assigned_investigator = ?'); params.push(assigned_to); }
+        user.role !== 'Investigator') { updates.push('assigned_investigator = ?'); params.push(assigned_to); }
 
     // Update is_escalated flag if severity changed to Critical
     if (newEscalatedStatus !== prev.is_escalated) {
@@ -1017,12 +1019,12 @@ const escalateCase = async (req, res) => {
       }
     } catch (_) {}
 
-    // In-app notification for CEO
+    // In-app notification for CEO — Ethics & Anti-Corruption Office has escalated this case
     createNotification({
       targetRole: 'CEO',
       type: 'case_escalated',
-      title: 'Case Escalated',
-      message: `Case ${caseData.reference_id} (${caseData.category?.replace(/_/g, ' ')}) has been escalated and requires your attention.`,
+      title: 'Critical Case Escalated by Ethics Office',
+      message: `The Ethics & Anti-Corruption Office has escalated Case ${caseData.reference_id} (${caseData.category?.replace(/_/g, ' ')}) to you. Please review and assign an investigator.`,
       caseId,
     });
 

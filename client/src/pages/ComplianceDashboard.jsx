@@ -151,7 +151,7 @@ export default function ComplianceDashboard() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold" style={{ color:'var(--color-navy-900)' }}>
-            Compliance Dashboard
+            Ethics & Anticorruption Dashboard
           </h1>
           <p className="text-slate-500 text-sm mt-0.5">
             Team Lead · {format(new Date(), 'EEEE, MMMM d, yyyy')}

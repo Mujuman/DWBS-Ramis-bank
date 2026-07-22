@@ -116,9 +116,10 @@ router.delete('/cases/:id',
 );
 
 // Update case status/assignment
+// CEO is included so they can assign investigators on escalated cases
 router.patch('/cases/:id/status',
   authenticateStaff,
-  requireRole('Investigator', 'Compliance_Officer'),
+  requireRole('Investigator', 'Compliance_Officer', 'CEO'),
   sanitizeRequestBody,
   validateStatusUpdate,
   handleValidationErrors,

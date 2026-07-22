@@ -32,7 +32,7 @@ const navItems = [
   },
   {
     path: '/compliance',
-    label: 'Compliance Dashboard',
+    label: 'Ethics & Anticorruption',
     icon: BarChart3,
     roles: ['Compliance_Officer'],
   },

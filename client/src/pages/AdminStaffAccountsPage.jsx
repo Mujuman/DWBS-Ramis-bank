@@ -7,6 +7,15 @@ import toast from 'react-hot-toast';
 const ROLE_FILTERS = ['All', 'Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO', 'System_Admin', 'Auditor'];
 const STATUS_FILTERS = ['All', 'Active', 'Inactive'];
 const ROLES = ['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO', 'System_Admin', 'Auditor'];
+const ROLE_LABELS = {
+  Employee: 'Employee',
+  Branch_Manager: 'Branch Manager',
+  Investigator: 'Investigator',
+  Compliance_Officer: 'Ethics & Anticorruption',
+  CEO: 'CEO',
+  System_Admin: 'System Admin',
+  Auditor: 'Auditor',
+};
 
 export default function AdminStaffAccountsPage() {
   const [users, setUsers] = useState([]);
@@ -119,7 +128,7 @@ export default function AdminStaffAccountsPage() {
               className="form-select mt-2"
             >
               {ROLE_FILTERS.map((filter) => (
-                <option key={filter} value={filter}>{filter.replace(/_/g, ' ')}</option>
+                <option key={filter} value={filter}>{filter === 'All' ? 'All' : (ROLE_LABELS[filter] || filter.replace(/_/g, ' '))}</option>
               ))}
             </select>
           </div>
@@ -160,7 +169,7 @@ export default function AdminStaffAccountsPage() {
                   <tr key={u.id}>
                     <td className="font-medium text-sm text-slate-700">{u.username}</td>
                     <td className="text-xs text-slate-500">{u.email}</td>
-                    <td className="text-xs text-slate-500">{u.role.replace(/_/g, ' ')}</td>
+                    <td className="text-xs text-slate-500">{ROLE_LABELS[u.role] || u.role.replace(/_/g, ' ')}</td>
                     <td className="text-xs text-slate-500">{u.department || '—'}</td>
                     <td>
                       <span className={`badge ${u.is_active ? 'badge-resolved' : 'badge-closed'}`}>
@@ -183,9 +192,8 @@ export default function AdminStaffAccountsPage() {
                       <button
                         type="button"
                         onClick={() => toggleActive(u)}
-                        className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors ${
-                          u.is_active ? 'text-red-600 hover:bg-red-50' : 'text-green-700 hover:bg-green-50'
-                        }`}
+                        className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors ${u.is_active ? 'text-red-600 hover:bg-red-50' : 'text-green-700 hover:bg-green-50'
+                          }`}
                       >
                         {u.is_active ? <ToggleLeft size={14} /> : <ToggleRight size={14} />}
                         {u.is_active ? 'Deactivate' : 'Activate'}

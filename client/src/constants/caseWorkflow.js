@@ -1,5 +1,12 @@
 /**
  * Compliance-aligned case workflow — mirrors server/constants/caseWorkflow.js
+ *
+ * Flow:
+ *  User (anonymous or non-anonymous)
+ *    → Ethics & Anti-Corruption Office (Compliance_Officer)
+ *        → [Critical] Escalates to CEO → CEO assigns Investigator
+ *        → [Non-Critical] Compliance Officer assigns Investigator directly
+ *    → Investigator investigates → Substantiated / Dismissed
  */
 
 export const CASE_STATUSES = [
@@ -18,6 +25,9 @@ export const TERMINAL_STATUSES = ['Complaint_Dismissed', 'Substantiated', 'Dismi
 export const COMPLIANCE_OFFICER_STATUSES = ['Under_Review', 'Complaint_Dismissed', 'Assigned'];
 
 export const INVESTIGATOR_STATUSES = ['Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence'];
+
+// CEO can only assign investigator on escalated cases (Critical) reported by Ethics Office
+export const CEO_STATUSES = ['Assigned'];
 
 export const STATUS_LABELS = {
   New: 'New',
@@ -54,7 +64,11 @@ export const isTerminalStatus = (status) => TERMINAL_STATUSES.includes(status);
 export const getNextStatusesForRole = (role, currentStatus) => {
   const transitions = {
     New: { Compliance_Officer: ['Under_Review'] },
-    Under_Review: { Compliance_Officer: ['Complaint_Dismissed', 'Assigned'] },
+    Under_Review: {
+      Compliance_Officer: ['Complaint_Dismissed', 'Assigned'],
+      // CEO can assign investigator on escalated cases
+      CEO: ['Assigned'],
+    },
     Assigned: { Investigator: ['Investigating'] },
     Investigating: { Investigator: ['Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence'] },
     Pending_Evidence: { Investigator: ['Investigating', 'Substantiated', 'Dismissed_No_Evidence'] },

@@ -14,6 +14,7 @@ import { renderRichText } from '../utils/formatting';
 import {
   COMPLIANCE_OFFICER_STATUSES,
   INVESTIGATOR_STATUSES,
+  CEO_STATUSES,
   STATUS_BADGE,
   formatStatus,
 } from '../constants/caseWorkflow';
@@ -190,20 +191,24 @@ export default function CaseDetailPage() {
   const isCEO          = user?.role === 'CEO';
   const isOwner        = Boolean(caseData && caseData.owner_id === myUserId);
   const canManageOwnRequest = ['Employee', 'Branch_Manager'].includes(user?.role) && isOwner && caseData?.submitted_by_type !== 'anonymous';
-  const canViewEvidence = ['Investigator', 'Compliance_Officer'].includes(user?.role) || canManageOwnRequest;
-  // Only Compliance_Officer / Team Lead can assign/reassign cases
-  const canAssign      = isSenior;
+  const canViewEvidence = ['Investigator', 'Compliance_Officer', 'CEO'].includes(user?.role) || canManageOwnRequest;
+  // Compliance Officer can always assign. CEO can only assign on escalated (Critical) cases.
+  const canAssign      = isSenior || (isCEO && Boolean(caseData?.is_escalated));
 
   // Investigators can ONLY edit cases explicitly assigned to them (assigned_to = their userId)
   const isAssignedToMe = caseData ? (caseData.assigned_to === myUserId) : false;
-  const canEditNow     = isSenior || (isInvestigator && isAssignedToMe) || canManageOwnRequest;
+  // CEO can edit (assign) escalated cases; Compliance Officer can always edit; Investigator only their own
+  const canEditNow     = isSenior || (isInvestigator && isAssignedToMe) || canManageOwnRequest || (isCEO && Boolean(caseData?.is_escalated));
 
   const allowedStatusOptions = caseData
-    ? [...new Set([caseData.status, ...(isSenior ? COMPLIANCE_OFFICER_STATUSES : INVESTIGATOR_STATUSES)])].filter(Boolean)
-    : (isSenior ? COMPLIANCE_OFFICER_STATUSES : INVESTIGATOR_STATUSES);
+    ? [...new Set([
+        caseData.status,
+        ...(isSenior ? COMPLIANCE_OFFICER_STATUSES : isCEO ? CEO_STATUSES : INVESTIGATOR_STATUSES)
+      ])].filter(Boolean)
+    : (isSenior ? COMPLIANCE_OFFICER_STATUSES : isCEO ? CEO_STATUSES : INVESTIGATOR_STATUSES);
 
   const getNoteAuthorLabel = (note) => {
-    if (note.author_type === 'Compliance_Officer') return 'Compliance Team Lead';
+    if (note.author_type === 'Compliance_Officer') return 'Ethics & Anticorruption Officer';
     if (note.author_type === 'Investigator') return 'Case Investigator';
     if (note.author_type === 'Reporter') {
       return caseData?.submitted_by_type === 'anonymous' ? 'Anonymous Reporter' : 'Staff Reporter';
@@ -213,7 +218,7 @@ export default function CaseDetailPage() {
 
   const getNoteChannelLabel = (note) => {
     if (note.audience_type === 'Compliance_Officer') {
-      return note.author_type === 'Investigator' ? 'To: Compliance Lead' : 'Compliance Lead Thread';
+      return note.author_type === 'Investigator' ? 'To: Ethics & Anticorruption' : 'Ethics & Anticorruption Thread';
     }
     if (note.audience_type === 'Investigator') {
       return note.author_type === 'Compliance_Officer' ? 'To: Investigator' : 'Investigator Thread';
@@ -391,13 +396,22 @@ export default function CaseDetailPage() {
         body.description = requestDescription;
         body.branch_or_dept = requestBranch;
         body.severity_level = requestSeverity;
+      } else if (isCEO) {
+        // CEO can only assign an investigator on escalated cases
+        if (!assignTo) {
+          toast.error('Please select an investigator to assign.');
+          setUpdating(false);
+          return;
+        }
+        body.status = 'Assigned';
+        body.assigned_to = parseInt(assignTo, 10);
       } else {
         body.status = newStatus;
         body.priority = newPriority;
         if (assignTo) body.assigned_to = parseInt(assignTo, 10);
       }
 
-      await api.patch(`/cases/${id}`, body);
+      await api.patch(`/cases/${id}/status`, body);
       await loadCase();
       setEditMode(false);
       toast.success('Case updated successfully');
@@ -576,7 +590,7 @@ export default function CaseDetailPage() {
                 <Info size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-amber-800">
                   {caseData.assigned_to === null
-                    ? 'This case is unassigned. A Compliance Officer must assign it to you before you can make changes.'
+                    ? 'This case is unassigned. An Ethics & Anticorruption Officer must assign it to you before you can make changes.'
                     : 'This case belongs to another investigator. You can view it but cannot make changes.'}
                 </p>
               </div>
@@ -659,7 +673,7 @@ export default function CaseDetailPage() {
                       onChange={e => setReplyRecipient(e.target.value)}
                     >
                       <option value="Investigator">Case Investigator</option>
-                      <option value="Compliance_Officer">Compliance Team Lead</option>
+                      <option value="Compliance_Officer">Ethics & Anticorruption Team Lead</option>
                     </select>
                   </div>
                 )}
@@ -673,7 +687,7 @@ export default function CaseDetailPage() {
                     >
                       <option value="General">General / All Staff</option>
                       {isInvestigator && (
-                        <option value="Compliance_Officer">Compliance Team Lead</option>
+                        <option value="Compliance_Officer">Ethics & Anticorruption Team Lead</option>
                       )}
                       {isSenior && (
                         <option value="Investigator">Case Investigator</option>
@@ -770,6 +784,37 @@ export default function CaseDetailPage() {
                         />
                       </div>
                     </>
+                  ) : isCEO ? (
+                    <>
+                      {/* CEO: only allowed to assign an investigator on escalated cases */}
+                      <div className="rounded-xl p-3 mb-3 flex items-start gap-2"
+                        style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                        <Zap size={14} className="text-red-600 flex-shrink-0 mt-0.5" />
+                        <p className="text-xs text-red-800">
+                          This case was escalated by the <strong>Ethics & Anti-Corruption Office</strong>.
+                          Please assign an investigator below.
+                        </p>
+                      </div>
+                      {canAssign && (
+                        <div>
+                          <label className="form-label text-xs">Assign Investigator *</label>
+                          <select
+                            className="form-select text-sm"
+                            value={assignTo}
+                            onChange={e => setAssignTo(e.target.value)}
+                          >
+                            <option value="">{caseData.assigned_investigator ? 'Reassign...' : 'Select investigator'}</option>
+                            {investigators.length > 0 ? investigators.map(u => (
+                              <option key={u.id} value={u.id}>
+                                {u.username}
+                              </option>
+                            )) : (
+                              <option disabled>No investigators available</option>
+                            )}
+                          </select>
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <>
                       <div>
@@ -787,7 +832,7 @@ export default function CaseDetailPage() {
                       <div>
                         <div className="flex items-center justify-between mb-1">
                           <label className="form-label text-xs">Severity / Priority</label>
-                          <span className="text-xs text-slate-400">(Compliance Officer only)</span>
+                          <span className="text-xs text-slate-400">(Ethics & Anticorruption Officer only)</span>
                         </div>
                         {isSenior ? (
                           <>
@@ -802,7 +847,7 @@ export default function CaseDetailPage() {
                             </select>
                             {newPriority === 'Critical' && !caseData.is_escalated && (
                               <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                                <Zap size={12} /> Setting to Critical will escalate to CEO
+                                <Zap size={12} /> Setting to Critical will report this case to the CEO for investigator assignment
                               </p>
                             )}
                           </>
