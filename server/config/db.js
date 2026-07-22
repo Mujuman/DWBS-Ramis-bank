@@ -100,6 +100,28 @@ const testConnection = async () => {
       console.error('[DB] Schema migration check failed for cases.is_escalated:', migErr.message);
     }
 
+    // Automatic schema migration: add sender_user_id to investigationnotes for note ownership
+    try {
+      const [noteCols] = await pool.execute("SHOW COLUMNS FROM investigationnotes LIKE 'sender_user_id'");
+      if (noteCols.length === 0) {
+        await pool.execute("ALTER TABLE investigationnotes ADD COLUMN sender_user_id INT NULL DEFAULT NULL");
+        console.log('[DB] Migration: Added sender_user_id column to investigationnotes table');
+      }
+    } catch (migErr) {
+      console.error('[DB] Schema migration check failed for investigationnotes.sender_user_id:', migErr.message);
+    }
+
+    // Automatic schema migration: add updated_at to investigationnotes for edit tracking
+    try {
+      const [updCols] = await pool.execute("SHOW COLUMNS FROM investigationnotes LIKE 'updated_at'");
+      if (updCols.length === 0) {
+        await pool.execute("ALTER TABLE investigationnotes ADD COLUMN updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP");
+        console.log('[DB] Migration: Added updated_at column to investigationnotes table');
+      }
+    } catch (migErr) {
+      console.error('[DB] Schema migration check failed for investigationnotes.updated_at:', migErr.message);
+    }
+
     // Automatic schema migration: create notifications table
     try {
       const [tables] = await pool.execute("SHOW TABLES LIKE 'notifications'");
@@ -125,6 +147,43 @@ const testConnection = async () => {
       }
     } catch (migErr) {
       console.error('[DB] Schema migration failed for notifications table:', migErr.message);
+    }
+
+    // Automatic schema migration: create notification_reads table for per-user read tracking
+    try {
+      const [readsTables] = await pool.execute("SHOW TABLES LIKE 'notification_reads'");
+      if (readsTables.length === 0) {
+        await pool.execute(`
+          CREATE TABLE notification_reads (
+            notification_id INT NOT NULL,
+            user_id INT NOT NULL,
+            read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (notification_id, user_id),
+            INDEX idx_notif_read_user (user_id),
+            INDEX idx_notif_read_notif (notification_id)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        `);
+        console.log('[DB] Migration: Created notification_reads table');
+
+        // Back-fill: seed read records from the legacy is_read=1 column
+        // so users don't see old already-read notifications as unread
+        await pool.execute(`
+          INSERT IGNORE INTO notification_reads (notification_id, user_id)
+          SELECT notification_id, user_id
+          FROM notifications
+          WHERE user_id IS NOT NULL AND is_read = 1
+        `);
+        await pool.execute(`
+          INSERT IGNORE INTO notification_reads (notification_id, user_id)
+          SELECT n.notification_id, u.user_id
+          FROM notifications n
+          JOIN users u ON u.role = n.target_role
+          WHERE n.user_id IS NULL AND n.is_read = 1
+        `);
+        console.log('[DB] Migration: Back-filled notification_reads from legacy is_read data');
+      }
+    } catch (migErr) {
+      console.error('[DB] Schema migration failed for notification_reads table:', migErr.message);
     }
   } catch (err) {
     console.error('[DB] Failed to connect to MySQL:', err.message);

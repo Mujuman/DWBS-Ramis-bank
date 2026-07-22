@@ -67,80 +67,87 @@ export default function NavBar({ onMenuToggle, sidebarOpen }) {
     return () => clearInterval(interval);
   }, [fetchUnreadCount]);
 
-  // ── Fetch full notifications when panel opens ───────────────
-  const fetchNotifications = async () => {
-    setNotifLoading(true);
-    try {
-      const res = await api.get('/notifications');
-      setNotifications(res.data.notifications || []);
-    } catch (_) {}
-    setNotifLoading(false);
-  };
-
+  // ── Open bell: fetch unread only, mark all read on server ────
   const handleBellClick = async () => {
     const isOpening = !notifOpen;
     setNotifOpen(o => !o);
     setDropdownOpen(false);
 
     if (isOpening) {
-      // Fetch notifications then immediately mark all as read —
-      // opening the panel counts as "viewed"
       setNotifLoading(true);
       try {
         const res = await api.get('/notifications');
-        setNotifications(res.data.notifications || []);
-        // Mark all read in background so badge clears immediately
-        if (unreadCount > 0) {
-          await api.patch('/notifications/read-all');
-          setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
-          setUnreadCount(0);
-          setUnreadCases(0);
-          setUnreadMessages(0);
+        // Only show unread notifications in the popup
+        const unread = (res.data.notifications || []).filter(n => !n.is_read);
+        setNotifications(unread);
+        // Keep unreadCount in sync with what's actually shown
+        setUnreadCount(unread.length);
+        setUnreadCases(unread.filter(n => ['new_case','case_assigned','case_escalated','status_change'].includes(n.type)).length);
+        setUnreadMessages(unread.filter(n => n.type === 'new_message').length);
+        // Mark all as read on server in the background
+        if (unread.length > 0) {
+          api.patch('/notifications/read-all').catch(() => {});
         }
       } catch (_) {}
       setNotifLoading(false);
+    } else {
+      // Panel closing — clear the badge now that user has seen the list
+      setUnreadCount(0);
+      setUnreadCases(0);
+      setUnreadMessages(0);
+      setNotifications([]);
     }
   };
 
-  // ── Mark single notification as read ────────────────────────
+  // ── Click a single notification: remove it from list + navigate
   const markAsRead = async (notif) => {
-    if (!notif.is_read) {
-      try {
-        await api.patch(`/notifications/${notif.id}/read`);
-        setNotifications(prev =>
-          prev.map(n => n.id === notif.id ? { ...n, is_read: 1 } : n)
-        );
-        setUnreadCount(prev => Math.max(0, prev - 1));
-      } catch (_) {}
-    }
-    // Navigate to case if there's a case_id
+    try {
+      await api.patch(`/notifications/${notif.id}/read`);
+    } catch (_) {}
+    // Remove from visible list immediately
+    setNotifications(prev => prev.filter(n => n.id !== notif.id));
+    setUnreadCount(prev => Math.max(0, prev - 1));
+    const isCaseType = ['new_case','case_assigned','case_escalated','status_change'].includes(notif.type);
+    if (isCaseType) setUnreadCases(prev => Math.max(0, prev - 1));
+    if (notif.type === 'new_message') setUnreadMessages(prev => Math.max(0, prev - 1));
     if (notif.case_id) {
       setNotifOpen(false);
+      setUnreadCount(0);
+      setUnreadCases(0);
+      setUnreadMessages(0);
+      setNotifications([]);
       navigate(`/cases/${notif.case_id}`);
     }
   };
 
-  // ── Mark all as read ────────────────────────────────────────
+  // ── Mark all as read: clear the list entirely ───────────────
   const markAllAsRead = async () => {
     try {
       await api.patch('/notifications/read-all');
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
-      setUnreadCount(0);
-      setUnreadCases(0);
-      setUnreadMessages(0);
     } catch (_) {}
+    setNotifications([]);
+    setUnreadCount(0);
+    setUnreadCases(0);
+    setUnreadMessages(0);
   };
 
   // ── Close panels on outside click ───────────────────────────
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (notifRef.current && !notifRef.current.contains(e.target)) {
+        if (notifOpen) {
+          // Clear badge when dismissed by clicking outside
+          setUnreadCount(0);
+          setUnreadCases(0);
+          setUnreadMessages(0);
+          setNotifications([]);
+        }
         setNotifOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [notifOpen]);
 
   const handleLogout = () => {
     setDropdownOpen(false);
@@ -327,7 +334,7 @@ export default function NavBar({ onMenuToggle, sidebarOpen }) {
                         ) : notifications.length === 0 ? (
                           <div className="py-10 text-center">
                             <Bell size={28} className="mx-auto mb-2" style={{ color: '#cbd5e1' }} />
-                            <p className="text-sm text-slate-400">No notifications yet</p>
+                            <p className="text-sm text-slate-400">No new notifications</p>
                           </div>
                         ) : (
                           notifications.map(notif => {
@@ -339,7 +346,7 @@ export default function NavBar({ onMenuToggle, sidebarOpen }) {
                                 onClick={() => markAsRead(notif)}
                                 className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors"
                                 style={{
-                                  background: notif.is_read ? 'transparent' : 'rgba(26,58,107,0.03)',
+                                  background: 'rgba(26,58,107,0.03)',
                                   borderBottom: '1px solid #f1f5f9',
                                 }}
                                 whileHover={{ background: '#f8fafc' }}
@@ -355,23 +362,15 @@ export default function NavBar({ onMenuToggle, sidebarOpen }) {
                                 {/* Content */}
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2">
-                                    <span
-                                      className="text-xs font-bold truncate"
-                                      style={{ color: notif.is_read ? '#64748b' : BRAND_NAVY }}
-                                    >
+                                    <span className="text-xs font-bold truncate" style={{ color: BRAND_NAVY }}>
                                       {notif.title}
                                     </span>
-                                    {!notif.is_read && (
-                                      <span
-                                        className="w-2 h-2 rounded-full flex-shrink-0"
-                                        style={{ background: '#3b82f6' }}
-                                      />
-                                    )}
+                                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#3b82f6' }} />
                                   </div>
                                   <p
                                     className="text-xs mt-0.5 leading-relaxed"
                                     style={{
-                                      color: notif.is_read ? '#94a3b8' : '#475569',
+                                      color: '#475569',
                                       display: '-webkit-box',
                                       WebkitLineClamp: 2,
                                       WebkitBoxOrient: 'vertical',

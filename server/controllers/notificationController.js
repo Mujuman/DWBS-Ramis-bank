@@ -28,22 +28,31 @@ const createNotification = async ({ userId = null, targetRole = null, type, titl
 
 // ── GET /api/notifications ────────────────────────────────────
 /**
- * Returns the most recent notifications for the logged-in user.
- * Matches on user_id OR target_role matching the user's role.
- * Returns up to 30 most recent, newest first.
+ * Returns the most recent 30 notifications for the logged-in user.
+ * A notification is "unread" if there is NO entry in notification_reads
+ * for this user + notification_id.
+ * This allows per-user read state even for role-broadcast notifications.
  */
 const getNotifications = async (req, res) => {
   const user = req.user;
 
   try {
     const [notifications] = await pool.execute(
-      `SELECT n.notification_id AS id, n.type, n.title, n.message,
-              n.case_id, n.is_read, n.created_at
+      `SELECT
+         n.notification_id AS id,
+         n.type,
+         n.title,
+         n.message,
+         n.case_id,
+         n.created_at,
+         CASE WHEN nr.user_id IS NOT NULL THEN 1 ELSE 0 END AS is_read
        FROM notifications n
+       LEFT JOIN notification_reads nr
+         ON nr.notification_id = n.notification_id AND nr.user_id = ?
        WHERE (n.user_id = ? OR n.target_role = ?)
        ORDER BY n.created_at DESC
        LIMIT 30`,
-      [user.userId, user.role]
+      [user.userId, user.userId, user.role]
     );
 
     return res.status(200).json({ notifications });
@@ -56,8 +65,8 @@ const getNotifications = async (req, res) => {
 // ── GET /api/notifications/count ──────────────────────────────
 /**
  * Lightweight endpoint for polling — returns the total unread count
- * plus a breakdown by category (cases vs messages vs other).
- * This allows the frontend to display rich badge info.
+ * plus a breakdown by category (cases vs messages).
+ * Uses notification_reads for per-user read state.
  */
 const getUnreadCount = async (req, res) => {
   const user = req.user;
@@ -66,11 +75,14 @@ const getUnreadCount = async (req, res) => {
     const [[result]] = await pool.execute(
       `SELECT
          COUNT(*) AS count,
-         SUM(type IN ('new_case', 'case_assigned', 'case_escalated', 'status_change')) AS unread_cases,
-         SUM(type = 'new_message') AS unread_messages
-       FROM notifications
-       WHERE (user_id = ? OR target_role = ?) AND is_read = 0`,
-      [user.userId, user.role]
+         SUM(n.type IN ('new_case', 'case_assigned', 'case_escalated', 'status_change')) AS unread_cases,
+         SUM(n.type = 'new_message') AS unread_messages
+       FROM notifications n
+       LEFT JOIN notification_reads nr
+         ON nr.notification_id = n.notification_id AND nr.user_id = ?
+       WHERE (n.user_id = ? OR n.target_role = ?)
+         AND nr.user_id IS NULL`,
+      [user.userId, user.userId, user.role]
     );
 
     return res.status(200).json({
@@ -86,17 +98,18 @@ const getUnreadCount = async (req, res) => {
 
 // ── PATCH /api/notifications/:id/read ─────────────────────────
 /**
- * Marks a single notification as read.
+ * Marks a single notification as read for the current user
+ * by inserting a record into notification_reads.
  */
 const markAsRead = async (req, res) => {
   const user = req.user;
   const notifId = parseInt(req.params.id);
 
   try {
+    // INSERT IGNORE so re-marking read is a no-op
     await pool.execute(
-      `UPDATE notifications SET is_read = 1
-       WHERE notification_id = ? AND (user_id = ? OR target_role = ?)`,
-      [notifId, user.userId, user.role]
+      `INSERT IGNORE INTO notification_reads (notification_id, user_id) VALUES (?, ?)`,
+      [notifId, user.userId]
     );
 
     return res.status(200).json({ message: 'Notification marked as read' });
@@ -108,16 +121,24 @@ const markAsRead = async (req, res) => {
 
 // ── PATCH /api/notifications/read-all ─────────────────────────
 /**
- * Marks all notifications as read for the current user.
+ * Marks all current notifications as read for the logged-in user
+ * by bulk-inserting into notification_reads.
  */
 const markAllAsRead = async (req, res) => {
   const user = req.user;
 
   try {
+    // Insert read records for every notification this user can see
+    // that they haven't already read. INSERT IGNORE prevents duplicates.
     await pool.execute(
-      `UPDATE notifications SET is_read = 1
-       WHERE (user_id = ? OR target_role = ?) AND is_read = 0`,
-      [user.userId, user.role]
+      `INSERT IGNORE INTO notification_reads (notification_id, user_id)
+       SELECT n.notification_id, ?
+       FROM notifications n
+       LEFT JOIN notification_reads nr
+         ON nr.notification_id = n.notification_id AND nr.user_id = ?
+       WHERE (n.user_id = ? OR n.target_role = ?)
+         AND nr.user_id IS NULL`,
+      [user.userId, user.userId, user.userId, user.role]
     );
 
     return res.status(200).json({ message: 'All notifications marked as read' });

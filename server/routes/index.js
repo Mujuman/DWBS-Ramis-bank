@@ -208,6 +208,21 @@ router.get('/cases/:id/notes',
   noteController.getNotes
 );
 
+// Edit own note (CEO, Investigator, Compliance_Officer only)
+router.patch('/cases/:id/notes/:noteId',
+  authenticateStaff,
+  requireRole('Investigator', 'Compliance_Officer', 'CEO'),
+  sanitizeRequestBody,
+  noteController.updateNote
+);
+
+// Delete own note (CEO, Investigator, Compliance_Officer only)
+router.delete('/cases/:id/notes/:noteId',
+  authenticateStaff,
+  requireRole('Investigator', 'Compliance_Officer', 'CEO'),
+  noteController.deleteNote
+);
+
 // ── Users Routes (admin) ──────────────────────────────────────
 
 router.get('/users',

@@ -176,9 +176,9 @@ const createNote = async (req, res) => {
     }
 
     await pool.execute(
-      `INSERT INTO investigationnotes (case_id, sender_type, audience_type, note_text, is_internal_only)
-       VALUES (?, ?, ?, ?, ?)`,
-      [caseId, senderType, audienceType, body, isInternal ? 1 : 0]
+      `INSERT INTO investigationnotes (case_id, sender_type, audience_type, note_text, is_internal_only, sender_user_id)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [caseId, senderType, audienceType, body, isInternal ? 1 : 0, identity.type === 'staff' ? (req.user?.userId ?? null) : null]
     );
 
     // Update case status when reporter replies during active investigation
@@ -345,10 +345,8 @@ const getNotes = async (req, res) => {
       ['Investigator', 'Compliance_Officer', 'CEO'].includes(role);
 
     if (identity.type === 'anonymous' || !highPriv) {
-      // Reporter (anonymous or staff): only show notes meant for them.
-      // Exclude CEO↔Ethics internal staff thread even if is_internal_only = 0.
       query = `SELECT note_id as id, sender_type as author_type, audience_type, note_text as body,
-                      is_internal_only, created_at
+                      is_internal_only, created_at, sender_user_id
                FROM investigationnotes
                WHERE case_id = ?
                  AND is_internal_only = 0
@@ -359,12 +357,8 @@ const getNotes = async (req, res) => {
                ORDER BY created_at ASC`;
       params = [caseId];
     } else if (role === 'Investigator') {
-      // Investigator sees:
-      //   - all public notes (is_internal_only = 0)
-      //   - internal notes addressed to them or sent by them
-      //   - notes from Compliance_Officer directed to Investigator
       query = `SELECT note_id as id, sender_type as author_type, audience_type, note_text as body,
-                      is_internal_only, created_at
+                      is_internal_only, created_at, sender_user_id
                FROM investigationnotes
                WHERE case_id = ?
                  AND (
@@ -376,15 +370,8 @@ const getNotes = async (req, res) => {
                ORDER BY created_at ASC`;
       params = [caseId];
     } else if (role === 'Compliance_Officer') {
-      // Ethics office sees everything in their scope:
-      //   - all public notes
-      //   - notes sent BY Compliance_Officer (all their own messages)
-      //   - notes sent BY CEO (CEO replies directed to them)
-      //   - internal notes addressed to Compliance_Officer (e.g. from Investigator)
-      //   - reporter messages directed to Compliance_Officer
-      //   - internal notes they sent to CEO (CEO thread they initiated)
       query = `SELECT note_id as id, sender_type as author_type, audience_type, note_text as body,
-                      is_internal_only, created_at
+                      is_internal_only, created_at, sender_user_id
                FROM investigationnotes
                WHERE case_id = ?
                  AND (
@@ -398,13 +385,8 @@ const getNotes = async (req, res) => {
                ORDER BY created_at ASC`;
       params = [caseId];
     } else if (role === 'CEO') {
-      // CEO sees ONLY the CEO-specific thread:
-      //   - messages sent BY CEO
-      //   - messages sent BY Compliance_Officer TO CEO
-      //   - messages sent BY Reporter TO CEO specifically (not to Investigator/Ethics)
-      // Public notes for Investigator/Reporter/Ethics threads are NOT shown here
       query = `SELECT note_id as id, sender_type as author_type, audience_type, note_text as body,
-                      is_internal_only, created_at
+                      is_internal_only, created_at, sender_user_id
                FROM investigationnotes
                WHERE case_id = ?
                  AND (
@@ -415,9 +397,8 @@ const getNotes = async (req, res) => {
                ORDER BY created_at ASC`;
       params = [caseId];
     } else {
-      // High-privilege or other staff: all notes
       query = `SELECT note_id as id, sender_type as author_type, audience_type, note_text as body,
-                      is_internal_only, created_at
+                      is_internal_only, created_at, sender_user_id
                FROM investigationnotes
                WHERE case_id = ?
                ORDER BY created_at ASC`;
@@ -454,4 +435,89 @@ const getNotes = async (req, res) => {
   }
 };
 
-module.exports = { createAnonNote, createNote, getNotes };
+/**
+ * PATCH /api/cases/:id/notes/:noteId
+ * Allows CEO, Investigator, or Compliance_Officer to edit their own message body.
+ */
+const updateNote = async (req, res) => {
+  const caseId  = parseInt(req.params.id);
+  const noteId  = parseInt(req.params.noteId);
+  const user    = req.user;
+  const { body } = req.body;
+
+  if (!body || !body.trim()) {
+    return res.status(400).json({ error: 'Message body cannot be empty.' });
+  }
+
+  try {
+    const [rows] = await pool.execute(
+      `SELECT note_id, sender_user_id, sender_type FROM investigationnotes WHERE note_id = ? AND case_id = ?`,
+      [noteId, caseId]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Note not found.' });
+
+    const note = rows[0];
+    // Only the original sender may edit their own note
+    if (note.sender_user_id !== user.userId) {
+      return res.status(403).json({ error: 'You can only edit your own messages.' });
+    }
+
+    await pool.execute(
+      `UPDATE investigationnotes SET note_text = ? WHERE note_id = ?`,
+      [body.trim(), noteId]
+    );
+
+    await writeAuditLog({
+      caseId,
+      action: 'NOTE_UPDATED',
+      performedBy: user.username,
+      performedByType: 'staff',
+      metadata: { note_id: noteId },
+    });
+
+    return res.status(200).json({ message: 'Message updated.' });
+  } catch (err) {
+    console.error('[NOTE] Update error:', err.message);
+    return res.status(500).json({ error: 'Failed to update message.' });
+  }
+};
+
+/**
+ * DELETE /api/cases/:id/notes/:noteId
+ * Allows CEO, Investigator, or Compliance_Officer to delete their own message.
+ */
+const deleteNote = async (req, res) => {
+  const caseId = parseInt(req.params.id);
+  const noteId = parseInt(req.params.noteId);
+  const user   = req.user;
+
+  try {
+    const [rows] = await pool.execute(
+      `SELECT note_id, sender_user_id FROM investigationnotes WHERE note_id = ? AND case_id = ?`,
+      [noteId, caseId]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Note not found.' });
+
+    const note = rows[0];
+    if (note.sender_user_id !== user.userId) {
+      return res.status(403).json({ error: 'You can only delete your own messages.' });
+    }
+
+    await pool.execute(`DELETE FROM investigationnotes WHERE note_id = ?`, [noteId]);
+
+    await writeAuditLog({
+      caseId,
+      action: 'NOTE_DELETED',
+      performedBy: user.username,
+      performedByType: 'staff',
+      metadata: { note_id: noteId },
+    });
+
+    return res.status(200).json({ message: 'Message deleted.' });
+  } catch (err) {
+    console.error('[NOTE] Delete error:', err.message);
+    return res.status(500).json({ error: 'Failed to delete message.' });
+  }
+};
+
+module.exports = { createAnonNote, createNote, getNotes, updateNote, deleteNote };
