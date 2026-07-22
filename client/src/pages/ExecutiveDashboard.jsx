@@ -13,7 +13,6 @@ import {
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { STATUS_BADGE, formatStatus } from '../constants/caseWorkflow';
-
 const CATEGORY_COLORS = {
   Fraud:                '#e11d48',   // rose-600
   Corruption:           '#7c3aed',   // violet-600
