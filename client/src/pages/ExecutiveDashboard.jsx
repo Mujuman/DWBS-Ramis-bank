@@ -15,19 +15,42 @@ import { format } from 'date-fns';
 import { STATUS_BADGE, formatStatus } from '../constants/caseWorkflow';
 
 const CATEGORY_COLORS = {
-  Fraud: '#ef4444', Corruption: '#8b5cf6', Bribery: '#f59e0b',
-  Abuse_of_Power: '#f43f5e', Procurement_Violation: '#10b981', System_Misuse: '#0ea5e9',
+  Fraud:                '#e11d48',   // rose-600
+  Corruption:           '#7c3aed',   // violet-600
+  Bribery:              '#d97706',   // amber-600
+  Abuse_of_Power:       '#0369a1',   // sky-700
+  Procurement_Violation:'#059669',   // emerald-600
+  System_Misuse:        '#0891b2',   // cyan-600
 };
-const PIE_COLORS = ['#0A1D37', '#F9A826', '#3b82f6', '#22c55e', '#ef4444', '#8b5cf6', '#ec4899', '#94a3b8'];
+const PIE_COLORS = [
+  '#0A1D37', '#F9A826', '#7c3aed', '#059669',
+  '#e11d48', '#0891b2', '#d97706', '#64748b',
+];
+
+// Gradient IDs for bar charts
+const CHART_GRADIENT = [
+  { id: 'g0', from: '#e11d48', to: '#fb7185' },
+  { id: 'g1', from: '#7c3aed', to: '#a78bfa' },
+  { id: 'g2', from: '#d97706', to: '#fbbf24' },
+  { id: 'g3', from: '#0369a1', to: '#38bdf8' },
+  { id: 'g4', from: '#059669', to: '#34d399' },
+  { id: 'g5', from: '#0891b2', to: '#22d3ee' },
+];
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="card p-3 text-xs shadow-lg">
-      <p className="font-bold text-slate-700 mb-1">{label}</p>
+    <div style={{
+      background: 'rgba(10,29,55,0.97)',
+      border: '1px solid rgba(249,168,38,0.3)',
+      borderRadius: '12px',
+      padding: '10px 14px',
+      boxShadow: '0 8px 32px rgba(10,29,55,0.35)',
+    }}>
+      <p style={{ color: '#F9A826', fontWeight: 700, fontSize: 11, marginBottom: 4 }}>{label}</p>
       {payload.map(p => (
-        <p key={p.dataKey} style={{ color: p.color }}>
-          {p.name}: <strong>{p.value}</strong>
+        <p key={p.dataKey} style={{ color: '#fff', fontSize: 12 }}>
+          {p.name}: <strong style={{ color: p.color || '#F9A826' }}>{p.value}</strong>
         </p>
       ))}
     </div>
@@ -166,11 +189,11 @@ export default function ExecutiveDashboard() {
   }));
 
   const statusChartData = [
-    { name: 'New', value: o.new_cases || 0, fill: '#F9A826' },
-    { name: 'Under Review', value: o.under_review || 0, fill: '#3b82f6' },
-    { name: 'In Progress', value: o.in_progress || 0, fill: '#f59e0b' },
-    { name: 'Substantiated', value: o.substantiated || 0, fill: '#22c55e' },
-    { name: 'Dismissed', value: (o.complaint_dismissed || 0) + (o.dismissed_no_evidence || 0), fill: '#94a3b8' },
+    { name: 'New',          value: o.new_cases  || 0, fill: '#F9A826' },
+    { name: 'Under Review', value: o.under_review|| 0, fill: '#38bdf8' },
+    { name: 'In Progress',  value: o.in_progress || 0, fill: '#818cf8' },
+    { name: 'Substantiated',value: o.substantiated||0, fill: '#34d399' },
+    { name: 'Dismissed',    value: (o.complaint_dismissed||0)+(o.dismissed_no_evidence||0), fill: '#94a3b8' },
   ];
 
   return (
@@ -374,17 +397,30 @@ export default function ExecutiveDashboard() {
       <div className="grid lg:grid-cols-3 gap-6 mb-6">
         {/* Monthly Trend */}
         <div className="card p-6 lg:col-span-2">
-          <h2 className="text-sm font-bold mb-4" style={{ color: 'var(--color-navy-900)' }}>
-            Monthly Submission Trend (12 Months)
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-bold" style={{ color: 'var(--color-navy-900)' }}>
+              Monthly Submission Trend (12 Months)
+            </h2>
+            <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
+              style={{ background: 'rgba(10,29,55,0.07)', color: 'var(--color-navy-900)' }}>
+              {stats?.monthly_trend?.reduce((a, b) => a + b.total, 0) || 0} total
+            </span>
+          </div>
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={stats?.monthly_trend || []} margin={{ top: 5, right: 10, bottom: 5, left: -20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} />
+            <LineChart data={stats?.monthly_trend || []} margin={{ top: 8, right: 12, bottom: 5, left: -20 }}>
+              <defs>
+                <linearGradient id="lineAreaFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#0A1D37" stopOpacity={0.15} />
+                  <stop offset="100%" stopColor="#0A1D37" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="4 4" stroke="#f1f5f9" vertical={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
-              <Line type="monotone" dataKey="total" stroke="#0A1D37" strokeWidth={2.5}
-                dot={{ fill: '#F9A826', r: 4 }} activeDot={{ r: 6, fill: '#F9A826' }} name="Cases" />
+              <Line type="monotone" dataKey="total" stroke="#0A1D37" strokeWidth={3}
+                dot={{ fill: '#F9A826', r: 5, strokeWidth: 2, stroke: '#fff' }}
+                activeDot={{ r: 7, fill: '#F9A826', stroke: '#0A1D37', strokeWidth: 2 }} name="Cases" />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -395,12 +431,13 @@ export default function ExecutiveDashboard() {
           {statusChartData.every(s => s.value === 0) ? (
             <div className="flex items-center justify-center h-40 text-slate-300 text-sm">No data yet</div>
           ) : (
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={statusChartData} layout="vertical" margin={{ top: 0, right: 30, bottom: 0, left: 70 }}>
-                <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} allowDecimals={false} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} width={68} />
-                <Tooltip formatter={(v) => [v, 'Cases']} />
-                <Bar dataKey="value" name="Cases" radius={[0, 4, 4, 0]}>
+            <ResponsiveContainer width="100%" height={210}>
+              <BarChart data={statusChartData} layout="vertical" margin={{ top: 2, right: 36, bottom: 2, left: 74 }}
+                barCategoryGap="28%">
+                <XAxis type="number" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#475569', fontWeight: 500 }} width={72} axisLine={false} tickLine={false} />
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(10,29,55,0.04)' }} />
+                <Bar dataKey="value" name="Cases" radius={[0, 6, 6, 0]}>
                   {statusChartData.map((entry, idx) => (
                     <Cell key={idx} fill={entry.fill} />
                   ))}
@@ -415,13 +452,14 @@ export default function ExecutiveDashboard() {
         {/* Cases by Category bar */}
         <div className="card p-6">
           <h2 className="text-sm font-bold mb-4" style={{ color: 'var(--color-navy-900)' }}>Cases by Category</h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={pieData} layout="vertical" margin={{ top: 0, right: 20, bottom: 0, left: 80 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} />
-              <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="value" name="Cases" radius={[0, 4, 4, 0]}>
+          <ResponsiveContainer width="100%" height={230}>
+            <BarChart data={pieData} layout="vertical" margin={{ top: 2, right: 24, bottom: 2, left: 84 }}
+              barCategoryGap="28%">
+              <CartesianGrid strokeDasharray="4 4" stroke="#f1f5f9" horizontal={false} />
+              <XAxis type="number" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#475569', fontWeight: 500 }} axisLine={false} tickLine={false} />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(10,29,55,0.04)' }} />
+              <Bar dataKey="value" name="Cases" radius={[0, 6, 6, 0]}>
                 {pieData.map((entry, idx) => (
                   <Cell key={idx} fill={CATEGORY_COLORS[entry.name?.replace(/ /g, '_')] || PIE_COLORS[idx % PIE_COLORS.length]} />
                 ))}
@@ -433,20 +471,20 @@ export default function ExecutiveDashboard() {
         {/* Category distribution % */}
         <div className="card p-6">
           <h2 className="text-sm font-bold mb-4" style={{ color: 'var(--color-navy-900)' }}>Category Distribution</h2>
-          <div className="space-y-3">
+          <div className="space-y-3.5">
             {(stats?.by_category || []).map((cat, idx) => {
               const total = o.total || 1;
               const pct = Math.round((cat.total / total) * 100);
               const color = CATEGORY_COLORS[cat.category] || PIE_COLORS[idx % PIE_COLORS.length];
               return (
                 <div key={cat.category}>
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="font-medium text-slate-700">{cat.category?.replace(/_/g, ' ')}</span>
-                    <span className="font-bold" style={{ color }}>{cat.total} ({pct}%)</span>
+                  <div className="flex items-center justify-between text-xs mb-1.5">
+                    <span className="font-semibold text-slate-700">{cat.category?.replace(/_/g, ' ')}</span>
+                    <span className="font-bold tabular-nums" style={{ color }}>{cat.total} <span className="text-slate-400 font-normal">({pct}%)</span></span>
                   </div>
-                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: '#e8edf5' }}>
+                  <div className="h-2 rounded-full overflow-hidden" style={{ background: '#f1f5f9' }}>
                     <div className="h-full rounded-full transition-all duration-700"
-                      style={{ width: `${pct}%`, background: color }} />
+                      style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${color}, ${color}cc)` }} />
                   </div>
                 </div>
               );

@@ -88,258 +88,173 @@ const AuditDashboard = () => {
   };
 
   const getActionBadgeColor = (action) => {
-    if (action.includes('LOGIN')) return 'bg-blue-100 text-blue-800';
-    if (action.includes('CREATE')) return 'bg-green-100 text-green-800';
-    if (action.includes('UPDATE') || action.includes('ASSIGN')) return 'bg-yellow-100 text-yellow-800';
-    if (action.includes('DELETE') || action.includes('FAILED')) return 'bg-red-100 text-red-800';
-    return 'bg-gray-100 text-gray-800';
+    if (action.includes('LOGIN'))                        return { bg: '#dbeafe', color: '#1d4ed8' };
+    if (action.includes('CREATE') || action.includes('SUBMIT')) return { bg: '#dcfce7', color: '#15803d' };
+    if (action.includes('UPDATE') || action.includes('ASSIGN') || action.includes('EDIT')) return { bg: '#fef3c7', color: '#b45309' };
+    if (action.includes('DELETE') || action.includes('FAILED') || action.includes('ESCALAT')) return { bg: '#fee2e2', color: '#b91c1c' };
+    if (action.includes('NOTE') || action.includes('MESSAGE'))  return { bg: '#ede9fe', color: '#6d28d9' };
+    return { bg: '#f1f5f9', color: '#475569' };
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl shadow-lg p-8 mb-6"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl">
-                <Shield className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Audit Dashboard</h1>
-                <p className="text-gray-600 mt-1">Independent oversight and Ethics & Anticorruption monitoring</p>
-              </div>
-            </div>
-            <button
-              onClick={exportToCSV}
-              disabled={logs.length === 0}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            >
-              <Download className="w-4 h-4" />
-              Export CSV
-            </button>
+    <div className="p-6 max-w-7xl mx-auto fade-in-up" style={{ background: 'var(--color-slate-50)', minHeight: '100vh' }}>
+
+      {/* ── Header ── */}
+      <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }}
+        className="card p-6 mb-6 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center"
+            style={{ background: 'linear-gradient(135deg, #0A1D37, #1e3a5f)' }}>
+            <Shield className="w-6 h-6 text-yellow-400" />
           </div>
-        </motion.div>
-
-        {/* Filters */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white rounded-2xl shadow-lg p-6 mb-6"
-        >
-          <div className="flex items-center gap-2 mb-4">
-            <Filter className="w-5 h-5 text-indigo-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
+          <div>
+            <h1 className="text-2xl font-bold" style={{ color: 'var(--color-navy-900)' }}>Audit Dashboard</h1>
+            <p className="text-slate-500 text-sm mt-0.5">Independent oversight and compliance monitoring</p>
           </div>
+        </div>
+        <button onClick={exportToCSV} disabled={logs.length === 0}
+          className="btn btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+          <Download className="w-4 h-4" />
+          Export CSV
+        </button>
+      </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Action</label>
-              <input
-                type="text"
-                placeholder="e.g., LOGIN, CREATE"
-                value={filters.action}
-                onChange={(e) => handleFilterChange('action', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              />
+      {/* ── Filters ── */}
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
+        className="card p-6 mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Filter className="w-4 h-4" style={{ color: 'var(--color-navy-900)' }} />
+          <h2 className="text-sm font-bold" style={{ color: 'var(--color-navy-900)' }}>Filters</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
+          {[
+            { label: 'Action', field: 'action', placeholder: 'e.g. LOGIN, CREATE', type: 'text' },
+            { label: 'Case ID', field: 'case_id', placeholder: 'Case ID', type: 'number' },
+            { label: 'User ID', field: 'user_id', placeholder: 'User ID', type: 'number' },
+            { label: 'From Date', field: 'from_date', placeholder: '', type: 'date' },
+            { label: 'To Date', field: 'to_date', placeholder: '', type: 'date' },
+          ].map(f => (
+            <div key={f.field}>
+              <label className="form-label text-xs">{f.label}</label>
+              <input type={f.type} placeholder={f.placeholder} value={filters[f.field]}
+                onChange={e => handleFilterChange(f.field, e.target.value)}
+                className="form-input text-sm w-full" />
             </div>
+          ))}
+        </div>
+        <div className="flex gap-3">
+          <button onClick={applyFilters} className="btn btn-primary text-sm flex items-center gap-2">
+            <Search className="w-4 h-4" /> Apply Filters
+          </button>
+          <button onClick={clearFilters} className="btn btn-ghost text-sm">Clear All</button>
+        </div>
+      </motion.div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Case ID</label>
-              <input
-                type="number"
-                placeholder="Case ID"
-                value={filters.case_id}
-                onChange={(e) => handleFilterChange('case_id', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              />
+      {/* ── Audit Logs Table ── */}
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }}
+        className="card overflow-hidden mb-6">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <h2 className="text-sm font-bold" style={{ color: 'var(--color-navy-900)' }}>
+            Audit Trail
+          </h2>
+          <span className="text-xs px-2.5 py-1 rounded-full font-semibold"
+            style={{ background: 'rgba(10,29,55,0.07)', color: 'var(--color-navy-900)' }}>
+            {pagination.total} records
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <span className="spinner spinner-navy" />
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">User ID</label>
-              <input
-                type="number"
-                placeholder="User ID"
-                value={filters.user_id}
-                onChange={(e) => handleFilterChange('user_id', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              />
+          ) : logs.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+              <AlertCircle className="w-14 h-14 mb-4 text-slate-300" />
+              <p className="text-base font-semibold">No audit logs found</p>
+              <p className="text-sm mt-1 text-slate-400">Try adjusting your filters</p>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">From Date</label>
-              <input
-                type="date"
-                value={filters.from_date}
-                onChange={(e) => handleFilterChange('from_date', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">To Date</label>
-              <input
-                type="date"
-                value={filters.to_date}
-                onChange={(e) => handleFilterChange('to_date', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              onClick={applyFilters}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all"
-            >
-              <Search className="w-4 h-4" />
-              Apply Filters
-            </button>
-            <button
-              onClick={clearFilters}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all"
-            >
-              Clear All
-            </button>
-          </div>
-        </motion.div>
-
-        {/* Audit Logs Table */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white rounded-2xl shadow-lg overflow-hidden"
-        >
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Audit Trail ({pagination.total} records)
-            </h2>
-          </div>
-
-          <div className="overflow-x-auto">
-            {loading ? (
-              <div className="flex items-center justify-center py-20">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-              </div>
-            ) : logs.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-                <AlertCircle className="w-16 h-16 mb-4" />
-                <p className="text-lg font-medium">No audit logs found</p>
-                <p className="text-sm">Try adjusting your filters</p>
-              </div>
-            ) : (
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4" />
-                        Timestamp
-                      </div>
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4" />
-                        Action
-                      </div>
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      Case ID
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      <div className="flex items-center gap-2">
-                        <User className="w-4 h-4" />
-                        User
-                      </div>
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      Details
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {logs.map((log, idx) => (
-                    <motion.tr
-                      key={log.id}
-                      initial={{ opacity: 0, x: -20 }}
+          ) : (
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th><div className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Timestamp</div></th>
+                  <th><div className="flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> Action</div></th>
+                  <th>Case ID</th>
+                  <th><div className="flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> User</div></th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map((log, idx) => {
+                  const badge = getActionBadgeColor(log.action);
+                  return (
+                    <motion.tr key={log.id}
+                      initial={{ opacity: 0, x: -12 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: idx * 0.05 }}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      transition={{ delay: Math.min(idx * 0.03, 0.5) }}
+                      className="hover:bg-slate-50 transition-colors">
+                      <td className="text-xs text-slate-500 whitespace-nowrap">
                         {new Date(log.created_at).toLocaleString()}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getActionBadgeColor(log.action)}`}>
+                      <td>
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold"
+                          style={{ background: badge.bg, color: badge.color }}>
                           {log.action}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {log.target_case_id || <span className="text-gray-400">—</span>}
+                      <td className="text-sm font-mono font-bold" style={{ color: 'var(--color-navy-900)' }}>
+                        {log.target_case_id || <span className="text-slate-300 font-normal">—</span>}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {log.performed_by || <span className="text-gray-400 italic">System</span>}
+                      <td className="text-sm text-slate-700">
+                        {log.performed_by || <span className="text-slate-400 italic text-xs">System</span>}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-600 max-w-md truncate">
-                        {log.metadata || <span className="text-gray-400">—</span>}
+                      <td className="text-xs text-slate-500 max-w-xs truncate">
+                        {log.metadata || <span className="text-slate-300">—</span>}
                       </td>
                     </motion.tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          {/* Pagination */}
-          {!loading && logs.length > 0 && (
-            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-              <p className="text-sm text-gray-700">
-                Showing {((pagination.page - 1) * pagination.limit) + 1} to{' '}
-                {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} results
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                  disabled={pagination.page === 1}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                  disabled={pagination.page * pagination.limit >= pagination.total}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
+                  );
+                })}
+              </tbody>
+            </table>
           )}
-        </motion.div>
+        </div>
 
-        {/* Info Notice */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3"
-        >
-          <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-blue-900">
-            <p className="font-semibold mb-1">Auditor Access Notice</p>
-            <p>
-              You have read-only access to audit logs. These records are immutable and cannot be modified or deleted.
-              All system activities are automatically logged for Ethics & Anticorruption and oversight purposes.
+        {/* Pagination */}
+        {!loading && logs.length > 0 && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100">
+            <p className="text-sm text-slate-500">
+              Showing {((pagination.page - 1) * pagination.limit) + 1}–{Math.min(pagination.page * pagination.limit, pagination.total)} of <strong>{pagination.total}</strong>
             </p>
+            <div className="flex gap-2">
+              <button onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))}
+                disabled={pagination.page === 1}
+                className="btn btn-ghost text-sm disabled:opacity-40">
+                ← Previous
+              </button>
+              <button onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))}
+                disabled={pagination.page * pagination.limit >= pagination.total}
+                className="btn btn-ghost text-sm disabled:opacity-40">
+                Next →
+              </button>
+            </div>
           </div>
-        </motion.div>
-      </div>
+        )}
+      </motion.div>
+
+      {/* ── Info Notice ── */}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}
+        className="rounded-xl p-4 flex items-start gap-3"
+        style={{ background: 'rgba(37,99,235,0.06)', border: '1px solid rgba(37,99,235,0.18)' }}>
+        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#1d4ed8' }} />
+        <div className="text-sm" style={{ color: '#1e3a8a' }}>
+          <p className="font-semibold mb-0.5">Auditor Access Notice</p>
+          <p className="text-xs" style={{ color: '#3b5fa0' }}>
+            Read-only access. Audit records are immutable and cannot be modified or deleted.
+            All system activity is automatically logged for compliance and oversight purposes.
+          </p>
+        </div>
+      </motion.div>
     </div>
   );
 };

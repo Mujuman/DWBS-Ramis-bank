@@ -506,22 +506,26 @@ export default function EthicsDashboard() {
       {/* ══════════════ ANALYTICS TAB ══════════════ */}
       {activeTab === 'analytics' && (() => {
         const CATEGORY_COLORS = {
-          Fraud: '#ef4444', Corruption: '#8b5cf6', Bribery: '#f59e0b',
-          Abuse_of_Power: '#f43f5e', Procurement_Violation: '#10b981', System_Misuse: '#0ea5e9',
+          Fraud:                 '#e11d48',
+          Corruption:            '#7c3aed',
+          Bribery:               '#d97706',
+          Abuse_of_Power:        '#0369a1',
+          Procurement_Violation: '#059669',
+          System_Misuse:         '#0891b2',
         };
-        const PIE_COLORS = ['#0A1D37', '#F9A826', '#3b82f6', '#22c55e', '#ef4444', '#8b5cf6'];
+        const PIE_COLORS = ['#0A1D37','#F9A826','#7c3aed','#059669','#e11d48','#0891b2'];
         const statusData = [
-          { name: 'New', value: ov.new_cases || 0, fill: '#F9A826' },
-          { name: 'Under Review', value: ov.under_review || 0, fill: '#3b82f6' },
-          { name: 'Assigned', value: ov.assigned || 0, fill: '#8b5cf6' },
-          { name: 'In Progress', value: ov.in_progress || 0, fill: '#f59e0b' },
-          { name: 'Substantiated', value: ov.substantiated || 0, fill: '#22c55e' },
-          { name: 'Dismissed', value: (ov.complaint_dismissed || 0) + (ov.dismissed_no_evidence || 0), fill: '#94a3b8' },
+          { name: 'New',          value: ov.new_cases   || 0, fill: '#F9A826' },
+          { name: 'Under Review', value: ov.under_review || 0, fill: '#38bdf8' },
+          { name: 'Assigned',     value: ov.assigned    || 0, fill: '#818cf8' },
+          { name: 'In Progress',  value: ov.in_progress || 0, fill: '#a78bfa' },
+          { name: 'Substantiated',value: ov.substantiated||0, fill: '#34d399' },
+          { name: 'Dismissed',    value: (ov.complaint_dismissed||0)+(ov.dismissed_no_evidence||0), fill: '#94a3b8' },
         ];
         const priorityData = [
-          { name: 'Critical', value: ov.critical || 0, fill: '#ef4444' },
-          { name: 'High', value: ov.high || 0, fill: '#f59e0b' },
-          { name: 'Medium', value: (ov.total || 0) - (ov.critical || 0) - (ov.high || 0) - ((ov.total || 0) > 0 ? Math.max(0, (ov.total || 0) - (ov.critical || 0) - (ov.high || 0)) : 0), fill: '#3b82f6' },
+          { name: 'Critical', value: ov.critical || 0, fill: '#e11d48' },
+          { name: 'High',     value: ov.high     || 0, fill: '#d97706' },
+          { name: 'Medium',   value: Math.max(0, (ov.total||0)-(ov.critical||0)-(ov.high||0)), fill: '#3b82f6' },
         ];
         const categoryData = (stats?.by_category || []).map((c, i) => ({
           name: c.category?.replace(/_/g, ' '),
@@ -531,9 +535,19 @@ export default function EthicsDashboard() {
         const CustomTip = ({ active, payload, label }) => {
           if (!active || !payload?.length) return null;
           return (
-            <div className="card p-2 text-xs shadow-lg">
-              <p className="font-bold text-slate-700 mb-1">{label || payload[0]?.name}</p>
-              <p style={{ color: payload[0]?.fill || '#0A1D37' }}>Cases: <strong>{payload[0]?.value}</strong></p>
+            <div style={{
+              background: 'rgba(10,29,55,0.97)',
+              border: '1px solid rgba(249,168,38,0.3)',
+              borderRadius: '12px',
+              padding: '10px 14px',
+              boxShadow: '0 8px 32px rgba(10,29,55,0.35)',
+            }}>
+              <p style={{ color: '#F9A826', fontWeight: 700, fontSize: 11, marginBottom: 4 }}>
+                {label || payload[0]?.name}
+              </p>
+              <p style={{ color: '#fff', fontSize: 12 }}>
+                Cases: <strong style={{ color: payload[0]?.fill || '#F9A826' }}>{payload[0]?.value}</strong>
+              </p>
             </div>
           );
         };
@@ -542,18 +556,25 @@ export default function EthicsDashboard() {
             {/* Row 1: Monthly trend + Status */}
             <div className="grid lg:grid-cols-3 gap-6">
               <div className="card p-6 lg:col-span-2">
-                <h2 className="text-sm font-bold mb-4" style={{ color: 'var(--color-navy-900)' }}>Monthly Submission Trend (12 Months)</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-sm font-bold" style={{ color: 'var(--color-navy-900)' }}>Monthly Submission Trend (12 Months)</h2>
+                  <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
+                    style={{ background: 'rgba(10,29,55,0.07)', color: 'var(--color-navy-900)' }}>
+                    {stats?.monthly_trend?.reduce((a, b) => a + b.total, 0) || 0} total
+                  </span>
+                </div>
                 {(stats?.monthly_trend || []).length === 0 ? (
                   <div className="flex items-center justify-center h-52 text-slate-300 text-sm">No trend data yet</div>
                 ) : (
                   <ResponsiveContainer width="100%" height={220}>
-                    <LineChart data={stats.monthly_trend} margin={{ top: 5, right: 10, bottom: 5, left: -20 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                      <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                      <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} allowDecimals={false} />
+                    <LineChart data={stats.monthly_trend} margin={{ top: 8, right: 12, bottom: 5, left: -20 }}>
+                      <CartesianGrid strokeDasharray="4 4" stroke="#f1f5f9" vertical={false} />
+                      <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
                       <Tooltip content={<CustomTip />} />
-                      <Line type="monotone" dataKey="total" stroke="#0A1D37" strokeWidth={2.5}
-                        dot={{ fill: '#F9A826', r: 4 }} activeDot={{ r: 6, fill: '#F9A826' }} name="Cases" />
+                      <Line type="monotone" dataKey="total" stroke="#0A1D37" strokeWidth={3}
+                        dot={{ fill: '#F9A826', r: 5, strokeWidth: 2, stroke: '#fff' }}
+                        activeDot={{ r: 7, fill: '#F9A826', stroke: '#0A1D37', strokeWidth: 2 }} name="Cases" />
                     </LineChart>
                   </ResponsiveContainer>
                 )}
@@ -564,11 +585,11 @@ export default function EthicsDashboard() {
                   <div className="flex items-center justify-center h-52 text-slate-300 text-sm">No data yet</div>
                 ) : (
                   <ResponsiveContainer width="100%" height={210}>
-                    <BarChart data={statusData} layout="vertical" margin={{ top: 0, right: 30, bottom: 0, left: 70 }}>
-                      <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} allowDecimals={false} />
-                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} width={68} />
-                      <Tooltip formatter={(v) => [v, 'Cases']} />
-                      <Bar dataKey="value" name="Cases" radius={[0, 4, 4, 0]}>
+                    <BarChart data={statusData} layout="vertical" margin={{ top: 2, right: 36, bottom: 2, left: 74 }} barCategoryGap="28%">
+                      <XAxis type="number" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#475569', fontWeight: 500 }} width={72} axisLine={false} tickLine={false} />
+                      <Tooltip content={<CustomTip />} cursor={{ fill: 'rgba(10,29,55,0.04)' }} />
+                      <Bar dataKey="value" name="Cases" radius={[0, 6, 6, 0]}>
                         {statusData.map((entry, idx) => <Cell key={idx} fill={entry.fill} />)}
                       </Bar>
                     </BarChart>
@@ -585,27 +606,30 @@ export default function EthicsDashboard() {
                   <div className="flex items-center justify-center h-52 text-slate-300 text-sm">No data yet</div>
                 ) : (
                   <>
-                    <ResponsiveContainer width="100%" height={220}>
-                      <BarChart data={categoryData} layout="vertical" margin={{ top: 0, right: 20, bottom: 0, left: 100 }}>
-                        <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} allowDecimals={false} />
-                        <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} width={98} />
-                        <Tooltip formatter={(v) => [v, 'Cases']} />
-                        <Bar dataKey="value" name="Cases" radius={[0, 4, 4, 0]}>
+                    <ResponsiveContainer width="100%" height={230}>
+                      <BarChart data={categoryData} layout="vertical" margin={{ top: 2, right: 24, bottom: 2, left: 102 }} barCategoryGap="28%">
+                        <XAxis type="number" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                        <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#475569', fontWeight: 500 }} width={100} axisLine={false} tickLine={false} />
+                        <Tooltip content={<CustomTip />} cursor={{ fill: 'rgba(10,29,55,0.04)' }} />
+                        <Bar dataKey="value" name="Cases" radius={[0, 6, 6, 0]}>
                           {categoryData.map((entry, idx) => <Cell key={idx} fill={entry.fill} />)}
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>
-                    <div className="space-y-2 mt-3">
+                    <div className="space-y-2.5 mt-3">
                       {categoryData.map((cat) => {
                         const pct = Math.round((cat.value / Math.max(1, ov.total || 1)) * 100);
                         return (
                           <div key={cat.name}>
-                            <div className="flex justify-between text-xs mb-0.5">
-                              <span className="text-slate-600">{cat.name}</span>
-                              <span className="font-bold" style={{ color: cat.fill }}>{cat.value} ({pct}%)</span>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="font-semibold text-slate-700">{cat.name}</span>
+                              <span className="font-bold tabular-nums" style={{ color: cat.fill }}>
+                                {cat.value} <span className="text-slate-400 font-normal">({pct}%)</span>
+                              </span>
                             </div>
-                            <div className="h-1.5 rounded-full" style={{ background: '#e8edf5' }}>
-                              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: cat.fill }} />
+                            <div className="h-2 rounded-full overflow-hidden" style={{ background: '#f1f5f9' }}>
+                              <div className="h-full rounded-full transition-all duration-700"
+                                style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${cat.fill}, ${cat.fill}cc)` }} />
                             </div>
                           </div>
                         );
@@ -621,27 +645,28 @@ export default function EthicsDashboard() {
                   <div className="flex items-center justify-center h-52 text-slate-300 text-sm">No data yet</div>
                 ) : (
                   <>
-                    <ResponsiveContainer width="100%" height={160}>
-                      <BarChart data={priorityData} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                        <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#64748b' }} />
-                        <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} allowDecimals={false} />
-                        <Tooltip formatter={(v) => [v, 'Cases']} />
-                        <Bar dataKey="value" name="Cases" radius={[4, 4, 0, 0]}>
+                    <ResponsiveContainer width="100%" height={170}>
+                      <BarChart data={priorityData} margin={{ top: 8, right: 20, bottom: 5, left: 10 }} barCategoryGap="35%">
+                        <CartesianGrid strokeDasharray="4 4" stroke="#f1f5f9" vertical={false} />
+                        <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#475569', fontWeight: 600 }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                        <Tooltip content={<CustomTip />} cursor={{ fill: 'rgba(10,29,55,0.04)' }} />
+                        <Bar dataKey="value" name="Cases" radius={[6, 6, 0, 0]}>
                           {priorityData.map((entry, idx) => <Cell key={idx} fill={entry.fill} />)}
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>
-                    <div className="grid grid-cols-3 gap-2 mt-4">
-                      {[{label:'Critical', value: ov.critical||0, color:'#ef4444', bg:'#fee2e2'},
-                        {label:'High', value: ov.high||0, color:'#f59e0b', bg:'#fef3c7'},
-                        {label:'Others', value: (ov.total||0)-(ov.critical||0)-(ov.high||0), color:'#3b82f6', bg:'#dbeafe'}]
-                        .map(p => (
-                          <div key={p.label} className="rounded-xl p-3 text-center" style={{ background: p.bg }}>
-                            <p className="text-xl font-extrabold" style={{ color: p.color }}>{p.value}</p>
-                            <p className="text-xs font-semibold mt-0.5" style={{ color: p.color }}>{p.label}</p>
-                          </div>
-                        ))}
+                    <div className="grid grid-cols-3 gap-3 mt-4">
+                      {[
+                        { label: 'Critical', value: ov.critical||0, color: '#e11d48', bg: 'linear-gradient(135deg, #fff1f2, #fecdd3)' },
+                        { label: 'High',     value: ov.high||0,     color: '#d97706', bg: 'linear-gradient(135deg, #fffbeb, #fde68a)' },
+                        { label: 'Others',   value: Math.max(0,(ov.total||0)-(ov.critical||0)-(ov.high||0)), color: '#3b82f6', bg: 'linear-gradient(135deg, #eff6ff, #bfdbfe)' },
+                      ].map(p => (
+                        <div key={p.label} className="rounded-xl p-3 text-center" style={{ background: p.bg }}>
+                          <p className="text-2xl font-extrabold" style={{ color: p.color }}>{p.value}</p>
+                          <p className="text-xs font-bold mt-0.5" style={{ color: p.color }}>{p.label}</p>
+                        </div>
+                      ))}
                     </div>
                   </>
                 )}
