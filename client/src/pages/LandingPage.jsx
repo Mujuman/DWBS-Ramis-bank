@@ -37,10 +37,10 @@ const categories = [
 ];
 
 const steps = [
-  { n: '01', title: 'Remain Anonymous',     desc: 'Complete a quick privacy-preserving CAPTCHA. No account required.' },
-  { n: '02', title: 'Submit Your Report',   desc: 'Describe the misconduct in detail and attach evidence securely.' },
+  { n: '01', title: 'Remain Anonymous', desc: 'Complete a quick privacy-preserving CAPTCHA. No account required.' },
+  { n: '02', title: 'Submit Your Report', desc: 'Describe the misconduct in detail and attach evidence securely.' },
   { n: '03', title: 'Receive Reference Code', desc: 'Get a unique, random tracking code — never sequential or guessable.' },
-  { n: '04', title: 'Track & Correspond',   desc: 'Check investigation progress and communicate with investigators safely.' },
+  { n: '04', title: 'Track & Correspond', desc: 'Check investigation progress and communicate with investigators safely.' },
 ];
 
 const trustBadges = [
@@ -53,12 +53,12 @@ const trustBadges = [
 // Fade-up variant for section entries
 const fadeUp = {
   hidden: { opacity: 0, y: 28 },
-  show:   { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
 };
 
 const staggerContainer = {
   hidden: {},
-  show:   { transition: { staggerChildren: 0.1 } },
+  show: { transition: { staggerChildren: 0.1 } },
 };
 
 export default function LandingPage() {
@@ -140,7 +140,7 @@ export default function LandingPage() {
           >
             <Link to="/staff-login" className="btn btn-gold text-sm sm:text-base px-6 sm:px-8 py-3 sm:py-3.5 w-full sm:w-auto">
               <AlertTriangle size={16} />
-              Staff Login
+              Non Anonymous
               <ChevronRight size={16} />
             </Link>
             <Link
@@ -359,7 +359,7 @@ export default function LandingPage() {
           <p className="mt-1 text-xs opacity-60">Baankii Raammis • ራሚስ ባንከ • Flow to the highest!</p>
         </div>
       </footer>
-      
+
     </div>
   );
 }
