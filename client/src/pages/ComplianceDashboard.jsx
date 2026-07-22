@@ -12,33 +12,33 @@ import {
 } from 'lucide-react';
 import { CASE_STATUSES, STATUS_BADGE, formatStatus } from '../constants/caseWorkflow';
 
-const STATUSES   = CASE_STATUSES;
-const PRIORITIES = ['Low','Medium','High','Critical'];
-const CATEGORIES = ['Fraud','Corruption','Bribery','Abuse_of_Power','Procurement_Violation','System_Misuse'];
+const STATUSES = CASE_STATUSES;
+const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
+const CATEGORIES = ['Fraud', 'Corruption', 'Bribery', 'Abuse_of_Power', 'Procurement_Violation', 'System_Misuse'];
 const PRIORITY_BADGE = {
-  Low:'badge-low', Medium:'badge-medium', High:'badge-high', Critical:'badge-critical',
+  Low: 'badge-low', Medium: 'badge-medium', High: 'badge-high', Critical: 'badge-critical',
 };
 
 export default function ComplianceDashboard() {
   const { user } = useAuth();
 
-  const [cases,         setCases]         = useState([]);
-  const [stats,         setStats]         = useState(null);
+  const [cases, setCases] = useState([]);
+  const [stats, setStats] = useState(null);
   const [investigators, setInvestigators] = useState([]);
-  const [loading,       setLoading]       = useState(true);
-  const [pagination,    setPagination]    = useState({ total:0, page:1, total_pages:1 });
-  const [activeTab,     setActiveTab]     = useState('queue');
-  const [filters,       setFilters]       = useState({ status:'', priority:'', category:'', search:'', page:1 });
+  const [loading, setLoading] = useState(true);
+  const [pagination, setPagination] = useState({ total: 0, page: 1, total_pages: 1 });
+  const [activeTab, setActiveTab] = useState('queue');
+  const [filters, setFilters] = useState({ status: '', priority: '', category: '', search: '', page: 1 });
 
   // assign modal
-  const [assignModal,  setAssignModal]  = useState(null);   // case object
+  const [assignModal, setAssignModal] = useState(null);   // case object
   const [assignTarget, setAssignTarget] = useState('');
-  const [assigning,    setAssigning]    = useState(false);
+  const [assigning, setAssigning] = useState(false);
 
   // severity override modal
   const [severityModal, setSeverityModal] = useState(null); // case object
-  const [newSeverity,   setNewSeverity]   = useState('');
-  const [overriding,    setOverriding]    = useState(false);
+  const [newSeverity, setNewSeverity] = useState('');
+  const [overriding, setOverriding] = useState(false);
 
   // escalating state (stores case id)
   const [escalating, setEscalating] = useState(null);
@@ -47,10 +47,10 @@ export default function ComplianceDashboard() {
     setLoading(true);
     try {
       const params = { page: f.page, limit: 20 };
-      if (f.status)   params.status         = f.status;
+      if (f.status) params.status = f.status;
       if (f.priority) params.severity_level = f.priority;
-      if (f.category) params.category       = f.category;
-      if (f.search)   params.search         = f.search;
+      if (f.category) params.category = f.category;
+      if (f.search) params.search = f.search;
 
       const [cRes, sRes, uRes] = await Promise.all([
         api.get('/cases', { params }),
@@ -58,7 +58,7 @@ export default function ComplianceDashboard() {
         api.get('/users'),
       ]);
       setCases(cRes.data.cases || []);
-      setPagination(cRes.data.pagination || { total:0, page:1, total_pages:1 });
+      setPagination(cRes.data.pagination || { total: 0, page: 1, total_pages: 1 });
       setStats(sRes.data);
       setInvestigators((uRes.data.users || []).filter(u => u.role === 'Investigator' && u.is_active));
     } catch {
@@ -132,13 +132,15 @@ export default function ComplianceDashboard() {
 
   const ov = stats?.overview || {};
   const statCards = [
-    { label:'Total Cases',  value: ov.total      || 0, icon: FileText,      color:'var(--color-navy-900)', bg:'#e8edf5' },
-    { label:'New',          value: ov.new_cases   || 0, icon: AlertTriangle, color:'var(--color-gold-600)', bg:'#fef3c7' },
-    { label:'In Progress',  value: ov.in_progress || 0, icon: Clock,         color:'#3b82f6',               bg:'#dbeafe' },
-    { label:'Substantiated', value: ov.substantiated || 0, icon: CheckCircle, color:'#16a34a',               bg:'#dcfce7' },
-    { label:'Critical',     value: ov.critical    || 0, icon: TrendingUp,    color:'#dc2626',               bg:'#fee2e2' },
-    { label:'Unassigned',   value: cases.filter(c => !c.assigned_investigator).length,
-      icon: Users, color:'#7c3aed', bg:'#ede9fe' },
+    { label: 'Total Cases', value: ov.total || 0, icon: FileText, color: 'var(--color-navy-900)', bg: '#e8edf5' },
+    { label: 'New', value: ov.new_cases || 0, icon: AlertTriangle, color: 'var(--color-gold-600)', bg: '#fef3c7' },
+    { label: 'In Progress', value: ov.in_progress || 0, icon: Clock, color: '#3b82f6', bg: '#dbeafe' },
+    { label: 'Substantiated', value: ov.substantiated || 0, icon: CheckCircle, color: '#16a34a', bg: '#dcfce7' },
+    { label: 'Critical', value: ov.critical || 0, icon: TrendingUp, color: '#dc2626', bg: '#fee2e2' },
+    {
+      label: 'Unassigned', value: cases.filter(c => !c.assigned_investigator).length,
+      icon: Users, color: '#7c3aed', bg: '#ede9fe'
+    },
   ];
 
   // max count for workload bar chart
@@ -150,8 +152,8 @@ export default function ComplianceDashboard() {
       {/* ── Header ── */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color:'var(--color-navy-900)' }}>
-            Ethics & Anticorruption Dashboard
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--color-navy-900)' }}>
+            Ethics and unti corruption  Dashboard
           </h1>
           <p className="text-slate-500 text-sm mt-0.5">
             Team Lead · {format(new Date(), 'EEEE, MMMM d, yyyy')}
@@ -171,20 +173,19 @@ export default function ComplianceDashboard() {
                 <s.icon size={18} style={{ color: s.color }} />
               </div>
             </div>
-            <p className="text-2xl font-extrabold" style={{ color:'var(--color-navy-900)' }}>{s.value}</p>
+            <p className="text-2xl font-extrabold" style={{ color: 'var(--color-navy-900)' }}>{s.value}</p>
             <p className="text-xs text-slate-500 font-medium mt-0.5">{s.label}</p>
           </div>
         ))}
       </div>
 
       {/* ── Tabs ── */}
-      <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background:'var(--color-slate-100)' }}>
-        {[['queue','Case Queue'], ['workload','Investigator Workload']].map(([key, label]) => (
+      <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background: 'var(--color-slate-100)' }}>
+        {[['queue', 'Case Queue'], ['workload', 'Investigator Workload']].map(([key, label]) => (
           <button key={key} onClick={() => setActiveTab(key)}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-              activeTab === key ? 'shadow-sm' : 'text-slate-500 hover:text-slate-700'
-            }`}
-            style={activeTab === key ? { background:'var(--color-navy-900)', color:'var(--color-gold-500)' } : {}}>
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === key ? 'shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            style={activeTab === key ? { background: 'var(--color-navy-900)', color: 'var(--color-gold-500)' } : {}}>
             {label}
           </button>
         ))}
@@ -216,7 +217,7 @@ export default function ComplianceDashboard() {
               <select className="form-select text-sm min-w-36"
                 value={filters.category} onChange={e => applyFilter('category', e.target.value)}>
                 <option value="">All Categories</option>
-                {CATEGORIES.map(c => <option key={c} value={c}>{c.replace(/_/g,' ')}</option>)}
+                {CATEGORIES.map(c => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
               </select>
             </div>
           </div>
@@ -249,11 +250,11 @@ export default function ComplianceDashboard() {
                     {cases.map(c => (
                       <tr key={c.id}>
                         <td>
-                          <span className="font-mono text-xs font-bold" style={{ color:'var(--color-navy-900)' }}>
+                          <span className="font-mono text-xs font-bold" style={{ color: 'var(--color-navy-900)' }}>
                             {c.reference_id}
                           </span>
                         </td>
-                        <td className="text-slate-600 text-sm">{c.category?.replace(/_/g,' ')}</td>
+                        <td className="text-slate-600 text-sm">{c.category?.replace(/_/g, ' ')}</td>
                         <td><span className={`badge ${PRIORITY_BADGE[c.priority] || 'badge-low'}`}>{c.priority}</span></td>
                         <td><span className={`badge ${STATUS_BADGE[c.status] || 'badge-review'}`}>{formatStatus(c.status)}</span></td>
                         <td>
@@ -292,7 +293,7 @@ export default function ComplianceDashboard() {
                               className="btn btn-ghost text-xs py-1 px-2 text-red-600 hover:bg-red-50"
                               title="Escalate to CEO">
                               {escalating === c.id
-                                ? <span className="spinner" style={{ width:12, height:12 }} />
+                                ? <span className="spinner" style={{ width: 12, height: 12 }} />
                                 : <ArrowUpCircle size={13} />}
                             </button>
                           </div>
@@ -314,7 +315,7 @@ export default function ComplianceDashboard() {
                   {Array.from({ length: Math.min(5, pagination.total_pages) }, (_, i) => i + 1).map(p => (
                     <button key={p} onClick={() => goPage(p)}
                       className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${p === pagination.page ? 'text-white' : 'text-slate-600 hover:bg-slate-100'}`}
-                      style={p === pagination.page ? { background:'var(--color-navy-900)' } : {}}>
+                      style={p === pagination.page ? { background: 'var(--color-navy-900)' } : {}}>
                       {p}
                     </button>
                   ))}
@@ -541,9 +542,8 @@ export default function ComplianceDashboard() {
                   <button
                     key={p}
                     onClick={() => setNewSeverity(p)}
-                    className={`py-2.5 px-4 rounded-xl text-sm font-semibold border-2 transition-all ${
-                      newSeverity === p ? 'border-current shadow-sm' : 'border-transparent'
-                    }`}
+                    className={`py-2.5 px-4 rounded-xl text-sm font-semibold border-2 transition-all ${newSeverity === p ? 'border-current shadow-sm' : 'border-transparent'
+                      }`}
                     style={{
                       background: newSeverity === p
                         ? (p === 'Critical' ? '#fee2e2' : p === 'High' ? '#fef3c7' : p === 'Medium' ? '#dbeafe' : '#dcfce7')
