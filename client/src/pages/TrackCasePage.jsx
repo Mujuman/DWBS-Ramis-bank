@@ -182,7 +182,21 @@ export default function TrackCasePage() {
     setResult(null);
     try {
       const res = await api.get('/cases/track', { params: { reference_id: reference_id.toUpperCase().trim() } });
-      setResult(res.data);
+      // Strip CEO↔Ethics messages — reporter must only see messages directed at them
+      const filteredData = {
+        ...res.data,
+        correspondence: (res.data.correspondence || []).filter(note => {
+          // Block CEO→Ethics and Ethics→CEO messages entirely
+          if (note.sender_role === 'CEO') return false;
+          if (note.sender_role === 'Compliance_Officer' && note.recipient_role === 'CEO') return false;
+          // Block any staff message not directed at the reporter
+          if (['Investigator','Compliance_Officer','CEO'].includes(note.sender_role)) {
+            return note.recipient_role === 'Reporter' || note.recipient_role === 'General' || !note.recipient_role;
+          }
+          return true;
+        }),
+      };
+      setResult(filteredData);
       setEvidence([]);
       setEvidenceFile(null);
       const hasInvestigatorMessage = res.data.correspondence?.some(note => note.sender_role === 'Investigator');
