@@ -11,6 +11,10 @@ import {
   Briefcase, BarChart3, MessageSquare, Send, Shield, Zap,
 } from 'lucide-react';
 import { CASE_STATUSES, STATUS_BADGE, formatStatus } from '../constants/caseWorkflow';
+import {
+  BarChart, Bar, LineChart, Line,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+} from 'recharts';
 
 const STATUSES = CASE_STATUSES;
 const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
@@ -260,6 +264,7 @@ export default function EthicsDashboard() {
           ['queue', 'Case Queue'],
           ['workload', 'Investigator Workload'],
           ['ceo_chat', 'CEO Messages'],
+          ['analytics', '📊 Analytics'],
         ].map(([key, label]) => (
           <button key={key} onClick={() => setActiveTab(key)}
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === key ? 'shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
@@ -472,6 +477,154 @@ export default function EthicsDashboard() {
           )}
         </div>
       )}
+
+      {/* ══════════════ ANALYTICS TAB ══════════════ */}
+      {activeTab === 'analytics' && (() => {
+        const CATEGORY_COLORS = {
+          Fraud: '#ef4444', Corruption: '#8b5cf6', Bribery: '#f59e0b',
+          Abuse_of_Power: '#f43f5e', Procurement_Violation: '#10b981', System_Misuse: '#0ea5e9',
+        };
+        const PIE_COLORS = ['#0A1D37', '#F9A826', '#3b82f6', '#22c55e', '#ef4444', '#8b5cf6'];
+        const statusData = [
+          { name: 'New', value: ov.new_cases || 0, fill: '#F9A826' },
+          { name: 'Under Review', value: ov.under_review || 0, fill: '#3b82f6' },
+          { name: 'Assigned', value: ov.assigned || 0, fill: '#8b5cf6' },
+          { name: 'In Progress', value: ov.in_progress || 0, fill: '#f59e0b' },
+          { name: 'Substantiated', value: ov.substantiated || 0, fill: '#22c55e' },
+          { name: 'Dismissed', value: (ov.complaint_dismissed || 0) + (ov.dismissed_no_evidence || 0), fill: '#94a3b8' },
+        ];
+        const priorityData = [
+          { name: 'Critical', value: ov.critical || 0, fill: '#ef4444' },
+          { name: 'High', value: ov.high || 0, fill: '#f59e0b' },
+          { name: 'Medium', value: (ov.total || 0) - (ov.critical || 0) - (ov.high || 0) - ((ov.total || 0) > 0 ? Math.max(0, (ov.total || 0) - (ov.critical || 0) - (ov.high || 0)) : 0), fill: '#3b82f6' },
+        ];
+        const categoryData = (stats?.by_category || []).map((c, i) => ({
+          name: c.category?.replace(/_/g, ' '),
+          value: c.total,
+          fill: CATEGORY_COLORS[c.category] || PIE_COLORS[i % PIE_COLORS.length],
+        }));
+        const CustomTip = ({ active, payload, label }) => {
+          if (!active || !payload?.length) return null;
+          return (
+            <div className="card p-2 text-xs shadow-lg">
+              <p className="font-bold text-slate-700 mb-1">{label || payload[0]?.name}</p>
+              <p style={{ color: payload[0]?.fill || '#0A1D37' }}>Cases: <strong>{payload[0]?.value}</strong></p>
+            </div>
+          );
+        };
+        return (
+          <div className="space-y-6">
+            {/* Row 1: Monthly trend + Status */}
+            <div className="grid lg:grid-cols-3 gap-6">
+              <div className="card p-6 lg:col-span-2">
+                <h2 className="text-sm font-bold mb-4" style={{ color: 'var(--color-navy-900)' }}>Monthly Submission Trend (12 Months)</h2>
+                {(stats?.monthly_trend || []).length === 0 ? (
+                  <div className="flex items-center justify-center h-52 text-slate-300 text-sm">No trend data yet</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={220}>
+                    <LineChart data={stats.monthly_trend} margin={{ top: 5, right: 10, bottom: 5, left: -20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                      <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} allowDecimals={false} />
+                      <Tooltip content={<CustomTip />} />
+                      <Line type="monotone" dataKey="total" stroke="#0A1D37" strokeWidth={2.5}
+                        dot={{ fill: '#F9A826', r: 4 }} activeDot={{ r: 6, fill: '#F9A826' }} name="Cases" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+              <div className="card p-6">
+                <h2 className="text-sm font-bold mb-4" style={{ color: 'var(--color-navy-900)' }}>Cases by Status</h2>
+                {statusData.every(s => s.value === 0) ? (
+                  <div className="flex items-center justify-center h-52 text-slate-300 text-sm">No data yet</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={210}>
+                    <BarChart data={statusData} layout="vertical" margin={{ top: 0, right: 30, bottom: 0, left: 70 }}>
+                      <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} allowDecimals={false} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} width={68} />
+                      <Tooltip formatter={(v) => [v, 'Cases']} />
+                      <Bar dataKey="value" name="Cases" radius={[0, 4, 4, 0]}>
+                        {statusData.map((entry, idx) => <Cell key={idx} fill={entry.fill} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+
+            {/* Row 2: Category + Priority */}
+            <div className="grid lg:grid-cols-2 gap-6">
+              <div className="card p-6">
+                <h2 className="text-sm font-bold mb-4" style={{ color: 'var(--color-navy-900)' }}>Cases by Category</h2>
+                {categoryData.length === 0 ? (
+                  <div className="flex items-center justify-center h-52 text-slate-300 text-sm">No data yet</div>
+                ) : (
+                  <>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={categoryData} layout="vertical" margin={{ top: 0, right: 20, bottom: 0, left: 100 }}>
+                        <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} allowDecimals={false} />
+                        <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} width={98} />
+                        <Tooltip formatter={(v) => [v, 'Cases']} />
+                        <Bar dataKey="value" name="Cases" radius={[0, 4, 4, 0]}>
+                          {categoryData.map((entry, idx) => <Cell key={idx} fill={entry.fill} />)}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <div className="space-y-2 mt-3">
+                      {categoryData.map((cat) => {
+                        const pct = Math.round((cat.value / Math.max(1, ov.total || 1)) * 100);
+                        return (
+                          <div key={cat.name}>
+                            <div className="flex justify-between text-xs mb-0.5">
+                              <span className="text-slate-600">{cat.name}</span>
+                              <span className="font-bold" style={{ color: cat.fill }}>{cat.value} ({pct}%)</span>
+                            </div>
+                            <div className="h-1.5 rounded-full" style={{ background: '#e8edf5' }}>
+                              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: cat.fill }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="card p-6">
+                <h2 className="text-sm font-bold mb-4" style={{ color: 'var(--color-navy-900)' }}>Priority Distribution</h2>
+                {priorityData.every(p => p.value <= 0) ? (
+                  <div className="flex items-center justify-center h-52 text-slate-300 text-sm">No data yet</div>
+                ) : (
+                  <>
+                    <ResponsiveContainer width="100%" height={160}>
+                      <BarChart data={priorityData} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                        <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#64748b' }} />
+                        <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} allowDecimals={false} />
+                        <Tooltip formatter={(v) => [v, 'Cases']} />
+                        <Bar dataKey="value" name="Cases" radius={[4, 4, 0, 0]}>
+                          {priorityData.map((entry, idx) => <Cell key={idx} fill={entry.fill} />)}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <div className="grid grid-cols-3 gap-2 mt-4">
+                      {[{label:'Critical', value: ov.critical||0, color:'#ef4444', bg:'#fee2e2'},
+                        {label:'High', value: ov.high||0, color:'#f59e0b', bg:'#fef3c7'},
+                        {label:'Others', value: (ov.total||0)-(ov.critical||0)-(ov.high||0), color:'#3b82f6', bg:'#dbeafe'}]
+                        .map(p => (
+                          <div key={p.label} className="rounded-xl p-3 text-center" style={{ background: p.bg }}>
+                            <p className="text-xl font-extrabold" style={{ color: p.color }}>{p.value}</p>
+                            <p className="text-xs font-semibold mt-0.5" style={{ color: p.color }}>{p.label}</p>
+                          </div>
+                        ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ══════════════ CEO MESSAGES TAB ══════════════ */}
       {activeTab === 'ceo_chat' && (
