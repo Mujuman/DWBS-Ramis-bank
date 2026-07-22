@@ -11,7 +11,7 @@ const ROLE_LABELS = {
   Employee: 'Employee',
   Branch_Manager: 'Branch Manager',
   Investigator: 'Investigator',
-  Compliance_Officer: 'Ethics & Anticorruption',
+  Compliance_Officer: 'Ethics & Anti-Corruption',
   CEO: 'CEO',
   System_Admin: 'System Admin',
   Auditor: 'Auditor',
