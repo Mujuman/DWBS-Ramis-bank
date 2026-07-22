@@ -345,32 +345,74 @@ const getNotes = async (req, res) => {
       ['Investigator', 'Compliance_Officer', 'CEO'].includes(role);
 
     if (identity.type === 'anonymous' || !highPriv) {
-      // Reporter: public notes only
+      // Reporter (anonymous or staff): only show notes meant for them.
+      // Exclude CEO↔Ethics internal staff thread even if is_internal_only = 0.
       query = `SELECT note_id as id, sender_type as author_type, audience_type, note_text as body,
                       is_internal_only, created_at
                FROM investigationnotes
-               WHERE case_id = ? AND is_internal_only = 0
+               WHERE case_id = ?
+                 AND is_internal_only = 0
+                 AND (
+                   audience_type IN ('Reporter', 'General')
+                   OR sender_type = 'Reporter'
+                 )
                ORDER BY created_at ASC`;
       params = [caseId];
     } else if (role === 'Investigator') {
+      // Investigator sees:
+      //   - all public notes (is_internal_only = 0)
+      //   - internal notes addressed to them or sent by them
+      //   - notes from Compliance_Officer directed to Investigator
       query = `SELECT note_id as id, sender_type as author_type, audience_type, note_text as body,
                       is_internal_only, created_at
                FROM investigationnotes
-               WHERE case_id = ? AND (is_internal_only = 0 OR audience_type IN ('General', 'Investigator') OR sender_type = 'Investigator')
+               WHERE case_id = ?
+                 AND (
+                   is_internal_only = 0
+                   OR audience_type IN ('General', 'Investigator')
+                   OR sender_type = 'Investigator'
+                   OR (sender_type = 'Compliance_Officer' AND audience_type = 'Investigator')
+                 )
                ORDER BY created_at ASC`;
       params = [caseId];
     } else if (role === 'Compliance_Officer') {
+      // Ethics office sees everything in their scope:
+      //   - all public notes
+      //   - notes sent BY Compliance_Officer (all their own messages)
+      //   - notes sent BY CEO (CEO replies directed to them)
+      //   - internal notes addressed to Compliance_Officer (e.g. from Investigator)
+      //   - reporter messages directed to Compliance_Officer
+      //   - internal notes they sent to CEO (CEO thread they initiated)
       query = `SELECT note_id as id, sender_type as author_type, audience_type, note_text as body,
                       is_internal_only, created_at
                FROM investigationnotes
-               WHERE case_id = ? AND (is_internal_only = 0 OR audience_type IN ('General', 'Compliance_Officer', 'CEO') OR sender_type IN ('Compliance_Officer', 'CEO'))
+               WHERE case_id = ?
+                 AND (
+                   is_internal_only = 0
+                   OR sender_type = 'Compliance_Officer'
+                   OR sender_type = 'CEO'
+                   OR audience_type = 'Compliance_Officer'
+                   OR (sender_type = 'Reporter' AND audience_type = 'Compliance_Officer')
+                   OR (sender_type = 'Investigator' AND audience_type = 'Compliance_Officer')
+                 )
                ORDER BY created_at ASC`;
       params = [caseId];
     } else if (role === 'CEO') {
+      // CEO sees:
+      //   - all public notes (to stay informed on case progress)
+      //   - notes in the CEO thread: sent by CEO, or sent by Compliance_Officer TO CEO
+      //   - reporter messages directed to CEO
+      // CEO does NOT see internal Compliance_Officer↔Investigator notes
       query = `SELECT note_id as id, sender_type as author_type, audience_type, note_text as body,
                       is_internal_only, created_at
                FROM investigationnotes
-               WHERE case_id = ? AND (is_internal_only = 0 OR audience_type IN ('General', 'CEO', 'Compliance_Officer') OR sender_type IN ('CEO', 'Compliance_Officer'))
+               WHERE case_id = ?
+                 AND (
+                   is_internal_only = 0
+                   OR sender_type = 'CEO'
+                   OR (sender_type = 'Compliance_Officer' AND audience_type = 'CEO')
+                   OR (sender_type = 'Reporter' AND audience_type = 'CEO')
+                 )
                ORDER BY created_at ASC`;
       params = [caseId];
     } else {

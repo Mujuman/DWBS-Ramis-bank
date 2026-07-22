@@ -549,14 +549,22 @@ const trackCase = async (req, res) => {
 
     const caseData = rows[0];
 
-    // Fetch non-internal notes for the reporter. Fall back for databases that
-    // have not yet applied the audience_type migration.
+    // Fetch public notes for the reporter, but exclude internal staff threads
+    // (CEO ↔ Ethics messages are public but not for the reporter's eyes).
+    // A note is shown to the reporter only if:
+    //   - it was sent TO the reporter (audience_type = 'Reporter' or 'General')
+    //   - OR it was sent BY the reporter themselves
     let notes;
     try {
       [notes] = await pool.execute(
         `SELECT note_text AS body, sender_type AS author_type, audience_type, created_at
          FROM investigationnotes
-         WHERE case_id = ? AND is_internal_only = 0
+         WHERE case_id = ?
+           AND is_internal_only = 0
+           AND (
+             audience_type IN ('Reporter', 'General')
+             OR sender_type = 'Reporter'
+           )
          ORDER BY created_at ASC`,
         [caseData.case_id]
       );

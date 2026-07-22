@@ -43,6 +43,7 @@ export default function CaseDetailPage() {
   const [replyRecipient, setReplyRecipient] = useState('Investigator');
   const [requestDescription, setRequestDescription] = useState('');
   const requestDescriptionRef = useRef(null);
+  const noteRef = useRef(null);
   
 
   const formatText = (text, action) => {
@@ -334,16 +335,32 @@ export default function CaseDetailPage() {
     if (!noteBody.trim()) return;
     setSendingNote(true);
     try {
+      // Determine recipient_role for every role:
+      // - CEO always messages Ethics (Compliance_Officer)
+      // - Staff reporter (Employee/Branch_Manager) uses the replyRecipient picker
+      // - Investigator: if internal, use replyRecipient; if public, send to Reporter
+      // - Ethics (Compliance_Officer): if internal, use replyRecipient; if public, send to Reporter
+      let recipientRole;
+      if (isCEO) {
+        recipientRole = 'Compliance_Officer';
+      } else if (canManageOwnRequest) {
+        // Staff reporter always picks their recipient explicitly
+        recipientRole = replyRecipient;
+      } else if (isInvestigator) {
+        recipientRole = isInternal ? replyRecipient : 'Reporter';
+      } else if (isSenior) {
+        recipientRole = isInternal ? replyRecipient : 'Reporter';
+      } else {
+        recipientRole = replyRecipient;
+      }
+
       await api.post(`/cases/${id}/notes`, {
         body: noteBody,
         is_internal_only: isInternal,
-        recipient_role: (isCEO) ? 'Compliance_Officer'
-          : (canManageOwnRequest || (isInternal && (isInvestigator || isSenior))) ? replyRecipient : undefined,
+        recipient_role: recipientRole,
       });
       setNoteBody('');
-      if (isInternal && (isInvestigator || isSenior)) {
-        setReplyRecipient('General');
-      }
+      setIsInternal(false);
       if (noteRef.current) noteRef.current.innerHTML = '';
       const res = await api.get(`/cases/${id}/notes`);
       setNotes(res.data.notes || []);
@@ -670,14 +687,18 @@ export default function CaseDetailPage() {
                   className="form-textarea mb-3"
                   rows={3}
                   placeholder={isInvestigator
-                    ? 'Add an internal note or send a message to the reporter...'
+                    ? 'Add a note or send a message to the reporter or Ethics office...'
+                    : isSenior
+                    ? 'Add a note or send a message to the reporter or investigator...'
                     : 'Add a note...'}
                   value={noteBody}
                   onChange={e => setNoteBody(e.target.value)}
                 />
+
+                {/* ── Staff reporter: always show recipient picker ── */}
                 {canManageOwnRequest && (
                   <div className="mb-3">
-                    <label className="form-label text-xs">Reply To</label>
+                    <label className="form-label text-xs">Send To</label>
                     <select
                       className="form-select text-sm"
                       value={replyRecipient}
@@ -688,33 +709,64 @@ export default function CaseDetailPage() {
                     </select>
                   </div>
                 )}
+
+                {/* ── CEO: fixed recipient notice ── */}
                 {isCEO && (
                   <div className="mb-3 rounded-lg px-3 py-2 text-xs text-slate-500"
                     style={{ background: 'rgba(37,99,235,0.06)', border: '1px solid rgba(37,99,235,0.15)' }}>
                     💬 This message will be sent to the <strong>Ethics & Anti-Corruption Office</strong>.
                   </div>
                 )}
-                {isInternal && (isInvestigator || isSenior) && (
+
+                {/* ── Investigator: recipient depends on internal flag ── */}
+                {isInvestigator && (
                   <div className="mb-3">
-                    <label className="form-label text-xs">Recipient</label>
-                    <select
-                      className="form-select text-sm"
-                      value={replyRecipient}
-                      onChange={e => setReplyRecipient(e.target.value)}
-                    >
-                      <option value="General">General / All Staff</option>
-                      {isInvestigator && (
+                    <label className="form-label text-xs">
+                      {isInternal ? 'Internal Note Recipient' : 'Sending public message to'}
+                    </label>
+                    {isInternal ? (
+                      <select
+                        className="form-select text-sm"
+                        value={replyRecipient}
+                        onChange={e => setReplyRecipient(e.target.value)}
+                      >
+                        <option value="General">General / All Staff</option>
                         <option value="Compliance_Officer">Ethics & Anti-Corruption Office</option>
-                      )}
-                      {isSenior && (
-                        <option value="Investigator">Case Investigator</option>
-                      )}
-                      {(isInvestigator || isSenior) && (
-                        <option value="Reporter">Reporter (Public Message)</option>
-                      )}
-                    </select>
+                      </select>
+                    ) : (
+                      <div className="rounded-lg px-3 py-2 text-xs text-slate-500"
+                        style={{ background: 'rgba(249,168,38,0.06)', border: '1px solid rgba(249,168,38,0.18)' }}>
+                        Reporter (public — visible to the case submitter)
+                      </div>
+                    )}
                   </div>
                 )}
+
+                {/* ── Ethics (Compliance_Officer): recipient depends on internal flag ── */}
+                {isSenior && (
+                  <div className="mb-3">
+                    <label className="form-label text-xs">
+                      {isInternal ? 'Internal Note Recipient' : 'Sending public message to'}
+                    </label>
+                    {isInternal ? (
+                      <select
+                        className="form-select text-sm"
+                        value={replyRecipient}
+                        onChange={e => setReplyRecipient(e.target.value)}
+                      >
+                        <option value="General">General / All Staff</option>
+                        <option value="Investigator">Case Investigator</option>
+                        <option value="CEO">CEO</option>
+                      </select>
+                    ) : (
+                      <div className="rounded-lg px-3 py-2 text-xs text-slate-500"
+                        style={{ background: 'rgba(249,168,38,0.06)', border: '1px solid rgba(249,168,38,0.18)' }}>
+                        Reporter (public — visible to the case submitter)
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between gap-3">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -722,7 +774,9 @@ export default function CaseDetailPage() {
                       checked={isInternal}
                       onChange={e => {
                         setIsInternal(e.target.checked);
-                        if (e.target.checked) {
+                        if (!e.target.checked) {
+                          setReplyRecipient('Investigator');
+                        } else {
                           setReplyRecipient('General');
                         }
                       }}

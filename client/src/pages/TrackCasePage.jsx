@@ -757,14 +757,14 @@ export default function TrackCasePage() {
                       <Edit3 size={14} /> Updated Description Rich Text Editor (Min 20 chars)
                     </span>
                     <span className="inline-flex items-center gap-1 text-slate-400">
-                      <button type="button" aria-label="Plain text" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('type')}><Type size={14} /></button>
-                      <button type="button" aria-label="Bold" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('bold')}><Bold size={14} /></button>
-                      <button type="button" aria-label="Italic" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('italic')}><Italic size={14} /></button>
-                      <button type="button" aria-label="Underline" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('underline')}><Underline size={14} /></button>
-                      <button type="button" aria-label="Heading" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('heading')}><Heading size={14} /></button>
-                      <button type="button" aria-label="List" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('list')}><List size={14} /></button>
-                      <button type="button" aria-label="Code" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('code')}><Code size={14} /></button>
-                      <button type="button" aria-label="Strikethrough" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('strikethrough')}><Strikethrough size={14} /></button>
+                      <button type="button" aria-label="Plain text" className="text-slate-400 hover:text-slate-900 transition" onClick={() => execFormatting(editDescriptionRef, 'type')}><Type size={14} /></button>
+                      <button type="button" aria-label="Bold" className="text-slate-400 hover:text-slate-900 transition" onClick={() => execFormatting(editDescriptionRef, 'bold')}><Bold size={14} /></button>
+                      <button type="button" aria-label="Italic" className="text-slate-400 hover:text-slate-900 transition" onClick={() => execFormatting(editDescriptionRef, 'italic')}><Italic size={14} /></button>
+                      <button type="button" aria-label="Underline" className="text-slate-400 hover:text-slate-900 transition" onClick={() => execFormatting(editDescriptionRef, 'underline')}><Underline size={14} /></button>
+                      <button type="button" aria-label="Heading" className="text-slate-400 hover:text-slate-900 transition" onClick={() => execFormatting(editDescriptionRef, 'heading')}><Heading size={14} /></button>
+                      <button type="button" aria-label="List" className="text-slate-400 hover:text-slate-900 transition" onClick={() => execFormatting(editDescriptionRef, 'list')}><List size={14} /></button>
+                      <button type="button" aria-label="Code" className="text-slate-400 hover:text-slate-900 transition" onClick={() => execFormatting(editDescriptionRef, 'code')}><Code size={14} /></button>
+                      <button type="button" aria-label="Strikethrough" className="text-slate-400 hover:text-slate-900 transition" onClick={() => execFormatting(editDescriptionRef, 'strikethrough')}><Strikethrough size={14} /></button>
                     </span>
                   </div>
                 </label>

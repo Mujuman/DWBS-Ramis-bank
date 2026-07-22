@@ -79,9 +79,13 @@ export default function ExecutiveDashboard() {
     setChatLoading(true);
     try {
       const res = await api.get(`/cases/${caseId}/notes`);
+      // Only show notes that are actually part of the CEO ↔ Ethics thread:
+      // - sent BY CEO (to Ethics or General)
+      // - sent BY Compliance_Officer TO CEO specifically
+      // This excludes Ethics messages directed at Investigator or Reporter
       const relevant = (res.data.notes || []).filter(n =>
-        n.author_type === 'CEO' || n.author_type === 'Compliance_Officer' ||
-        n.audience_type === 'CEO' || n.audience_type === 'Compliance_Officer'
+        n.author_type === 'CEO' ||
+        (n.author_type === 'Compliance_Officer' && n.audience_type === 'CEO')
       );
       setChatNotes(relevant);
     } catch { setChatNotes([]); }
