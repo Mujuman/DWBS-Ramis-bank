@@ -66,19 +66,19 @@ export default function EthicsDashboard() {
       if (f.category) params.category = f.category;
       if (f.search) params.search = f.search;
 
-      const [cRes, sRes, uRes] = await Promise.all([
+      const [cRes, sRes, uRes, escalatedRes] = await Promise.all([
         api.get('/cases', { params }),
         api.get('/cases/stats'),
         api.get('/users'),
+        api.get('/cases', { params: { is_escalated: 1, limit: 100 } }).catch(() => ({ data: { cases: [] } })),
       ]);
       setCases(cRes.data.cases || []);
       setPagination(cRes.data.pagination || { total: 0, page: 1, total_pages: 1 });
       setStats(sRes.data);
       setInvestigators((uRes.data.users || []).filter(u => u.role === 'Investigator' && u.is_active));
 
-      // Load escalated cases for CEO chat tab
-      const escalated = (sRes.data.escalated_cases || []);
-      setCeoChatCases(escalated);
+      // Load ALL escalated cases for CEO chat tab (not just Critical)
+      setCeoChatCases(escalatedRes.data.cases || []);
     } catch {
       toast.error('Failed to load dashboard data');
     }
