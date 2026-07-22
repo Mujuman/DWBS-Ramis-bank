@@ -64,18 +64,28 @@ export const isTerminalStatus = (status) => TERMINAL_STATUSES.includes(status);
 export const getNextStatusesForRole = (role, currentStatus) => {
   const transitions = {
     New: {
-      Compliance_Officer: ['Under_Review'],
-      // CEO can assign investigator directly on auto-escalated cases (Corruption/Bribery) in New status
+      Compliance_Officer: ['Under_Review', 'Complaint_Dismissed', 'Assigned'],
       CEO: ['Assigned'],
     },
     Under_Review: {
       Compliance_Officer: ['Complaint_Dismissed', 'Assigned'],
-      // CEO can assign investigator on escalated cases
       CEO: ['Assigned'],
     },
-    Assigned: { Investigator: ['Investigating'] },
-    Investigating: { Investigator: ['Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence'] },
-    Pending_Evidence: { Investigator: ['Investigating', 'Substantiated', 'Dismissed_No_Evidence'] },
+    Assigned: {
+      Investigator: ['Investigating'],
+      Compliance_Officer: ['Under_Review', 'Complaint_Dismissed', 'Assigned'],
+      CEO: ['Assigned'],
+    },
+    Investigating: {
+      Investigator: ['Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence'],
+      Compliance_Officer: ['Under_Review', 'Assigned', 'Complaint_Dismissed'],
+      CEO: ['Assigned'],
+    },
+    Pending_Evidence: {
+      Investigator: ['Investigating', 'Substantiated', 'Dismissed_No_Evidence'],
+      Compliance_Officer: ['Under_Review', 'Assigned', 'Complaint_Dismissed'],
+      CEO: ['Assigned'],
+    },
   };
   if (isTerminalStatus(currentStatus)) return [];
   return transitions[currentStatus]?.[role] || [];

@@ -32,18 +32,31 @@ const CEO_STATUSES = ['Assigned'];
 
 const STATUS_TRANSITIONS = {
   New: {
-    Compliance_Officer: ['Under_Review'],
-    // CEO can assign investigator directly on auto-escalated cases (Corruption/Bribery) that start as New
+    Compliance_Officer: ['Under_Review', 'Complaint_Dismissed', 'Assigned'],
     CEO: ['Assigned'],
   },
   Under_Review: {
     Compliance_Officer: ['Complaint_Dismissed', 'Assigned'],
-    // CEO can assign investigator on escalated cases that Ethics Office reported to them
     CEO: ['Assigned'],
   },
-  Assigned: { Investigator: ['Investigating'] },
-  Investigating: { Investigator: ['Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence'] },
-  Pending_Evidence: { Investigator: ['Investigating', 'Substantiated', 'Dismissed_No_Evidence'] },
+  Assigned: {
+    Investigator: ['Investigating'],
+    // EAAC can re-assign, revert to review, or dismiss at any point
+    Compliance_Officer: ['Under_Review', 'Complaint_Dismissed', 'Assigned'],
+    CEO: ['Assigned'],
+  },
+  Investigating: {
+    Investigator: ['Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence'],
+    // EAAC can re-assign, revert, or dismiss while investigation is ongoing
+    Compliance_Officer: ['Under_Review', 'Assigned', 'Complaint_Dismissed'],
+    CEO: ['Assigned'],
+  },
+  Pending_Evidence: {
+    Investigator: ['Investigating', 'Substantiated', 'Dismissed_No_Evidence'],
+    // EAAC can re-assign, revert to review, or dismiss when evidence is pending
+    Compliance_Officer: ['Under_Review', 'Assigned', 'Complaint_Dismissed'],
+    CEO: ['Assigned'],
+  },
 };
 
 const STATUS_LABELS = {

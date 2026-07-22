@@ -77,12 +77,29 @@ export default function NavBar({ onMenuToggle, sidebarOpen }) {
     setNotifLoading(false);
   };
 
-  const handleBellClick = () => {
-    if (!notifOpen) {
-      fetchNotifications();
-    }
+  const handleBellClick = async () => {
+    const isOpening = !notifOpen;
     setNotifOpen(o => !o);
     setDropdownOpen(false);
+
+    if (isOpening) {
+      // Fetch notifications then immediately mark all as read —
+      // opening the panel counts as "viewed"
+      setNotifLoading(true);
+      try {
+        const res = await api.get('/notifications');
+        setNotifications(res.data.notifications || []);
+        // Mark all read in background so badge clears immediately
+        if (unreadCount > 0) {
+          await api.patch('/notifications/read-all');
+          setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
+          setUnreadCount(0);
+          setUnreadCases(0);
+          setUnreadMessages(0);
+        }
+      } catch (_) {}
+      setNotifLoading(false);
+    }
   };
 
   // ── Mark single notification as read ────────────────────────

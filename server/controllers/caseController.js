@@ -744,16 +744,10 @@ const updateCaseStatus = async (req, res) => {
         if (transitionError) {
           return res.status(403).json({ error: transitionError });
         }
-
-        if (user.role === 'Investigator' && !INVESTIGATOR_STATUSES.includes(status)) {
-          return res.status(403).json({ error: 'Investigators may only update status within their allowed workflow.' });
-        }
-        if (user.role === 'Compliance_Officer' && !COMPLIANCE_OFFICER_STATUSES.includes(status)) {
-          return res.status(403).json({ error: 'Compliance Officers may only update status during validation and assignment stages.' });
-        }
-        if (isCEO && !CEO_STATUSES.includes(status)) {
-          return res.status(403).json({ error: 'The CEO may only assign an investigator (set status to Assigned) on escalated cases.' });
-        }
+        // validateStatusTransition already enforces role+transition correctness.
+        // The secondary role-bucket checks below are intentionally removed to avoid
+        // double-blocking transitions that were explicitly added to STATUS_TRANSITIONS
+        // (e.g. Compliance_Officer moving from Pending_Evidence → Assigned).
 
         // Valid complaint approval requires investigator assignment (both Compliance Officer and CEO)
         if (status === 'Assigned' && (user.role === 'Compliance_Officer' || isCEO)) {

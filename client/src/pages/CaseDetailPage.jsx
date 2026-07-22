@@ -17,6 +17,7 @@ import {
   CEO_STATUSES,
   STATUS_BADGE,
   formatStatus,
+  getNextStatusesForRole,
 } from '../constants/caseWorkflow';
 
 const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
@@ -203,11 +204,11 @@ export default function CaseDetailPage() {
   // CEO can also send notes on escalated cases (for CEO ↔ Ethics chat)
   const canSendNote    = canEditNow || (isCEO && Boolean(caseData?.is_escalated));
 
+  // Build status options from the actual transition map for the current case status.
+  // Always include the current status so the dropdown never shows a blank/invalid selection.
+  const role = isSenior ? 'Compliance_Officer' : isCEO ? 'CEO' : 'Investigator';
   const allowedStatusOptions = caseData
-    ? [...new Set([
-        caseData.status,
-        ...(isSenior ? COMPLIANCE_OFFICER_STATUSES : isCEO ? CEO_STATUSES : INVESTIGATOR_STATUSES)
-      ])].filter(Boolean)
+    ? [...new Set([caseData.status, ...getNextStatusesForRole(role, caseData.status)])].filter(Boolean)
     : (isSenior ? COMPLIANCE_OFFICER_STATUSES : isCEO ? CEO_STATUSES : INVESTIGATOR_STATUSES);
 
   const getNoteAuthorLabel = (note) => {
@@ -303,8 +304,11 @@ export default function CaseDetailPage() {
       }
 
       // Validate status is in allowed list for this user's role
-      const allowedStatuses = isSenior ? COMPLIANCE_OFFICER_STATUSES : INVESTIGATOR_STATUSES;
-      setNewStatus(c.status || allowedStatuses[0]);
+      const allowedStatuses = getNextStatusesForRole(
+        isSenior ? 'Compliance_Officer' : isCEO ? 'CEO' : 'Investigator',
+        c.status
+      );
+      setNewStatus(c.status || allowedStatuses[0] || c.status);
       
       setNewPriority(c.priority || 'Medium');
       setRequestDescription(c.description || '');
