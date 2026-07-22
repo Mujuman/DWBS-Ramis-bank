@@ -141,12 +141,20 @@ export default function TrackCasePage() {
 
   const getCorrespondenceLabel = (note) => {
     if (note.author_label) return note.author_label;
-    if (note.sender_role === 'Compliance_Officer') return 'Ethics & Anticorruption Officer';
+    if (note.sender_role === 'Compliance_Officer') return 'Ethics & Anti-Corruption Office';
+    if (note.sender_role === 'CEO') return 'CEO';
     if (note.sender_role === 'Investigator') return 'Case Investigator';
     return 'You (Anonymous Reporter)';
   };
 
   const getCorrespondenceTone = (note) => {
+    if (note.sender_role === 'CEO') {
+      return {
+        background: 'rgba(249,168,38,0.08)',
+        borderColor: 'rgba(249,168,38,0.25)',
+        labelColor: '#92400e',
+      };
+    }
     if (note.sender_role === 'Compliance_Officer') {
       return {
         background: 'rgba(37,99,235,0.06)',
@@ -179,7 +187,8 @@ export default function TrackCasePage() {
       setEvidenceFile(null);
       const hasInvestigatorMessage = res.data.correspondence?.some(note => note.sender_role === 'Investigator');
       const hasComplianceMessage = res.data.correspondence?.some(note => note.sender_role === 'Compliance_Officer');
-      setReplyRecipient(hasInvestigatorMessage ? 'Investigator' : hasComplianceMessage ? 'Compliance_Officer' : 'Investigator');
+      const hasCEOMessage = res.data.correspondence?.some(note => note.sender_role === 'CEO');
+      setReplyRecipient(hasInvestigatorMessage ? 'Investigator' : hasComplianceMessage ? 'Compliance_Officer' : hasCEOMessage ? 'CEO' : 'Investigator');
       setEditCategory(res.data.case.category);
       setEditDescription(res.data.case.description || '');
       setEditLocation(res.data.case.branch_or_dept || '');
@@ -285,6 +294,7 @@ export default function TrackCasePage() {
   const availableReplyRecipients = result?.correspondence?.reduce((roles, note) => {
     if (note.sender_role === 'Investigator' && !roles.includes('Investigator')) roles.push('Investigator');
     if (note.sender_role === 'Compliance_Officer' && !roles.includes('Compliance_Officer')) roles.push('Compliance_Officer');
+    if (note.sender_role === 'CEO' && !roles.includes('CEO')) roles.push('CEO');
     return roles;
   }, []) || [];
 
@@ -654,7 +664,10 @@ export default function TrackCasePage() {
                         <option value="Investigator">Case Investigator</option>
                       )}
                       {availableReplyRecipients.includes('Compliance_Officer') && (
-                        <option value="Compliance_Officer">Ethics & Anticorruption Officer</option>
+                        <option value="Compliance_Officer">Ethics & Anti-Corruption Office</option>
+                      )}
+                      {availableReplyRecipients.includes('CEO') && (
+                        <option value="CEO">CEO</option>
                       )}
                     </select>
                   </div>
