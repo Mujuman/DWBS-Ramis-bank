@@ -201,6 +201,7 @@ const listCases = async (req, res) => {
     const [cases] = await pool.execute(
       `SELECT c.case_id, c.reference_id, c.category, c.status, c.severity_level,
               c.reporter_type, c.branch_or_dept, c.created_at, c.updated_at,
+              c.is_escalated,
               u.username AS assigned_investigator
        FROM cases c
        LEFT JOIN users u ON c.assigned_investigator = u.user_id
@@ -216,8 +217,9 @@ const listCases = async (req, res) => {
       reference_id: c.reference_id,
       category: c.category,
       status: c.status,
-      priority: c.severity_level, // severity_level maps to priority on client
+      priority: c.severity_level,
       submitted_by_type: c.reporter_type?.toLowerCase(),
+      is_escalated: c.is_escalated === 1 || c.is_escalated === true,
       incident_date: c.created_at,
       created_at: c.created_at,
       updated_at: c.updated_at,
@@ -922,7 +924,8 @@ const getCaseStats = async (req, res) => {
 
     const [escalatedCases] = await pool.execute(
       `SELECT c.case_id, c.reference_id, c.category, c.status, c.severity_level,
-              c.created_at, u.username AS assigned_investigator
+              c.reporter_type, c.is_escalated, c.created_at,
+              u.username AS assigned_investigator
        FROM cases c
        LEFT JOIN users u ON c.assigned_investigator = u.user_id
        WHERE c.is_escalated = 1
@@ -938,6 +941,7 @@ const getCaseStats = async (req, res) => {
       status: c.status,
       priority: c.severity_level,
       submitted_by_type: c.reporter_type?.toLowerCase(),
+      is_escalated: true,
       created_at: c.created_at,
       assigned_investigator: c.assigned_investigator,
     }));
