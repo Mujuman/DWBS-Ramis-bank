@@ -464,7 +464,7 @@ export default function CaseDetailPage() {
       console.error('Update failed:', err);
     }
     setUpdating(false);
-  ;}
+  };
 
   const uploadEvidence = async (event) => {
     const file = event.target.files?.[0];
@@ -882,11 +882,15 @@ export default function CaseDetailPage() {
                       onChange={(e) => setNewStatus(e.target.value)}
                       disabled={updating}
                     >
-                      {getNextStatusesForRole('Compliance_Officer', caseData.status).map(status => (
-                        <option key={status} value={status}>
-                          {formatStatus(status)}
-                        </option>
-                      ))}
+                      {getNextStatusesForRole('Compliance_Officer', caseData.status).length === 0 ? (
+                        <option value={caseData.status}>{formatStatus(caseData.status)}</option>
+                      ) : (
+                        getNextStatusesForRole('Compliance_Officer', caseData.status).map(status => (
+                          <option key={status} value={status}>
+                            {formatStatus(status)}
+                          </option>
+                        ))
+                      )}
                     </select>
                   </div>
                 )}
