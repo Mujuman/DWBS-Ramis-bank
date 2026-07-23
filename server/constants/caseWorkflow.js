@@ -23,7 +23,16 @@ const CASE_STATUSES = [
 
 const TERMINAL_STATUSES = ['Complaint_Dismissed', 'Substantiated', 'Dismissed_No_Evidence'];
 
-const COMPLIANCE_OFFICER_STATUSES = ['Under_Review', 'Complaint_Dismissed', 'Assigned'];
+const COMPLIANCE_OFFICER_STATUSES = [
+  'New',
+  'Under_Review',
+  'Assigned',
+  'Investigating',
+  'Pending_Evidence',
+  'Substantiated',
+  'Dismissed_No_Evidence',
+  'Complaint_Dismissed',
+];
 
 const INVESTIGATOR_STATUSES = ['Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence'];
 
@@ -32,29 +41,26 @@ const CEO_STATUSES = ['Assigned'];
 
 const STATUS_TRANSITIONS = {
   New: {
-    Compliance_Officer: ['Under_Review', 'Complaint_Dismissed', 'Assigned'],
+    Compliance_Officer: ['Under_Review', 'Assigned', 'Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
     CEO: ['Assigned'],
   },
   Under_Review: {
-    Compliance_Officer: ['Complaint_Dismissed', 'Assigned'],
+    Compliance_Officer: ['New', 'Assigned', 'Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
     CEO: ['Assigned'],
   },
   Assigned: {
     Investigator: ['Investigating'],
-    // EAAC can re-assign, revert to review, or dismiss at any point
-    Compliance_Officer: ['Under_Review', 'Complaint_Dismissed', 'Assigned'],
+    Compliance_Officer: ['New', 'Under_Review', 'Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
     CEO: ['Assigned'],
   },
   Investigating: {
     Investigator: ['Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence'],
-    // EAAC can re-assign, revert, or dismiss while investigation is ongoing
-    Compliance_Officer: ['Under_Review', 'Assigned', 'Complaint_Dismissed'],
+    Compliance_Officer: ['New', 'Under_Review', 'Assigned', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
     CEO: ['Assigned'],
   },
   Pending_Evidence: {
     Investigator: ['Investigating', 'Substantiated', 'Dismissed_No_Evidence'],
-    // EAAC can re-assign, revert to review, or dismiss when evidence is pending
-    Compliance_Officer: ['Under_Review', 'Assigned', 'Complaint_Dismissed'],
+    Compliance_Officer: ['New', 'Under_Review', 'Assigned', 'Investigating', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
     CEO: ['Assigned'],
   },
 };
@@ -81,8 +87,19 @@ const getAllowedStatusesForRole = (role) => {
 
 const validateStatusTransition = (role, currentStatus, newStatus) => {
   if (currentStatus === newStatus) return null;
-  if (isTerminalStatus(currentStatus)) {
+
+  // Terminal statuses block everyone except Compliance_Officer who can reopen/override
+  if (isTerminalStatus(currentStatus) && role !== 'Compliance_Officer') {
     return `Case is closed (${STATUS_LABELS[currentStatus]}). No further status changes are permitted.`;
+  }
+
+  // For terminal → any transition by Compliance_Officer, allow all EAAC target statuses
+  if (isTerminalStatus(currentStatus) && role === 'Compliance_Officer') {
+    const allowed = COMPLIANCE_OFFICER_STATUSES.filter(s => s !== currentStatus);
+    if (!allowed.includes(newStatus)) {
+      return `Invalid transition from "${STATUS_LABELS[currentStatus] || currentStatus}" to "${STATUS_LABELS[newStatus] || newStatus}" for your role.`;
+    }
+    return null;
   }
 
   const allowedForRole = STATUS_TRANSITIONS[currentStatus]?.[role];
@@ -94,7 +111,13 @@ const validateStatusTransition = (role, currentStatus, newStatus) => {
 };
 
 const getNextStatusesForRole = (role, currentStatus) => {
-  if (isTerminalStatus(currentStatus)) return [];
+  // Compliance_Officer can transition out of terminal statuses (reopen/override)
+  if (isTerminalStatus(currentStatus)) {
+    if (role === 'Compliance_Officer') {
+      return COMPLIANCE_OFFICER_STATUSES.filter(s => s !== currentStatus);
+    }
+    return [];
+  }
   return STATUS_TRANSITIONS[currentStatus]?.[role] || [];
 };
 

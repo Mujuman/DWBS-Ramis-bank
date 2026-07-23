@@ -8,7 +8,7 @@ import {
 import {
   TrendingUp, AlertTriangle, Clock, CheckCircle, FileText,
   Activity, UserCheck, X, Briefcase, Zap, RefreshCw,
-  MessageSquare, Send, Shield, ChevronRight
+  MessageSquare, Send, Shield, ChevronRight, Edit3, Trash2, Check, XCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -74,6 +74,12 @@ export default function ExecutiveDashboard() {
   const [chatLoading, setChatLoading] = useState(false);
   const [showChat, setShowChat] = useState(false);
 
+  // CEO chat note edit/delete
+  const [editingChatNoteId,   setEditingChatNoteId]   = useState(null);
+  const [editingChatNoteBody, setEditingChatNoteBody] = useState('');
+  const [savingChatNote,      setSavingChatNote]      = useState(false);
+  const [deletingChatNoteId,  setDeletingChatNoteId]  = useState(null);
+
   const loadData = useCallback(() => {
     setLoading(true);
     Promise.allSettled([
@@ -97,19 +103,18 @@ export default function ExecutiveDashboard() {
   useEffect(() => { loadData(); }, []);
 
   // ── CEO ↔ Ethics chat ──────────────────────────────────────
-  const loadChatNotes = async (caseId) => {
+  // chatSessionStart: timestamp when the chat panel was opened — used to
+  // hide all pre-existing historical messages (only show new ones sent this session).
+  const loadChatNotes = async (caseId, sessionStart) => {
     setChatLoading(true);
     try {
       const res = await api.get(`/cases/${caseId}/notes`);
-      // CEO chat panel shows only:
-      // 1. Messages sent BY CEO
-      // 2. Messages from Compliance_Officer TO CEO
-      // 3. Reporter messages explicitly addressed TO CEO
-      // Everything else (reporter→Investigator, reporter→Ethics, etc.) is excluded
       const relevant = (res.data.notes || []).filter(n =>
-        n.author_type === 'CEO' ||
+        (n.author_type === 'CEO' ||
         (n.author_type === 'Compliance_Officer' && n.audience_type === 'CEO') ||
-        (n.author_type === 'Reporter' && n.audience_type === 'CEO')
+        (n.author_type === 'Reporter' && n.audience_type === 'CEO')) &&
+        // Only show messages created after this chat session was opened
+        new Date(n.created_at) > sessionStart
       );
       setChatNotes(relevant);
     } catch { setChatNotes([]); }
@@ -117,10 +122,11 @@ export default function ExecutiveDashboard() {
   };
 
   const selectChatCase = async (c) => {
-    setSelectedChatCase(c);
+    const sessionStart = new Date(); // record when user opened this chat
+    setSelectedChatCase({ ...c, _sessionStart: sessionStart });
     setChatMessage('');
     setShowChat(true);
-    await loadChatNotes(c.id);
+    await loadChatNotes(c.id, sessionStart);
   };
 
   const sendChatMessage = async () => {
@@ -133,12 +139,50 @@ export default function ExecutiveDashboard() {
         is_internal_only: false,
       });
       setChatMessage('');
-      await loadChatNotes(selectedChatCase.id);
+      await loadChatNotes(selectedChatCase.id, selectedChatCase._sessionStart);
       toast.success('Message sent to Ethics & Anti-Corruption Office');
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to send message');
     }
     setSendingChat(false);
+  };
+
+  const startEditChatNote = (note) => {
+    setEditingChatNoteId(note.id);
+    setEditingChatNoteBody(note.body);
+  };
+
+  const cancelEditChatNote = () => {
+    setEditingChatNoteId(null);
+    setEditingChatNoteBody('');
+  };
+
+  const saveEditChatNote = async (noteId) => {
+    if (!editingChatNoteBody.trim() || !selectedChatCase) return;
+    setSavingChatNote(true);
+    try {
+      await api.patch(`/cases/${selectedChatCase.id}/notes/${noteId}`, { body: editingChatNoteBody.trim() });
+      setChatNotes(prev => prev.map(n => n.id === noteId ? { ...n, body: editingChatNoteBody.trim() } : n));
+      setEditingChatNoteId(null);
+      setEditingChatNoteBody('');
+      toast.success('Message updated');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to update message');
+    }
+    setSavingChatNote(false);
+  };
+
+  const deleteChatNote = async (noteId) => {
+    if (!window.confirm('Delete this message? This cannot be undone.')) return;
+    setDeletingChatNoteId(noteId);
+    try {
+      await api.delete(`/cases/${selectedChatCase.id}/notes/${noteId}`);
+      setChatNotes(prev => prev.filter(n => n.id !== noteId));
+      toast.success('Message deleted');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to delete message');
+    }
+    setDeletingChatNoteId(null);
   };
 
   // ── Assign investigator ────────────────────────────────────
@@ -360,8 +404,9 @@ export default function ExecutiveDashboard() {
               chatNotes.map((note, i) => {
                 const isCEO = note.author_type === 'CEO';
                 const isReporter = note.author_type === 'Reporter';
+                const isEditing = editingChatNoteId === note.id;
                 return (
-                  <div key={i} className={`p-3 rounded-xl ${isCEO ? 'ml-12' : 'mr-12'}`}
+                  <div key={note.id || i} className={`p-3 rounded-xl ${isCEO ? 'ml-12' : 'mr-12'}`}
                     style={{
                       background: isCEO
                         ? 'rgba(249,168,38,0.08)'
@@ -374,15 +419,56 @@ export default function ExecutiveDashboard() {
                         ? 'rgba(16,185,129,0.22)'
                         : 'rgba(37,99,235,0.16)'}`,
                     }}>
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center justify-between mb-1 gap-1">
                       <span className="text-xs font-bold" style={{
                         color: isCEO ? '#92400e' : isReporter ? '#065f46' : '#1d4ed8'
                       }}>
                         {isCEO ? 'CEO (You)' : isReporter ? 'Reporter' : 'Ethics & Anti-Corruption Office'}
                       </span>
-                      <span className="text-xs text-slate-400">{format(new Date(note.created_at), 'MMM d, HH:mm')}</span>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <span className="text-xs text-slate-400">{format(new Date(note.created_at), 'MMM d, HH:mm')}</span>
+                        {/* Edit/Delete — only for CEO's own messages */}
+                        {isCEO && !isEditing && (
+                          <>
+                            <button onClick={() => startEditChatNote(note)}
+                              className="p-0.5 rounded hover:bg-amber-100 transition-colors" title="Edit">
+                              <Edit3 size={11} className="text-amber-600" />
+                            </button>
+                            <button onClick={() => deleteChatNote(note.id)}
+                              disabled={deletingChatNoteId === note.id}
+                              className="p-0.5 rounded hover:bg-red-100 transition-colors" title="Delete">
+                              {deletingChatNoteId === note.id
+                                ? <span className="spinner" style={{ width: 11, height: 11 }} />
+                                : <Trash2 size={11} className="text-slate-400 hover:text-red-500" />}
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{note.body}</p>
+                    {isEditing ? (
+                      <div className="space-y-2 mt-1">
+                        <textarea
+                          className="form-textarea w-full text-sm resize-none"
+                          rows={2}
+                          value={editingChatNoteBody}
+                          onChange={e => setEditingChatNoteBody(e.target.value)}
+                          autoFocus
+                        />
+                        <div className="flex gap-2 justify-end">
+                          <button onClick={cancelEditChatNote} className="btn btn-ghost text-xs py-1 px-2">
+                            <XCircle size={11} /> Cancel
+                          </button>
+                          <button
+                            onClick={() => saveEditChatNote(note.id)}
+                            disabled={savingChatNote || !editingChatNoteBody.trim()}
+                            className="btn btn-primary text-xs py-1 px-2">
+                            {savingChatNote ? <span className="spinner" /> : <Check size={11} />} Save
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{note.body}</p>
+                    )}
                   </div>
                 );
               })

@@ -7,7 +7,8 @@ import { format } from 'date-fns';
 import {
   ArrowLeft, FileText, Lock, Send, User,
   Paperclip, Download, Edit3, Shield, AlertTriangle, Info, Zap, Upload,
-  Type, Bold, Italic, Underline, Heading, List, Code, Strikethrough
+  Type, Bold, Italic, Underline, Heading, List, Code, Strikethrough,
+  Trash2, Check, XCircle
 } from 'lucide-react';
 import { renderRichText } from '../utils/formatting';
 
@@ -45,6 +46,9 @@ export default function CaseDetailPage() {
   const [requestDescription, setRequestDescription] = useState('');
   const requestDescriptionRef = useRef(null);
   const noteRef = useRef(null);
+  // Records the moment this case detail page was opened — notes older than this
+  // are hidden for staff chat roles (CEO, Investigator, Compliance_Officer).
+  const sessionStartRef = useRef(new Date());
   
 
   const formatText = (text, action) => {
@@ -185,6 +189,12 @@ export default function CaseDetailPage() {
   const [updating,    setUpdating]    = useState(false);
   const [uploadingEvidence, setUploadingEvidence] = useState(false);
 
+  // ── Note edit / delete state ────────────────────────────────
+  const [editingNoteId,   setEditingNoteId]   = useState(null);
+  const [editingNoteBody, setEditingNoteBody] = useState('');
+  const [savingNote,      setSavingNote]      = useState(false);
+  const [deletingNoteId,  setDeletingNoteId]  = useState(null);
+
   // ── Per-spec permission flags ───────────────────────────────
   // JWT payload uses `userId` (not `id`)
   const myUserId       = user?.userId ?? user?.id;
@@ -285,17 +295,20 @@ export default function CaseDetailPage() {
 
       try {
         const nRes = await api.get(`/cases/${id}/notes`);
-        // Staff reporters (Employee/Branch_Manager) must only see messages
-        // directed at the Reporter or General audience, plus their own sent messages.
-        // This is also enforced server-side but we guard here too.
         const isStaffReporter = ['Employee', 'Branch_Manager'].includes(user?.role);
+        const isPrivilegedStaff = ['CEO', 'Investigator', 'Compliance_Officer'].includes(user?.role);
         const allNotes = nRes.data.notes || [];
+        const sessionStart = sessionStartRef.current;
+
         setNotes(isStaffReporter
           ? allNotes.filter(n =>
               n.audience_type === 'Reporter' ||
               n.audience_type === 'General' ||
               n.author_type === 'Reporter'
             )
+          : isPrivilegedStaff
+          // Staff chat roles only see messages sent during this session (hide old history)
+          ? allNotes.filter(n => new Date(n.created_at) > sessionStart)
           : allNotes
         );
       } catch (err) {
@@ -308,7 +321,8 @@ export default function CaseDetailPage() {
         isSenior ? 'Compliance_Officer' : isCEO ? 'CEO' : 'Investigator',
         c.status
       );
-      setNewStatus(c.status || allowedStatuses[0] || c.status);
+      // Never set an empty status — fall back to first allowed or 'New'
+      setNewStatus(c.status || allowedStatuses[0] || 'New');
       
       setNewPriority(c.priority || 'Medium');
       setRequestDescription(c.description || '');
@@ -380,13 +394,17 @@ export default function CaseDetailPage() {
       if (noteRef.current) noteRef.current.innerHTML = '';
       const res = await api.get(`/cases/${id}/notes`);
       const isStaffReporter = ['Employee', 'Branch_Manager'].includes(user?.role);
+      const isPrivilegedStaff = ['CEO', 'Investigator', 'Compliance_Officer'].includes(user?.role);
       const allNotes = res.data.notes || [];
+      const sessionStart = sessionStartRef.current;
       setNotes(isStaffReporter
         ? allNotes.filter(n =>
             n.audience_type === 'Reporter' ||
             n.audience_type === 'General' ||
             n.author_type === 'Reporter'
           )
+        : isPrivilegedStaff
+        ? allNotes.filter(n => new Date(n.created_at) > sessionStart)
         : allNotes
       );
       toast.success('Note added');
@@ -458,10 +476,11 @@ export default function CaseDetailPage() {
         body.status = 'Assigned';
         body.assigned_to = parseInt(assignTo, 10);
       } else {
-        body.status = newStatus;
+        // Only send status if it's a non-empty value different from current
+        if (newStatus && newStatus.trim()) body.status = newStatus;
         // Only Ethics & Anti-Corruption Office (Compliance_Officer) may change severity
         if (isSenior && newPriority) body.priority = newPriority;
-        if (assignTo) body.assigned_to = parseInt(assignTo, 10);
+        if (assignTo && parseInt(assignTo, 10) > 0) body.assigned_to = parseInt(assignTo, 10);
       }
 
       await api.patch(`/cases/${id}/status`, body);
@@ -498,8 +517,46 @@ export default function CaseDetailPage() {
     }
   };
 
-  const deleteCaseRequest = async () => {
-    const justification = window.prompt('Please provide a justification for deleting this request (10+ characters):');
+  // ── Note edit / delete handlers ─────────────────────────────
+  const startEditNote = (note) => {
+    setEditingNoteId(note.id);
+    setEditingNoteBody(note.body);
+  };
+
+  const cancelEditNote = () => {
+    setEditingNoteId(null);
+    setEditingNoteBody('');
+  };
+
+  const saveEditNote = async (noteId) => {
+    if (!editingNoteBody.trim()) return;
+    setSavingNote(true);
+    try {
+      await api.patch(`/cases/${id}/notes/${noteId}`, { body: editingNoteBody.trim() });
+      setNotes(prev => prev.map(n => n.id === noteId ? { ...n, body: editingNoteBody.trim() } : n));
+      setEditingNoteId(null);
+      setEditingNoteBody('');
+      toast.success('Message updated');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to update message');
+    }
+    setSavingNote(false);
+  };
+
+  const deleteNote = async (noteId) => {
+    if (!window.confirm('Delete this message? This cannot be undone.')) return;
+    setDeletingNoteId(noteId);
+    try {
+      await api.delete(`/cases/${id}/notes/${noteId}`);
+      setNotes(prev => prev.filter(n => n.id !== noteId));
+      toast.success('Message deleted');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to delete message');
+    }
+    setDeletingNoteId(null);
+  };
+
+  const deleteCaseRequest = async () => {    const justification = window.prompt('Please provide a justification for deleting this request (10+ characters):');
     if (!justification || justification.trim().length < 10) {
       toast.error('A justification of at least 10 characters is required.');
       return;
@@ -667,6 +724,8 @@ export default function CaseDetailPage() {
                 <p className="text-sm text-slate-400 text-center py-6">No notes yet.</p>
               ) : notes.map((n, i) => {
                 const tone = getNoteTone(n);
+                const isMyNote = (isSenior || isInvestigator || isCEO) && n.sender_user_id === myUserId;
+                const isEditing = editingNoteId === n.id;
                 return (
                 <div key={n.id || i}
                   className={`p-4 rounded-xl ${n.author_type === 'Reporter' ? 'ml-6' : ''}`}
@@ -676,7 +735,7 @@ export default function CaseDetailPage() {
                     borderColor: tone.borderColor,
                   }}>
                   <div className="flex items-center justify-between mb-2 gap-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {tone.icon === 'staff'
                         ? <User size={12} className="text-slate-400" />
                         : <Shield size={12} style={{ color: 'var(--color-gold-500)' }} />}
@@ -695,11 +754,56 @@ export default function CaseDetailPage() {
                         </span>
                       )}
                     </div>
-                    <span className="text-xs text-slate-400">
-                      {format(new Date(n.created_at), 'MMM d, HH:mm')}
-                    </span>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <span className="text-xs text-slate-400">
+                        {format(new Date(n.created_at), 'MMM d, HH:mm')}
+                      </span>
+                      {/* Edit / Delete — only for own messages */}
+                      {isMyNote && !isEditing && (
+                        <>
+                          <button
+                            onClick={() => startEditNote(n)}
+                            className="ml-1 p-1 rounded hover:bg-slate-200 transition-colors"
+                            title="Edit message">
+                            <Edit3 size={11} className="text-slate-400" />
+                          </button>
+                          <button
+                            onClick={() => deleteNote(n.id)}
+                            disabled={deletingNoteId === n.id}
+                            className="p-1 rounded hover:bg-red-100 transition-colors"
+                            title="Delete message">
+                            {deletingNoteId === n.id
+                              ? <span className="spinner" style={{ width: 11, height: 11 }} />
+                              : <Trash2 size={11} className="text-slate-400 hover:text-red-500" />}
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-sm text-slate-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: renderRichText(n.body) }} />
+                  {isEditing ? (
+                    <div className="mt-1 space-y-2">
+                      <textarea
+                        className="form-textarea text-sm w-full"
+                        rows={3}
+                        value={editingNoteBody}
+                        onChange={e => setEditingNoteBody(e.target.value)}
+                        autoFocus
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <button onClick={cancelEditNote} className="btn btn-ghost text-xs py-1 px-2">
+                          <XCircle size={12} /> Cancel
+                        </button>
+                        <button
+                          onClick={() => saveEditNote(n.id)}
+                          disabled={savingNote || !editingNoteBody.trim()}
+                          className="btn btn-primary text-xs py-1 px-2">
+                          {savingNote ? <span className="spinner" /> : <Check size={12} />} Save
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-slate-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: renderRichText(n.body) }} />
+                  )}
                 </div>
                 );
               })}

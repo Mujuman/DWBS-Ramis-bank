@@ -33,7 +33,7 @@ const features = [
 
 const categories = [
   'Fraud', 'Corruption', 'Bribery', 'Abuse of Power',
-  'Procurement Violation', 'System Misuse',
+  'Procurement Violation', 'System Misuse','Sharia Based Crime','Collision'
 ];
 
 const steps = [

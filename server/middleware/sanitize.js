@@ -178,10 +178,12 @@ const validateStatusUpdate = [
     .isInt({ min: 1 }).withMessage('Invalid case ID'),
   body('status')
     .optional()
+    .notEmpty().withMessage('Status cannot be empty')
     .isIn(CASE_STATUSES)
     .withMessage('Invalid status'),
   body('priority')
     .optional()
+    .notEmpty().withMessage('Priority cannot be empty')
     .isIn(['Low', 'Medium', 'High', 'Critical']).withMessage('Invalid priority'),
   body('assigned_to')
     .optional()
