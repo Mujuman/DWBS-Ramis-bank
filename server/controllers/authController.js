@@ -2,7 +2,6 @@ const jwt = require('jsonwebtoken');
 const axios = require('axios');
 const bcrypt = require('bcryptjs');
 const { pool } = require('../config/db');
-const { authenticateUser } = require('../config/ldap');
 const { generateSecureToken, getSessionExpiry } = require('../utils/tokenUtils');
 const { writeAuditLog } = require('../services/auditService');
 
@@ -138,53 +137,16 @@ const staffLogin = async (req, res) => {
       return issueTokens(res, dbUser);
     }
 
-    // ── Step 3: Active Directory authentication ───────────────
-    let adUser;
-    try {
-      adUser = await authenticateUser(username, password);
-    } catch (ldapErr) {
-      await writeAuditLog({
-        action: 'STAFF_LOGIN_FAILED',
-        performedBy: null,
-        performedByType: 'system',
-        metadata: { reason: 'LDAP authentication failed' },
-      });
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    // Auto-provision AD user on first login if not in local DB
-    let dbUser;
-    if (rows.length === 0) {
-      const department = adUser.department || 'General';
-      const [result] = await pool.execute(
-        `INSERT INTO users (username, email, role, department, is_active)
-         VALUES (?, ?, 'Employee', ?, 1)`,
-        [adUser.sAMAccountName, adUser.mail || `${adUser.sAMAccountName}@rammisbank.et`, department]
-      );
-      dbUser = {
-        user_id: result.insertId,
-        username: adUser.sAMAccountName,
-        email: adUser.mail || `${adUser.sAMAccountName}@rammisbank.et`,
-        role: 'Employee',
-        department,
-        is_active: 1,
-      };
-    } else {
-      dbUser = rows[0];
-    }
-
-    if (!dbUser.is_active) {
-      return res.status(403).json({ error: 'Your account has been deactivated. Contact IT.' });
-    }
-
+    // ── Step 3: No local password found — credentials invalid ─
+    // Active Directory / LDAP is not configured in this deployment.
+    // All staff accounts must have a password set by the System Admin.
     await writeAuditLog({
-      action: 'STAFF_LOGIN_SUCCESS',
-      performedBy: dbUser.user_id,
-      performedByType: 'staff',
-      metadata: { role: dbUser.role, method: 'ldap' },
+      action: 'STAFF_LOGIN_FAILED',
+      performedBy: null,
+      performedByType: 'system',
+      metadata: { reason: 'No password set for account' },
     });
-
-    return issueTokens(res, dbUser);
+    return res.status(401).json({ error: 'Invalid credentials' });
 
   } catch (err) {
     console.error('[AUTH] Login error:', err.message);

@@ -147,24 +147,23 @@ function AppRoutes() {
 
         {/* Staff-protected routes */}
         <Route path="/dashboard" element={
-          <ProtectedRoute roles={['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer']}>
+          <ProtectedRoute roles={['Employee', 'Branch_Manager', 'Compliance_Officer']}>
             <AppShell>
               <PageWrapper>
-                {/* Compliance Officers have their own dedicated dashboard */}
                 <DashboardRedirectOrPage />
               </PageWrapper>
             </AppShell>
           </ProtectedRoute>
         } />
         <Route path="/cases" element={
-          <ProtectedRoute roles={['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO']}>
+          <ProtectedRoute roles={['Employee', 'Branch_Manager', 'Compliance_Officer', 'CEO']}>
             <AppShell>
               <PageWrapper><CaseListPage /></PageWrapper>
             </AppShell>
           </ProtectedRoute>
         } />
         <Route path="/cases/:id" element={
-          <ProtectedRoute roles={['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO']}>
+          <ProtectedRoute roles={['Employee', 'Branch_Manager', 'Compliance_Officer', 'CEO']}>
             <AppShell>
               <PageWrapper><CaseDetailPage /></PageWrapper>
             </AppShell>

@@ -21,7 +21,7 @@ export default function DashboardPage() {
         const casesRes = await api.get('/cases', { params: { limit: 5 } });
         setCases(casesRes.data.cases);
 
-        const canViewStats = ['Compliance_Officer', 'CEO', 'System_Admin', 'Investigator'].includes(user?.role);
+        const canViewStats = ['Compliance_Officer', 'CEO', 'System_Admin'].includes(user?.role);
         if (canViewStats) {
           const statsRes = await api.get('/cases/stats');
           setStats(statsRes.data);

@@ -10,7 +10,7 @@ const navItems = [
     path: '/dashboard',
     label: 'Dashboard',
     icon: LayoutDashboard,
-    roles: ['Employee', 'Branch_Manager', 'Investigator'],
+    roles: ['Employee', 'Branch_Manager'],
   },
   {
     path: '/report',
@@ -23,12 +23,6 @@ const navItems = [
     label: 'Submitted Reports',
     icon: Search,
     roles: ['Employee', 'Branch_Manager'],
-  },
-  {
-    path: '/cases',
-    label: 'Case Management',
-    icon: FileText,
-    roles: ['Investigator'],
   },
   {
     path: '/compliance',
@@ -49,10 +43,16 @@ const navItems = [
     roles: ['CEO'],
   },
   {
+    path: '/cases',
+    label: 'Case Management',
+    icon: FileText,
+    roles: ['CEO'],
+  },
+  {
     path: '/audit',
     label: 'Audit Logs',
     icon: ClipboardList,
-    roles: ['Auditor', 'CEO'],
+    roles: ['Auditor', 'CEO', 'Compliance_Officer'],
   },
   {
     path: '/admin',
