@@ -82,7 +82,7 @@ CREATE TABLE `cases` (
   `severity_level` enum('Low','Medium','High','Critical') DEFAULT 'Low',
   `description` text NOT NULL,
   `status` enum('New','Under_Review','Complaint_Dismissed','Assigned','Investigating','Pending_Evidence','Substantiated','Dismissed_No_Evidence') DEFAULT 'New',
-  `assigned_investigator` int(11) DEFAULT NULL,
+  `assigned_handler` int(11) DEFAULT NULL,
   `is_escalated` tinyint(1) DEFAULT 0,
   `deleted_at` timestamp NULL DEFAULT NULL,
   `anon_session_id` int(11) DEFAULT NULL,
@@ -116,8 +116,8 @@ CREATE TABLE `evidencefiles` (
 CREATE TABLE `investigationnotes` (
   `note_id` int(11) NOT NULL,
   `case_id` int(11) NOT NULL,
-  `sender_type` enum('Investigator','Compliance_Officer','Reporter') NOT NULL,
-  `audience_type` enum('General','Investigator','Compliance_Officer') NOT NULL DEFAULT 'General',
+  `sender_type` enum('Compliance_Officer','Reporter','CEO') NOT NULL,
+  `audience_type` enum('General','Compliance_Officer','CEO','Reporter') NOT NULL DEFAULT 'General',
   `note_text` text NOT NULL,
   `is_internal_only` tinyint(1) DEFAULT 1,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
@@ -134,7 +134,7 @@ CREATE TABLE `users` (
   `username` varchar(50) NOT NULL,
   `email` varchar(100) NOT NULL,
   `password_hash` varchar(255) DEFAULT NULL COMMENT 'Local password hash (bcrypt) - only for initial sysadmin, NULL for AD users',
-  `role` enum('Employee','Branch_Manager','Investigator','Compliance_Officer','CEO','System_Admin','Auditor') NOT NULL,
+  `role` enum('Employee','Branch_Manager','Compliance_Officer','CEO','System_Admin','Auditor') NOT NULL,
   `department` varchar(100) NOT NULL,
   `is_active` tinyint(1) DEFAULT 1,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
@@ -166,7 +166,7 @@ ALTER TABLE `cases`
   ADD PRIMARY KEY (`case_id`),
   ADD UNIQUE KEY `reference_id` (`reference_id`),
   ADD KEY `user_id` (`user_id`),
-  ADD KEY `assigned_investigator` (`assigned_investigator`);
+  ADD KEY `assigned_handler` (`assigned_handler`);
 
 --
 -- Indexes for table `evidencefiles`
@@ -247,7 +247,7 @@ ALTER TABLE `auditlogs`
 --
 ALTER TABLE `cases`
   ADD CONSTRAINT `cases_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE SET NULL,
-  ADD CONSTRAINT `cases_ibfk_2` FOREIGN KEY (`assigned_investigator`) REFERENCES `users` (`user_id`) ON DELETE SET NULL;
+  ADD CONSTRAINT `cases_ibfk_2` FOREIGN KEY (`assigned_handler`) REFERENCES `users` (`user_id`) ON DELETE SET NULL;
 
 --
 -- Constraints for table `evidencefiles`

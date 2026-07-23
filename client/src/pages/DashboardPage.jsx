@@ -134,7 +134,7 @@ export default function DashboardPage() {
                       {format(new Date(c.created_at), 'MMM d, yyyy')}
                     </td>
                     <td className="text-slate-600 text-xs">
-                      {c.assigned_investigator || <span className="text-slate-300">Unassigned</span>}
+                      {c.assigned_handler || c.assigned_investigator || <span className="text-slate-300">Unassigned</span>}
                     </td>
                     <td>
                       <Link to={`/cases/${c.id}`} className="btn btn-ghost text-xs py-1 px-2">

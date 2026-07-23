@@ -70,7 +70,7 @@ export default function ExecutiveDashboard() {
       if (usersRes.status === 'fulfilled') {
         setInvestigators(
           (usersRes.value.data.users || [])
-            .filter(u => u.role === 'Investigator' && u.is_active)
+            .filter(u => u.role === 'Compliance_Officer' && u.is_active)
             .sort((a, b) => a.username.localeCompare(b.username))
         );
       }
@@ -135,20 +135,20 @@ export default function ExecutiveDashboard() {
     setSending(false);
   };
 
-  // ── assign investigator ──────────────────────────────────────
+  // ── assign handler ──────────────────────────────────────
   const doAssign = async () => {
-    if (!assignTarget) { toast.error('Select an investigator'); return; }
+    if (!assignTarget) { toast.error('Select a case handler'); return; }
     setAssigning(true);
     try {
       await api.patch(`/cases/${assignModal.id}/status`, {
         status: 'Assigned',
         assigned_to: parseInt(assignTarget),
       });
-      toast.success('Investigator assigned');
+      toast.success('Case handler assigned');
       setAssignModal(null); setAssignTarget('');
       loadData();
       if (selectedCase?.id === assignModal.id) {
-        setSelectedCase(prev => ({ ...prev, assigned_investigator: assignTarget }));
+        setSelectedCase(prev => ({ ...prev, assigned_handler: assignTarget, assigned_investigator: assignTarget }));
       }
     } catch (err) {
       toast.error(err.response?.data?.error || 'Assignment failed');
@@ -384,7 +384,7 @@ export default function ExecutiveDashboard() {
                         onClick={() => { setAssignModal(selectedCase); setAssignTarget(''); }}
                         className="btn btn-primary text-xs py-1.5 px-3">
                         <UserCheck size={13} />
-                        {selectedCase.assigned_investigator ? 'Reassign' : 'Assign Investigator'}
+                        {selectedCase.assigned_handler || selectedCase.assigned_investigator ? 'Reassign' : 'Assign Handler'}
                       </button>
                       <Link to={`/cases/${selectedCase.id}`}
                         className="btn btn-ghost text-xs py-1.5 px-3">
@@ -536,7 +536,7 @@ export default function ExecutiveDashboard() {
         </div>
       </div>
 
-      {/* ── Assign Investigator Modal ── */}
+      {/* ── Assign Case Handler Modal ── */}
       {assignModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(10,29,55,0.55)', backdropFilter: 'blur(3px)' }}>
@@ -545,7 +545,7 @@ export default function ExecutiveDashboard() {
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
               <div>
                 <h3 className="text-base font-bold" style={{ color: 'var(--color-navy-900)' }}>
-                  Assign Investigator
+                  Assign Case Handler
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
                   Case: <span className="font-mono font-bold">{assignModal.reference_id}</span>
@@ -568,18 +568,18 @@ export default function ExecutiveDashboard() {
                   <div>
                     <span className="text-slate-400">Currently Assigned</span>
                     <p className="font-semibold mt-0.5" style={{ color: 'var(--color-navy-900)' }}>
-                      {assignModal.assigned_investigator || 'Unassigned'}
+                      {assignModal.assigned_handler || assignModal.assigned_investigator || 'Unassigned'}
                     </p>
                   </div>
                 </div>
               </div>
-              <label className="form-label text-xs">Select Investigator</label>
+              <label className="form-label text-xs">Select Case Handler</label>
               {investigators.length === 0 ? (
-                <p className="text-sm text-slate-400 mt-2">No active investigators found.</p>
+                <p className="text-sm text-slate-400 mt-2">No active compliance staff found.</p>
               ) : (
                 <select className="form-select text-sm w-full" value={assignTarget}
                   onChange={e => setAssignTarget(e.target.value)}>
-                  <option value="">— Choose an investigator —</option>
+                  <option value="">— Choose a case handler —</option>
                   {investigators.map(inv => (
                     <option key={inv.id} value={inv.id}>
                       {inv.username}{inv.department ? ` (${inv.department})` : ''}
@@ -595,7 +595,7 @@ export default function ExecutiveDashboard() {
                 className="btn btn-primary text-sm">
                 {assigning
                   ? <><span className="spinner" /> Assigning…</>
-                  : <><UserCheck size={14} /> Assign Investigator</>}
+                  : <><UserCheck size={14} /> Assign Handler</>}
               </button>
             </div>
           </div>

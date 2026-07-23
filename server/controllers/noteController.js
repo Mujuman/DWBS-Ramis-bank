@@ -76,13 +76,13 @@ const createAnonNote = async (req, res) => {
     // Notify relevant staff about the anonymous reply
     try {
       const [caseInfo] = await pool.execute(
-        `SELECT assigned_investigator, reference_id FROM cases WHERE case_id = ?`,
+        `SELECT assigned_handler, reference_id FROM cases WHERE case_id = ?`,
         [caseData.case_id]
       );
       if (caseInfo.length > 0) {
-        if (audienceType === 'Investigator' && caseInfo[0].assigned_investigator) {
+        if (caseInfo[0].assigned_handler) {
           createNotification({
-            userId: caseInfo[0].assigned_investigator,
+            userId: caseInfo[0].assigned_handler,
             type: 'new_message',
             title: 'New Reporter Message',
             message: `The anonymous reporter on case ${caseInfo[0].reference_id} has sent a new response.`,
@@ -127,7 +127,7 @@ const createAnonNote = async (req, res) => {
 /**
  * POST /api/cases/:id/notes
  * Adds a note to the investigation correspondence thread.
- * Audience types: Investigator | Compliance_Officer | CEO | Reporter | General
+ * Audience types: Compliance_Officer | CEO | Reporter | General
  * is_internal_only=true notes are only visible to staff.
  */
 const createNote = async (req, res) => {
@@ -201,7 +201,7 @@ const createNote = async (req, res) => {
     // Notify relevant parties
     try {
       const [caseInfo] = await pool.execute(
-        `SELECT assigned_investigator, reference_id, user_id FROM cases WHERE case_id = ?`,
+        `SELECT assigned_handler, reference_id, user_id FROM cases WHERE case_id = ?`,
         [caseId]
       );
       if (caseInfo.length > 0) {
@@ -379,7 +379,7 @@ const getNotes = async (req, res) => {
 
 /**
  * PATCH /api/cases/:id/notes/:noteId
- * Allows CEO, Investigator, or Compliance_Officer to edit their own message body.
+ * Allows CEO or Compliance_Officer to edit their own message body.
  */
 const updateNote = async (req, res) => {
   const caseId  = parseInt(req.params.id);
@@ -426,7 +426,7 @@ const updateNote = async (req, res) => {
 
 /**
  * DELETE /api/cases/:id/notes/:noteId
- * Allows CEO, Investigator, or Compliance_Officer to delete their own message.
+ * Allows CEO or Compliance_Officer to delete their own message.
  */
 const deleteNote = async (req, res) => {
   const caseId = parseInt(req.params.id);

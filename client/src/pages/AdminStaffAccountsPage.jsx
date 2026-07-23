@@ -9,17 +9,16 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
-const ROLE_FILTERS = ['All','Employee','Branch_Manager','Investigator','Compliance_Officer','CEO','System_Admin','Auditor'];
+const ROLE_FILTERS = ['All','Employee','Branch_Manager','Compliance_Officer','CEO','System_Admin','Auditor'];
 const STATUS_FILTERS = ['All','Active','Inactive'];
-const ROLES = ['Employee','Branch_Manager','Investigator','Compliance_Officer','CEO','System_Admin','Auditor'];
+const ROLES = ['Employee','Branch_Manager','Compliance_Officer','CEO','System_Admin','Auditor'];
 const ROLE_LABELS = {
-  Employee:'Employee', Branch_Manager:'Branch Manager', Investigator:'Investigator',
+  Employee:'Employee', Branch_Manager:'Branch Manager',
   Compliance_Officer:'Ethics & Anti-Corruption', CEO:'CEO', System_Admin:'System Admin', Auditor:'Auditor',
 };
 const ROLE_COLORS = {
   Employee:           { bg:'#eff6ff', color:'#1d4ed8' },
   Branch_Manager:     { bg:'#f0fdf4', color:'#15803d' },
-  Investigator:       { bg:'#fef3c7', color:'#b45309' },
   Compliance_Officer: { bg:'#ede9fe', color:'#6d28d9' },
   CEO:                { bg:'#fee2e2', color:'#b91c1c' },
   System_Admin:       { bg:'#e0f2fe', color:'#0369a1' },

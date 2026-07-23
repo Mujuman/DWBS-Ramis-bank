@@ -219,9 +219,9 @@ const listCases = async (req, res) => {
       `SELECT c.case_id, c.reference_id, c.category, c.status, c.severity_level,
               c.reporter_type, c.branch_or_dept, c.created_at, c.updated_at,
               c.is_escalated,
-              u.username AS assigned_investigator
+              u.username AS assigned_handler
        FROM cases c
-       LEFT JOIN users u ON c.assigned_investigator = u.user_id
+       LEFT JOIN users u ON c.assigned_handler = u.user_id
        ${where}
        ORDER BY c.created_at DESC
        LIMIT ? OFFSET ?`,
@@ -240,7 +240,8 @@ const listCases = async (req, res) => {
       incident_date: c.created_at,
       created_at: c.created_at,
       updated_at: c.updated_at,
-      assigned_investigator: c.assigned_investigator,
+      assigned_handler: c.assigned_handler,
+      assigned_investigator: c.assigned_handler,
     }));
 
     return res.status(200).json({
@@ -270,9 +271,9 @@ const getCaseById = async (req, res) => {
 
   try {
     const [rows] = await pool.execute(
-      `SELECT c.*, u.username AS assigned_investigator_name, u.email AS investigator_email
+      `SELECT c.*, u.username AS assigned_handler_name, u.email AS handler_email
        FROM cases c
-       LEFT JOIN users u ON c.assigned_investigator = u.user_id
+       LEFT JOIN users u ON c.assigned_handler = u.user_id
        WHERE c.case_id = ? AND c.deleted_at IS NULL`,
       [caseId]
     );
@@ -305,9 +306,10 @@ const getCaseById = async (req, res) => {
       incident_location: caseData.branch_or_dept,
       created_at: caseData.created_at,
       updated_at: caseData.updated_at,
-      assigned_to: caseData.assigned_investigator,
-      assigned_investigator: caseData.assigned_investigator_name,
-      investigator_email: caseData.investigator_email,
+      assigned_to: caseData.assigned_handler,
+      assigned_handler: caseData.assigned_handler_name,
+      assigned_investigator: caseData.assigned_handler_name,
+      handler_email: caseData.handler_email,
       description: caseData.description,
       owner_id: caseData.user_id,
       user_id: caseData.user_id,
@@ -353,14 +355,14 @@ const editCase = async (req, res) => {
     status,
     priority,
     assigned_to,
+    assigned_handler,
     assigned_investigator,
     newStatus,
-    newPriority,
   } = body;
 
   try {
     const [rows] = await pool.execute(
-      `SELECT case_id, user_id, status, severity_level, assigned_investigator, is_escalated, reference_id, category FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
+      `SELECT case_id, user_id, status, severity_level, assigned_handler, is_escalated, reference_id, category FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
       [caseId]
     );
 
@@ -416,13 +418,13 @@ const editCase = async (req, res) => {
       updates.push('status = ?');
       params.push(effectiveStatus);
     }
-    const effectiveAssignment = assigned_to ?? assigned_investigator;
+    const effectiveAssignment = assigned_to ?? assigned_handler ?? assigned_investigator;
     if (effectiveAssignment !== undefined) {
       const isCEO = user.role === 'CEO';
       if (!isCompliance && !(isCEO && caseData.is_escalated)) {
         return res.status(403).json({ error: 'Only the Ethics & Anti-Corruption Office may assign cases. The CEO may assign handlers on escalated cases.' });
       }
-      updates.push('assigned_investigator = ?');
+      updates.push('assigned_handler = ?');
       params.push(effectiveAssignment);
     }
 
@@ -583,7 +585,7 @@ const trackCase = async (req, res) => {
 
     // Map to client format
     const formattedNotes = notes.map(n => {
-      const isStaffMessage = ['Investigator', 'Compliance_Officer', 'CEO'].includes(n.author_type);
+      const isStaffMessage = ['Compliance_Officer', 'CEO'].includes(n.author_type);
       return {
         body: n.body,
         author_type: isStaffMessage ? 'staff' : 'anonymous',
@@ -593,9 +595,7 @@ const trackCase = async (req, res) => {
           ? 'Ethics & Anti-Corruption Office'
           : n.author_type === 'CEO'
           ? 'CEO'
-          : n.author_type === 'Investigator'
-          ? 'Case Investigator'
-          : 'You (Anonymous Reporter)',
+          : 'You (Reporter)',
         created_at: n.created_at,
       };
     });
@@ -680,7 +680,7 @@ const getAnonymousCaseDetails = async (req, res) => {
 /**
  * PATCH /api/cases/:id/status
  * Updates case status, priority, or assignment.
- * Rule: Investigators can ONLY update cases assigned to them.
+ * Only Compliance Officers and CEO (for escalated cases) can update.
  */
 const updateCaseStatus = async (req, res) => {
   const user   = req.user;
@@ -689,7 +689,7 @@ const updateCaseStatus = async (req, res) => {
 
   try {
     const [existing] = await pool.execute(
-      `SELECT case_id, status, severity_level, assigned_investigator, is_escalated, reference_id, category FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
+      `SELECT case_id, status, severity_level, assigned_handler, is_escalated, reference_id, category FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
       [caseId]
     );
 
@@ -698,35 +698,26 @@ const updateCaseStatus = async (req, res) => {
     }
 
     const prev = existing[0];
-
-    // Only Investigators, Compliance Officers, and CEO (for escalated cases) can update
     const isCEO = user.role === 'CEO';
-    if (user.role !== 'Compliance_Officer' && user.role !== 'Investigator' && !isCEO) {
+
+    // Only Compliance Officers and CEO (for escalated cases) can update
+    if (user.role !== 'Compliance_Officer' && !isCEO) {
       return res.status(403).json({
-        error: 'Access denied. Only Investigators, Compliance Officers, and the CEO (for escalated cases) can update case status or assignments.',
+        error: 'Access denied. Only the Ethics & Anti-Corruption Office and the CEO can update case status.',
       });
     }
 
-    // CEO can only act on escalated (Critical) cases reported to them by the Ethics Office
+    // CEO can only act on escalated cases
     if (isCEO && !prev.is_escalated) {
       return res.status(403).json({
-        error: 'The CEO can only assign investigators on cases escalated by the Ethics & Anti-Corruption Office.',
+        error: 'The CEO can only assign handlers on cases escalated by the Ethics & Anti-Corruption Office.',
       });
     }
 
-    // ── Investigator restriction: can only update their own assigned cases ──
-    if (user.role === 'Investigator') {
-      if (prev.assigned_investigator !== user.userId) {
-        return res.status(403).json({
-          error: 'You can only update cases that are assigned to you.',
-        });
-      }
-    }
-
-    // ── Reassignment restriction: Compliance Officer or CEO (on escalated cases) ──
+    // Only Compliance Officer or CEO (on escalated) can reassign
     if (assigned_to !== undefined && user.role !== 'Compliance_Officer' && !isCEO) {
       return res.status(403).json({
-        error: 'Only a Compliance Officer or the CEO (on escalated cases) can assign or reassign cases.',
+        error: 'Only the Ethics & Anti-Corruption Office or the CEO (on escalated cases) can assign cases.',
       });
     }
 
@@ -740,17 +731,11 @@ const updateCaseStatus = async (req, res) => {
         if (transitionError) {
           return res.status(403).json({ error: transitionError });
         }
-        // validateStatusTransition already enforces role+transition correctness.
-        // The secondary role-bucket checks below are intentionally removed to avoid
-        // double-blocking transitions that were explicitly added to STATUS_TRANSITIONS
-        // (e.g. Compliance_Officer moving from Pending_Evidence → Assigned).
-
-        // Valid complaint approval requires investigator assignment (both Compliance Officer and CEO)
         if (status === 'Assigned' && (user.role === 'Compliance_Officer' || isCEO)) {
-          const assignee = assigned_to !== undefined ? assigned_to : prev.assigned_investigator;
+          const assignee = assigned_to !== undefined ? assigned_to : prev.assigned_handler;
           if (!assignee) {
             return res.status(400).json({
-              error: 'A Case Investigator must be assigned when setting a case to Assigned.',
+              error: 'A case handler must be assigned when setting a case to Assigned.',
             });
           }
         }
@@ -759,20 +744,19 @@ const updateCaseStatus = async (req, res) => {
       params.push(status);
     }
     if (priority) {
-      // Only Compliance Officers may change priority per BRD
       if (user.role !== 'Compliance_Officer') {
-        return res.status(403).json({ error: 'Only Compliance Officers may change case priority.' });
+        return res.status(403).json({ error: 'Only the Ethics & Anti-Corruption Office may change case priority.' });
       }
       updates.push('severity_level = ?');
       params.push(priority);
-
-      // Escalate if severity is set to Critical
       if (priority === 'Critical' && !prev.is_escalated) {
         newEscalatedStatus = 1;
       }
     }
-    if (assigned_to !== undefined &&
-        user.role !== 'Investigator') { updates.push('assigned_investigator = ?'); params.push(assigned_to); }
+    if (assigned_to !== undefined) {
+      updates.push('assigned_handler = ?');
+      params.push(assigned_to);
+    }
 
     // Update is_escalated flag if severity changed to Critical
     if (newEscalatedStatus !== prev.is_escalated) {
@@ -811,29 +795,29 @@ const updateCaseStatus = async (req, res) => {
         new_status:     status   || prev.status,
         prev_priority:  prev.severity_level,
         new_priority:   priority || prev.severity_level,
-        assigned_investigator: assigned_to,
+        assigned_handler: assigned_to,
         escalated: newEscalatedStatus === 1,
       },
     });
 
-    // Notify newly assigned investigator
-    if (assigned_to !== undefined && assigned_to !== prev.assigned_investigator) {
+    // Notify newly assigned handler
+    if (assigned_to !== undefined && assigned_to !== prev.assigned_handler) {
       try {
-        const [invRows] = await pool.execute(
+        const [handlerRows] = await pool.execute(
           `SELECT email FROM users WHERE user_id = ? AND is_active = 1`,
           [assigned_to]
         );
-        if (invRows.length > 0) {
-          emailService.notifyAssignment(invRows[0].email).catch(() => {});
+        if (handlerRows.length > 0) {
+          emailService.notifyAssignment(handlerRows[0].email).catch(() => {});
         }
       } catch (_) {}
 
-      // In-app notification for assigned investigator
+      // In-app notification for assigned handler
       createNotification({
         userId: assigned_to,
         type: 'case_assigned',
         title: 'Case Assigned to You',
-        message: `Case ${prev.reference_id} (${prev.category?.replace(/_/g, ' ')}) has been assigned to you for investigation.`,
+        message: `Case ${prev.reference_id} (${prev.category?.replace(/_/g, ' ')}) has been assigned to you.`,
         caseId,
       });
     }
@@ -933,9 +917,9 @@ const getCaseStats = async (req, res) => {
     const [escalatedCases] = await pool.execute(
       `SELECT c.case_id, c.reference_id, c.category, c.status, c.severity_level,
               c.reporter_type, c.is_escalated, c.created_at,
-              u.username AS assigned_investigator
+              u.username AS assigned_handler
        FROM cases c
-       LEFT JOIN users u ON c.assigned_investigator = u.user_id
+       LEFT JOIN users u ON c.assigned_handler = u.user_id
        WHERE c.is_escalated = 1
          AND c.severity_level = 'Critical'
          AND c.deleted_at IS NULL
@@ -952,7 +936,8 @@ const getCaseStats = async (req, res) => {
       submitted_by_type: c.reporter_type?.toLowerCase(),
       is_escalated: true,
       created_at: c.created_at,
-      assigned_investigator: c.assigned_investigator,
+      assigned_handler: c.assigned_handler,
+      assigned_investigator: c.assigned_handler,
     }));
 
     return res.status(200).json({
@@ -1021,7 +1006,7 @@ const escalateCase = async (req, res) => {
     // Post a CEO-directed note with the escalation description
     const noteBody = escalation_note && escalation_note.trim().length > 0
       ? `**Escalation Report from Ethics & Anti-Corruption Office**\n\n${escalation_note.trim()}`
-      : `**Case Escalated to CEO**\n\nThe Ethics & Anti-Corruption Office has reviewed case **${caseData.reference_id}** (${caseData.category?.replace(/_/g, ' ')}) and determined it requires CEO-level oversight. Please assign an investigator to proceed.`;
+      : `**Case Escalated to CEO**\n\nThe Ethics & Anti-Corruption Office has reviewed case **${caseData.reference_id}** (${caseData.category?.replace(/_/g, ' ')}) and determined it requires CEO-level oversight. Please assign a case handler to proceed.`;
 
     await pool.execute(
       `INSERT INTO investigationnotes (case_id, sender_type, audience_type, note_text, is_internal_only) VALUES (?, 'Compliance_Officer', 'CEO', ?, 0)`,
@@ -1051,7 +1036,7 @@ const escalateCase = async (req, res) => {
       targetRole: 'CEO',
       type: 'case_escalated',
       title: 'Critical Case Escalated by Ethics & Anti-Corruption Office',
-      message: `The Ethics & Anti-Corruption Office has escalated Case ${caseData.reference_id} (${caseData.category?.replace(/_/g, ' ')}) to you. ${escalation_note?.trim() ? 'A detailed report has been attached.' : 'Please review and assign an investigator.'}`,
+      message: `The Ethics & Anti-Corruption Office has escalated Case ${caseData.reference_id} (${caseData.category?.replace(/_/g, ' ')}) to you. ${escalation_note?.trim() ? 'A detailed report has been attached.' : 'Please review and assign a case handler.'}`,
       caseId,
     });
 

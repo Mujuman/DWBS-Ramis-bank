@@ -299,7 +299,7 @@ export default function CaseDetailPage() {
 
       // Validate status is in allowed list for this user's role
       const allowedStatuses = getNextStatusesForRole(
-        isSenior ? 'Compliance_Officer' : isCEO ? 'CEO' : 'Investigator',
+        isSenior ? 'Compliance_Officer' : isCEO ? 'CEO' : 'Compliance_Officer',
         c.status
       );
       // Never set an empty status — fall back to first allowed or 'New'
@@ -321,16 +321,16 @@ export default function CaseDetailPage() {
         }
       }
 
-      // Investigator list — only for those who can assign
+      // Handler list — only for those who can assign
       if (canAssign) {
         try {
           const uRes = await api.get('/users');
           const inv = (uRes.data.users || [])
-            .filter(u => ['Investigator', 'Compliance_Officer'].includes(u.role))
+            .filter(u => u.role === 'Compliance_Officer')
             .sort((a, b) => (a.username || '').localeCompare(b.username || ''));
           setInvestigators(inv);
         } catch (err) {
-          console.warn('Failed to load investigators:', err.message);
+          console.warn('Failed to load compliance staff:', err.message);
           setInvestigators([]);
         }
       }
@@ -970,30 +970,30 @@ export default function CaseDetailPage() {
                     </>
                   ) : isCEO ? (
                     <>
-                      {/* CEO: only allowed to assign an investigator on escalated cases */}
+                      {/* CEO: only allowed to assign a case handler on escalated cases */}
                       <div className="rounded-xl p-3 mb-3 flex items-start gap-2"
                         style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)' }}>
                         <Zap size={14} className="text-red-600 flex-shrink-0 mt-0.5" />
                         <p className="text-xs text-red-800">
                           This case was escalated by the <strong>Ethics & Anti-Corruption Office</strong>.
-                          Please assign an investigator below.
+                          Please assign a case handler below.
                         </p>
                       </div>
                       {canAssign && (
                         <div>
-                          <label className="form-label text-xs">Assign Investigator *</label>
+                          <label className="form-label text-xs">Assign Case Handler *</label>
                           <select
                             className="form-select text-sm"
                             value={assignTo}
                             onChange={e => setAssignTo(e.target.value)}
                           >
-                            <option value="">{caseData.assigned_investigator ? 'Reassign...' : 'Select investigator'}</option>
+                            <option value="">{caseData.assigned_handler || caseData.assigned_investigator ? 'Reassign...' : 'Select handler'}</option>
                             {investigators.length > 0 ? investigators.map(u => (
                               <option key={u.id} value={u.id}>
                                 {u.username}
                               </option>
                             )) : (
-                              <option disabled>No investigators available</option>
+                              <option disabled>No case handlers available</option>
                             )}
                           </select>
                         </div>
@@ -1031,7 +1031,7 @@ export default function CaseDetailPage() {
                             </select>
                             {newPriority === 'Critical' && !caseData.is_escalated && (
                               <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                                <Zap size={12} /> Setting to Critical will report this case to the CEO for investigator assignment
+                                <Zap size={12} /> Setting to Critical will report this case to the CEO for handler assignment
                               </p>
                             )}
                           </>
@@ -1047,13 +1047,13 @@ export default function CaseDetailPage() {
                             value={assignTo}
                             onChange={e => setAssignTo(e.target.value)}
                           >
-                            <option value="">{caseData.assigned_investigator ? 'Reassign...' : 'Assign investigator'}</option>
+                            <option value="">{caseData.assigned_handler || caseData.assigned_investigator ? 'Reassign...' : 'Assign handler'}</option>
                             {investigators.length > 0 ? investigators.map(u => (
                               <option key={u.id} value={u.id}>
                                 {u.username}
                               </option>
                             )) : (
-                              <option disabled>No investigators</option>
+                              <option disabled>No case handlers</option>
                             )}
                           </select>
                         </div>
@@ -1093,7 +1093,7 @@ export default function CaseDetailPage() {
                   <div className="flex justify-between items-center">
                     <span className="text-slate-500">Assigned To</span>
                     <span className="font-semibold text-slate-700 text-xs text-right">
-                      {caseData.assigned_investigator || 'Unassigned'}
+                      {caseData.assigned_handler || caseData.assigned_investigator || 'Unassigned'}
                     </span>
                   </div>
                 </div>

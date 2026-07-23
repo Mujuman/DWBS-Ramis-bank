@@ -248,7 +248,7 @@ const registerUser = async (req, res) => {
     return res.status(400).json({ error: 'All fields are required' });
   }
 
-  const validRoles = ['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO', 'System_Admin', 'Auditor'];
+  const validRoles = ['Employee', 'Branch_Manager', 'Compliance_Officer', 'CEO', 'System_Admin', 'Auditor'];
   if (!validRoles.includes(role)) {
     return res.status(400).json({ error: 'Invalid role' });
   }

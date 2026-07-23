@@ -20,7 +20,7 @@ const features = [
   {
     icon: Eye,
     title: 'Track Your Report',
-    desc: 'Use your secure reference code to follow up and correspond with investigators.',
+    desc: 'Use your secure reference code to follow up and correspond with the ethics office.',
     color: '#3b82f6',
   },
   {
@@ -40,7 +40,7 @@ const steps = [
   { n: '01', title: 'Remain Anonymous', desc: 'Complete a quick privacy-preserving CAPTCHA. No account required.' },
   { n: '02', title: 'Submit Your Report', desc: 'Describe the misconduct in detail and attach evidence securely.' },
   { n: '03', title: 'Receive Reference Code', desc: 'Get a unique, random tracking code — never sequential or guessable.' },
-  { n: '04', title: 'Track & Correspond', desc: 'Check investigation progress and communicate with investigators safely.' },
+  { n: '04', title: 'Track & Correspond', desc: 'Check investigation progress and communicate with the ethics office safely.' },
 ];
 
 const trustBadges = [

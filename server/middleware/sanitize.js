@@ -77,7 +77,7 @@ const validateCreateUser = [
     .isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
   body('role')
     .notEmpty().withMessage('Role is required')
-    .isIn(['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO', 'System_Admin', 'Auditor'])
+    .isIn(['Employee', 'Branch_Manager', 'Compliance_Officer', 'CEO', 'System_Admin', 'Auditor'])
     .withMessage('Invalid role'),
   body('department')
     .notEmpty().withMessage('Department is required')
@@ -156,7 +156,7 @@ const validateCreateAnonNote = [
 
 const validateAnonNoteRecipient = body('recipient_role')
   .optional()
-  .isIn(['Investigator', 'Compliance_Officer']).withMessage('Invalid response recipient');
+  .isIn(['Compliance_Officer']).withMessage('Invalid response recipient');
 
 validateCreateAnonNote.splice(validateCreateAnonNote.length - 1, 0, validateAnonNoteRecipient);
 
@@ -201,7 +201,7 @@ const validateCreateNote = [
     .isBoolean().withMessage('is_internal_only must be boolean'),
   body('recipient_role')
     .optional()
-    .isIn(['Investigator', 'Compliance_Officer', 'CEO', 'Reporter', 'General']).withMessage('Invalid note recipient'),
+    .isIn(['Compliance_Officer', 'CEO', 'Reporter', 'General']).withMessage('Invalid note recipient'),
 ];
 
 const validateTrackCase = [

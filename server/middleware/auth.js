@@ -66,7 +66,7 @@ const authenticateAnonymous = async (req, res, next) => {
 
 /**
  * Middleware factory for role-based access control.
- * Usage: requireRole('Investigator', 'Compliance_Officer')
+ * Usage: requireRole('Compliance_Officer', 'CEO')
  */
 const requireRole = (...roles) => {
   return (req, res, next) => {

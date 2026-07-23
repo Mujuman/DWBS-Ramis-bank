@@ -1,7 +1,7 @@
 # DWBS Role-Based Access Control (RBAC) Matrix
 
 ## Overview
-The Digital Whistleblowing System (DWBS) implements a hierarchical role-based access control system with 7 distinct roles, each with specific permissions aligned with their organizational responsibilities.
+The Digital Whistleblowing System (DWBS) implements a hierarchical role-based access control system with 6 distinct roles, each with specific permissions aligned with their organizational responsibilities.
 
 ---
 

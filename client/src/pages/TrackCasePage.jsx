@@ -10,7 +10,7 @@ import { renderRichText } from '../utils/formatting';
 const STATUS_LABELS = {
   New: { label: 'New', class: STATUS_BADGE.New },
   Under_Review: { label: 'Analyse the Complaint', class: STATUS_BADGE.Under_Review },
-  Assigned: { label: 'Refer to A&RC / Assign to Case Investigator', class: STATUS_BADGE.Assigned },
+  Assigned: { label: 'Refer to A&RC / Assign to Case Handler', class: STATUS_BADGE.Assigned },
   Investigating: { label: 'Investigation in Progress', class: STATUS_BADGE.Investigating },
   Pending_Evidence: { label: 'Pending Evidence', class: STATUS_BADGE.Pending_Evidence },
   Substantiated: { label: 'Substantiated', class: STATUS_BADGE.Substantiated },
@@ -46,7 +46,7 @@ export default function TrackCasePage() {
   // Form states for anonymous reply
   const [replyToken, setReplyToken] = useState('');
   const [replyBody, setReplyBody] = useState('');
-  const [replyRecipient, setReplyRecipient] = useState('Investigator');
+  const [replyRecipient, setReplyRecipient] = useState('Compliance_Officer');
   const [replyLoading, setReplyLoading] = useState(false);
   
   const [evidenceToken, setEvidenceToken] = useState('');
@@ -143,7 +143,6 @@ export default function TrackCasePage() {
     if (note.author_label) return note.author_label;
     if (note.sender_role === 'Compliance_Officer') return 'Ethics & Anti-Corruption Office';
     if (note.sender_role === 'CEO') return 'CEO';
-    if (note.sender_role === 'Investigator') return 'Case Investigator';
     return 'You (Anonymous Reporter)';
   };
 
@@ -186,10 +185,9 @@ export default function TrackCasePage() {
       setResult(filterCorrespondence(res.data));
       setEvidence([]);
       setEvidenceFile(null);
-      const hasInvestigatorMessage = res.data.correspondence?.some(note => note.sender_role === 'Investigator');
       const hasComplianceMessage = res.data.correspondence?.some(note => note.sender_role === 'Compliance_Officer');
       const hasCEOMessage = res.data.correspondence?.some(note => note.sender_role === 'CEO');
-      setReplyRecipient(hasInvestigatorMessage ? 'Investigator' : hasComplianceMessage ? 'Compliance_Officer' : hasCEOMessage ? 'CEO' : 'Investigator');
+      setReplyRecipient(hasComplianceMessage ? 'Compliance_Officer' : hasCEOMessage ? 'CEO' : 'Compliance_Officer');
       setEditCategory(res.data.case.category);
       setEditDescription(res.data.case.description || '');
       setEditLocation(res.data.case.branch_or_dept || '');
@@ -306,7 +304,6 @@ export default function TrackCasePage() {
   });
 
   const availableReplyRecipients = result?.correspondence?.reduce((roles, note) => {
-    if (note.sender_role === 'Investigator' && !roles.includes('Investigator')) roles.push('Investigator');
     if (note.sender_role === 'Compliance_Officer' && !roles.includes('Compliance_Officer')) roles.push('Compliance_Officer');
     if (note.sender_role === 'CEO' && !roles.includes('CEO')) roles.push('CEO');
     return roles;
@@ -674,9 +671,6 @@ export default function TrackCasePage() {
                       onChange={(e) => setReplyRecipient(e.target.value)}
                       className="form-select"
                     >
-                      {availableReplyRecipients.includes('Investigator') && (
-                        <option value="Investigator">Case Investigator</option>
-                      )}
                       {availableReplyRecipients.includes('Compliance_Officer') && (
                         <option value="Compliance_Officer">Ethics & Anti-Corruption Office</option>
                       )}
@@ -691,7 +685,7 @@ export default function TrackCasePage() {
                       value={replyBody}
                       onChange={(e) => setReplyBody(e.target.value)}
                       className="form-textarea min-h-[140px]"
-                      placeholder="Write your response to the investigator or ethics officer..."
+                      placeholder="Write your response to the ethics officer..."
                     />
                   </div>
                   <button

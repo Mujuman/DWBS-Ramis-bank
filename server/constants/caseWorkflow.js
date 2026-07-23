@@ -5,9 +5,9 @@
  *  User (anonymous or non-anonymous)
  *    → Ethics & Anti-Corruption Office (Compliance_Officer)
  *        → [Critical] Escalates to CEO
- *            → CEO assigns Investigator
- *        → [Non-Critical] Compliance Officer assigns Investigator directly
- *    → Investigator investigates
+ *            → CEO assigns Case Handler
+ *        → [Non-Critical] Compliance Officer handles or assigns Case Handler directly
+ *    → Compliance Team investigates / handles case
  */
 
 const CASE_STATUSES = [
@@ -64,7 +64,7 @@ const STATUS_LABELS = {
   New: 'New',
   Under_Review: 'Analyse the Complaint',
   Complaint_Dismissed: 'Complaint Dismissed',
-  Assigned: 'Refer to A&RC / Assign to Case Investigator',
+  Assigned: 'Refer to A&RC / Assign to Case Handler',
   Investigating: 'Gather Facts and Analyze Evidence',
   Pending_Evidence: 'Pending Evidence',
   Substantiated: 'Substantiated (በማስረጃ የተረጋገጠ)',

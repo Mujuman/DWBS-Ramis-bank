@@ -98,7 +98,7 @@ export default function EthicsDashboard() {
       }
 
       if (uRes.status === 'fulfilled') {
-        setInvestigators((uRes.value.data.users || []).filter(u => u.role === 'Investigator' && u.is_active));
+        setInvestigators((uRes.value.data.users || []).filter(u => u.role === 'Compliance_Officer' && u.is_active));
       } else {
         console.error('[EthicsDashboard] users fetch failed:', uRes.reason);
       }
@@ -258,10 +258,10 @@ export default function EthicsDashboard() {
     setComposeSending(false);
   };
 
-  // ── Workload: count cases per investigator ─────────────────
+  // ── Workload: count cases per handler ─────────────────
   const workload = investigators.map(inv => ({
     ...inv,
-    count: cases.filter(c => c.assigned_investigator === inv.username).length,
+    count: cases.filter(c => (c.assigned_handler || c.assigned_investigator) === inv.username).length,
   })).sort((a, b) => b.count - a.count);
 
   const ov = stats?.overview || {};
@@ -271,7 +271,7 @@ export default function EthicsDashboard() {
     { label: 'In Progress', value: ov.in_progress || 0, icon: Clock, color: '#3b82f6', bg: '#dbeafe' },
     { label: 'Substantiated', value: ov.substantiated || 0, icon: CheckCircle, color: '#16a34a', bg: '#dcfce7' },
     { label: 'Critical', value: ov.critical || 0, icon: TrendingUp, color: '#dc2626', bg: '#fee2e2' },
-    { label: 'Unassigned', value: cases.filter(c => !c.assigned_investigator).length, icon: Users, color: '#7c3aed', bg: '#ede9fe' },
+    { label: 'Unassigned', value: cases.filter(c => !c.assigned_handler && !c.assigned_investigator).length, icon: Users, color: '#7c3aed', bg: '#ede9fe' },
   ];
 
   const maxWorkload = Math.max(1, ...workload.map(w => w.count));
@@ -476,17 +476,17 @@ export default function EthicsDashboard() {
         </>
       )}
 
-      {/* ══════════════ INVESTIGATOR WORKLOAD TAB ══════════════ */}
+      {/* ══════════════ COMPLIANCE WORKLOAD TAB ══════════════ */}
       {activeTab === 'workload' && (
         <div className="card overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <BarChart3 size={18} style={{ color: 'var(--color-navy-900)' }} />
               <h2 className="text-base font-bold" style={{ color: 'var(--color-navy-900)' }}>
-                Investigator Workload
+                Compliance Staff Workload
               </h2>
             </div>
-            <span className="text-xs text-slate-400">{investigators.length} active investigators</span>
+            <span className="text-xs text-slate-400">{investigators.length} active compliance staff</span>
           </div>
 
           {loading ? (
@@ -494,7 +494,7 @@ export default function EthicsDashboard() {
           ) : investigators.length === 0 ? (
             <div className="py-16 text-center">
               <Users size={32} className="mx-auto mb-3 text-slate-300" />
-              <p className="text-slate-400">No active investigators found.</p>
+              <p className="text-slate-400">No active compliance staff found.</p>
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
@@ -528,7 +528,7 @@ export default function EthicsDashboard() {
                   </div>
                   <button
                     onClick={() => {
-                      const unassigned = cases.filter(c => !c.assigned_investigator);
+                      const unassigned = cases.filter(c => !c.assigned_handler && !c.assigned_investigator);
                       if (unassigned.length > 0) {
                         setAssignModal(unassigned[0]);
                         setAssignTarget(String(inv.id));
@@ -864,7 +864,7 @@ export default function EthicsDashboard() {
           <div className="card p-0 w-full max-w-md mx-4 fade-in-up" style={{ maxHeight: '90vh', overflow: 'auto' }}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
               <div>
-                <h3 className="text-base font-bold" style={{ color: 'var(--color-navy-900)' }}>Assign Investigator</h3>
+                <h3 className="text-base font-bold" style={{ color: 'var(--color-navy-900)' }}>Assign Case Handler</h3>
                 <p className="text-xs text-slate-400 mt-0.5">Case: <span className="font-mono font-bold">{assignModal.reference_id}</span></p>
               </div>
               <button onClick={() => { setAssignModal(null); setAssignTarget(''); }}
@@ -881,13 +881,13 @@ export default function EthicsDashboard() {
                 <div className="flex items-center justify-between text-xs mt-2">
                   <span className="text-slate-500">Currently Assigned</span>
                   <span className="font-medium" style={{ color: 'var(--color-navy-900)' }}>
-                    {assignModal.assigned_investigator || 'Unassigned'}
+                    {assignModal.assigned_handler || assignModal.assigned_investigator || 'Unassigned'}
                   </span>
                 </div>
               </div>
-              <label className="form-label">Select Investigator</label>
+              <label className="form-label">Select Case Handler</label>
               <select className="form-select text-sm w-full" value={assignTarget} onChange={e => setAssignTarget(e.target.value)}>
-                <option value="">— Choose an investigator —</option>
+                <option value="">— Choose a case handler —</option>
                 {investigators.map(inv => (
                   <option key={inv.id} value={inv.id}>
                     {inv.username} {inv.department ? `(${inv.department})` : ''}
@@ -896,7 +896,7 @@ export default function EthicsDashboard() {
               </select>
               {assignTarget && (() => {
                 const sel = investigators.find(i => String(i.id) === String(assignTarget));
-                const cnt = sel ? cases.filter(c => c.assigned_investigator === sel.username).length : 0;
+                const cnt = sel ? cases.filter(c => (c.assigned_handler || c.assigned_investigator) === sel.username).length : 0;
                 return (
                   <div className="mt-3 flex items-center gap-2 text-xs">
                     <Briefcase size={12} className="text-slate-400" />

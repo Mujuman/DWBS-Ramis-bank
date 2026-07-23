@@ -71,15 +71,14 @@ const uploadEvidence = async (req, res) => {
 
   try {
     const [cases] = await pool.execute(
-      `SELECT case_id, user_id, assigned_investigator, anon_session_id FROM cases WHERE case_id = ? AND deleted_at IS NULL`, [caseId]
+      `SELECT case_id, user_id, assigned_handler, anon_session_id FROM cases WHERE case_id = ? AND deleted_at IS NULL`, [caseId]
     );
     if (cases.length === 0) {
       return res.status(404).json({ error: 'Case not found' });
     }
 
     const caseData = cases[0];
-      const isOwner = user?.userId && caseData.user_id === user.userId;
-    const isAssignedInvestigator = user?.userId && user.role === 'Investigator' && caseData.assigned_investigator === user.userId;
+    const isOwner = user?.userId && caseData.user_id === user.userId;
     const isCompliance = user?.role === 'Compliance_Officer';
 
       // If the caller is an anonymous session (authenticateAny set req.identity), ensure
@@ -91,7 +90,7 @@ const uploadEvidence = async (req, res) => {
         }
       }
 
-      if (!isOwner && !isAssignedInvestigator && !isCompliance) {
+      if (!isOwner && !isCompliance) {
         return res.status(403).json({ error: 'Access denied to upload evidence for this case.' });
       }
 
@@ -203,13 +202,13 @@ const listEvidence = async (req, res) => {
       [caseId]
     );
 
-    // Authorization: Compliance Officers can view all; Investigators only for their assigned cases; owners may view their own case files
+    // Authorization: Compliance Officers can view all; owners may view their own case files
     if (user.role === 'System_Admin') {
       return res.status(403).json({ error: 'Access denied. System Administrators are blocked from evidence lists.' });
     }
 
     const [caseCheck] = await pool.execute(
-      `SELECT assigned_investigator, user_id, is_escalated FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
+      `SELECT assigned_handler, user_id, is_escalated FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
       [caseId]
     );
     const isOwner = user && c && c.user_id === user.userId;
@@ -239,7 +238,7 @@ const downloadEvidence = async (req, res) => {
   try {
     // Get case to check ownership
     const [caseRows] = await pool.execute(
-      `SELECT case_id, user_id, assigned_investigator FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
+      `SELECT case_id, user_id, assigned_handler FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
       [caseId]
     );
 

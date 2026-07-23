@@ -161,7 +161,7 @@ export default function CaseListPage() {
                       </span>
                     </td>
                     <td className="text-xs text-slate-500">
-                      {c.assigned_investigator || <span className="text-slate-300 italic">Unassigned</span>}
+                      {c.assigned_handler || c.assigned_investigator || <span className="text-slate-300 italic">Unassigned</span>}
                     </td>
                     <td className="text-xs text-slate-400">
                       {format(new Date(c.created_at), 'MMM d, yyyy')}

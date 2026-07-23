@@ -59,7 +59,7 @@ const emailService = {
             <ul style="color: #374151; font-size: 14px; line-height: 2;">
               <li>Review the report details</li>
               <li>Assess the severity and category</li>
-              <li>Assign a Case Investigator</li>
+              <li>Assign a Case Handler</li>
               <li>Escalate to the CEO if critical</li>
             </ul>
             <div style="text-align: center; margin: 32px 0;">
@@ -86,13 +86,13 @@ const emailService = {
   },
 
   /**
-   * Notifies an investigator that a case has been assigned to them.
+   * Notifies a staff member that a case has been assigned to them.
    */
-  async notifyAssignment(investigatorEmail) {
+  async notifyAssignment(handlerEmail) {
     await sendEmail({
-      to: investigatorEmail,
+      to: handlerEmail,
       subject: '[DWBS] Case Assigned to You',
-      text: `A case has been assigned to you in the DWBS. Please log in to review and begin investigation.`,
+      text: `A case has been assigned to you in the DWBS. Please log in to review and take action.`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px;">
           <div style="background: #0A1D37; padding: 20px; text-align: center;">
@@ -204,7 +204,7 @@ const emailService = {
 
     const bodyText = isSubstantiated
       ? 'An investigation has concluded with a substantiated finding. Please log in to the DWBS portal to review and initiate appropriate disciplinary or legal action.'
-      : 'A whistleblowing complaint has been validated and referred to A&RC. A Case Investigator has been assigned to gather facts and analyse evidence.';
+      : 'A whistleblowing complaint has been validated and referred to A&RC. A Case Handler has been assigned to gather facts and analyse evidence.';
 
     await sendEmail({
       to: recipientEmail,

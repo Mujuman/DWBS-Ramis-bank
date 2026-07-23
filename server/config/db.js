@@ -185,6 +185,34 @@ const testConnection = async () => {
     } catch (migErr) {
       console.error('[DB] Schema migration failed for notification_reads table:', migErr.message);
     }
+
+    // Automatic schema migration: rename assigned_investigator column to assigned_handler in cases
+    try {
+      const [invCols] = await pool.execute("SHOW COLUMNS FROM cases LIKE 'assigned_investigator'");
+      if (invCols.length > 0) {
+        await pool.execute("ALTER TABLE cases CHANGE assigned_investigator assigned_handler int(11) DEFAULT NULL");
+        console.log('[DB] Migration: Renamed assigned_investigator to assigned_handler in cases table');
+      } else {
+        const [handCols] = await pool.execute("SHOW COLUMNS FROM cases LIKE 'assigned_handler'");
+        if (handCols.length === 0) {
+          await pool.execute("ALTER TABLE cases ADD COLUMN assigned_handler int(11) DEFAULT NULL");
+          console.log('[DB] Migration: Added assigned_handler column to cases table');
+        }
+      }
+    } catch (migErr) {
+      console.error('[DB] Schema migration check failed for assigned_handler:', migErr.message);
+    }
+
+    // Automatic schema migration: remove Investigator role from users and investigationnotes
+    try {
+      await pool.execute("DELETE FROM users WHERE role = 'Investigator'");
+      await pool.execute("ALTER TABLE users MODIFY COLUMN role ENUM('Employee','Branch_Manager','Compliance_Officer','CEO','System_Admin','Auditor') NOT NULL");
+      await pool.execute("ALTER TABLE investigationnotes MODIFY COLUMN sender_type ENUM('Compliance_Officer','Reporter','CEO') NOT NULL");
+      await pool.execute("ALTER TABLE investigationnotes MODIFY COLUMN audience_type ENUM('General','Compliance_Officer','CEO','Reporter') NOT NULL DEFAULT 'General'");
+      console.log('[DB] Migration: Removed Investigator role from database enums and cleaned up users table');
+    } catch (migErr) {
+      console.error('[DB] Schema migration check failed for Investigator removal:', migErr.message);
+    }
   } catch (err) {
     console.error('[DB] Failed to connect to MySQL:', err.message);
     process.exit(1);

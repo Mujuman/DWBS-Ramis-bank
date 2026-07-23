@@ -8,7 +8,6 @@ import toast from 'react-hot-toast';
 const roles = [
   { value: 'Employee', label: 'Employee', description: 'Standard bank employee - can submit reports' },
   { value: 'Branch_Manager', label: 'Branch Manager', description: 'Manager of a branch with limited case access' },
-  { value: 'Investigator', label: 'Investigator', description: 'Compliance team member who investigates cases' },
   { value: 'Compliance_Officer', label: 'Ethics and Anticorruption', description: 'Ethics & Anticorruption Office — senior oversight role with full case access' },
   { value: 'CEO', label: 'CEO', description: 'Executive role with access to statistics and reports' },
 ];
