@@ -43,11 +43,6 @@ export default function EthicsDashboard() {
   const [composeSending, setComposeSending] = useState(false);
   const composeFileRef = useRef(null);
 
-  // Severity override modal
-  const [severityModal, setSeverityModal] = useState(null);
-  const [newSeverity, setNewSeverity] = useState('');
-  const [overriding, setOverriding] = useState(false);
-
   const loadAll = useCallback(async (f = filters) => {
     setLoading(true);
     try {
@@ -92,21 +87,6 @@ export default function EthicsDashboard() {
   const goPage = (p) => {
     const nf = { ...filters, page: p };
     setFilters(nf); loadAll(nf);
-  };
-
-  // ── Override severity ──────────────────────────────────────
-  const doOverride = async () => {
-    if (!newSeverity) { toast.error('Select a severity level'); return; }
-    setOverriding(true);
-    try {
-      await api.patch(`/cases/${severityModal.id}/status`, { priority: newSeverity });
-      toast.success(`Severity updated to ${newSeverity}`);
-      setSeverityModal(null); setNewSeverity('');
-      loadAll();
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Override failed');
-    }
-    setOverriding(false);
   };
 
   // ── Escalate to CEO (with description) ────────────────────
@@ -309,12 +289,6 @@ export default function EthicsDashboard() {
                             <Link to={`/cases/${c.id}`} className="btn btn-ghost text-xs py-1 px-2">
                               Open <ChevronRight size={11} />
                             </Link>
-                            <button
-                              onClick={() => { setSeverityModal(c); setNewSeverity(c.priority || 'Medium'); }}
-                              className="btn btn-ghost text-xs py-1 px-2"
-                              title="Override severity">
-                              <TrendingUp size={12} />
-                            </button>
                             <button
                               onClick={() => openCompose(c)}
                               className="btn btn-ghost text-xs py-1 px-2 text-red-600 hover:bg-red-50"
@@ -523,63 +497,6 @@ export default function EthicsDashboard() {
           </div>
         );
       })()}
-
-      {/* ══════════════ SEVERITY OVERRIDE MODAL ══════════════ */}
-      {severityModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(10,29,55,0.5)' }}>
-          <div className="card p-0 w-full max-w-md mx-4 fade-in-up" style={{ maxHeight: '90vh', overflow: 'auto' }}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-              <div>
-                <h3 className="text-base font-bold" style={{ color: 'var(--color-navy-900)' }}>Override Severity</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Case: <span className="font-mono font-bold">{severityModal.reference_id}</span></p>
-              </div>
-              <button onClick={() => { setSeverityModal(null); setNewSeverity(''); }}
-                className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
-                <X size={16} className="text-slate-400" />
-              </button>
-            </div>
-            <div className="px-6 py-5">
-              <div className="rounded-xl p-3 mb-4" style={{ background: 'rgba(10,29,55,0.03)' }}>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-500">Current Severity</span>
-                  <span className={`badge ${PRIORITY_BADGE[severityModal.priority] || 'badge-medium'}`}>{severityModal.priority}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs mt-2">
-                  <span className="text-slate-500">Category</span>
-                  <span className="font-medium" style={{ color: 'var(--color-navy-900)' }}>{severityModal.category?.replace(/_/g, ' ')}</span>
-                </div>
-              </div>
-              <label className="form-label">New Severity Level</label>
-              <div className="grid grid-cols-2 gap-2">
-                {PRIORITIES.map(p => (
-                  <button key={p} onClick={() => setNewSeverity(p)}
-                    className={`py-2.5 px-4 rounded-xl text-sm font-semibold border-2 transition-all ${newSeverity === p ? 'border-current shadow-sm' : 'border-transparent'}`}
-                    style={{
-                      background: newSeverity === p ? (p === 'Critical' ? '#fee2e2' : p === 'High' ? '#fef3c7' : p === 'Medium' ? '#dbeafe' : '#dcfce7') : 'rgba(10,29,55,0.03)',
-                      color: p === 'Critical' ? '#dc2626' : p === 'High' ? '#d97706' : p === 'Medium' ? '#3b82f6' : '#16a34a',
-                    }}>
-                    {p}
-                  </button>
-                ))}
-              </div>
-              {newSeverity === 'Critical' && severityModal.priority !== 'Critical' && (
-                <div className="mt-3 rounded-xl p-3 flex items-start gap-2" style={{ background: '#fef2f2', border: '1px solid #fecaca' }}>
-                  <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" style={{ color: '#dc2626' }} />
-                  <p className="text-xs" style={{ color: '#991b1b' }}>
-                    Setting severity to <strong>Critical</strong> will automatically escalate this case to the CEO dashboard.
-                  </p>
-                </div>
-              )}
-            </div>
-            <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-slate-100">
-              <button onClick={() => { setSeverityModal(null); setNewSeverity(''); }} className="btn btn-ghost text-sm">Cancel</button>
-              <button onClick={doOverride} disabled={overriding || !newSeverity || newSeverity === severityModal.priority} className="btn btn-primary text-sm">
-                {overriding ? <><span className="spinner" /> Updating...</> : <><TrendingUp size={14} /> Update Severity</>}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ══════════════ GMAIL-STYLE COMPOSE — SEND REPORT TO CEO ══════════════ */}
       {composeOpen && composeCase && (
