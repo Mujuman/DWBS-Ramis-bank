@@ -29,7 +29,6 @@ export default function EthicsDashboard() {
 
   const [cases, setCases] = useState([]);
   const [stats, setStats] = useState(null);
-  const [handlers, setHandlers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ total: 0, page: 1, total_pages: 1 });
   const [activeTab, setActiveTab] = useState('queue');
@@ -93,68 +92,6 @@ export default function EthicsDashboard() {
   const goPage = (p) => {
     const nf = { ...filters, page: p };
     setFilters(nf); loadAll(nf);
-  };
-
-  // ── Load chat notes for selected case ─────────────────────
-  const loadChatNotes = async (caseId) => {
-    setChatLoading(true);
-    try {
-      const res = await api.get(`/cases/${caseId}/notes`);
-      // Only show notes that are actually in the CEO ↔ Ethics thread:
-      // - sent BY Compliance_Officer TO CEO
-      // - sent BY CEO (replies back to Ethics)
-      // This excludes Ethics messages directed at Investigator, Reporter, or General
-      const relevant = (res.data.notes || []).filter(n =>
-        n.author_type === 'CEO' ||
-        (n.author_type === 'Compliance_Officer' && n.audience_type === 'CEO')
-      );
-      setChatNotes(relevant);
-    } catch {
-      setChatNotes([]);
-    }
-    setChatLoading(false);
-  };
-
-  const selectChatCase = async (c) => {
-    setSelectedChatCase(c);
-    setChatMessage('');
-    await loadChatNotes(c.id);
-  };
-
-  const sendChatMessage = async () => {
-    if (!chatMessage.trim() || !selectedChatCase) return;
-    setSendingChat(true);
-    try {
-      await api.post(`/cases/${selectedChatCase.id}/notes`, {
-        body: chatMessage.trim(),
-        recipient_role: 'CEO',
-        is_internal_only: false,
-      });
-      setChatMessage('');
-      await loadChatNotes(selectedChatCase.id);
-      toast.success('Message sent to CEO');
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to send message');
-    }
-    setSendingChat(false);
-  };
-
-  // ── Assign / Reassign ──────────────────────────────────────
-  const doAssign = async () => {
-    if (!assignTarget) { toast.error('Select an investigator'); return; }
-    setAssigning(true);
-    try {
-      await api.patch(`/cases/${assignModal.id}/status`, {
-        assigned_to: parseInt(assignTarget),
-        status: 'Assigned',
-      });
-      toast.success('Case assigned successfully');
-      setAssignModal(null); setAssignTarget('');
-      loadAll();
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Assignment failed');
-    }
-    setAssigning(false);
   };
 
   // ── Override severity ──────────────────────────────────────
@@ -225,12 +162,6 @@ export default function EthicsDashboard() {
     setComposeSending(false);
   };
 
-  // ── Workload: count cases per handler ─────────────────
-  const workload = handlers.map(inv => ({
-    ...inv,
-    count: cases.filter(c => (c.assigned_handler || c.assigned_investigator) === inv.username).length,
-  })).sort((a, b) => b.count - a.count);
-
   const ov = stats?.overview || {};
   const statCards = [
     { label: 'Total Cases', value: ov.total || 0, icon: FileText, color: 'var(--color-navy-900)', bg: '#e8edf5' },
@@ -299,8 +230,6 @@ export default function EthicsDashboard() {
       <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background: 'var(--color-slate-100)' }}>
         {[
           ['queue', 'Case Queue'],
-          ['workload', 'Case Handler Workload'],
-          ['ceo_chat', 'CEO Messages'],
           ['analytics', '📊 Analytics'],
         ].map(([key, label]) => (
           <button key={key} onClick={() => setActiveTab(key)}
@@ -395,12 +324,6 @@ export default function EthicsDashboard() {
                             <Link to={`/cases/${c.id}`} className="btn btn-ghost text-xs py-1 px-2">
                               Open <ChevronRight size={11} />
                             </Link>
-                            <button
-                              onClick={() => { setAssignModal(c); setAssignTarget(c.assigned_investigator_id || ''); }}
-                              className="btn btn-outline text-xs py-1 px-2"
-                              title="Assign / Reassign">
-                              <UserCheck size={12} /> Assign
-                            </button>
                             <button
                               onClick={() => { setSeverityModal(c); setNewSeverity(c.priority || 'Medium'); }}
                               className="btn btn-ghost text-xs py-1 px-2"
