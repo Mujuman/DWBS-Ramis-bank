@@ -4,9 +4,9 @@
  * Flow:
  *  User (anonymous or non-anonymous)
  *    → Ethics & Anti-Corruption Office (Compliance_Officer)
- *        → [Critical] Escalates to CEO → CEO assigns Investigator
- *        → [Non-Critical] Compliance Officer assigns Investigator directly
- *    → Investigator investigates → Substantiated / Dismissed
+ *        → [Critical] Escalates to CEO → CEO assigns handler
+ *        → [Non-Critical] Compliance Officer manages case directly
+ *    → Case investigated by Compliance Officer → Substantiated / Dismissed
  */
 
 export const CASE_STATUSES = [
@@ -33,16 +33,14 @@ export const COMPLIANCE_OFFICER_STATUSES = [
   'Complaint_Dismissed',
 ];
 
-export const INVESTIGATOR_STATUSES = ['Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence'];
-
-// CEO can only assign investigator on escalated cases (Critical) reported by Ethics Office
+// CEO can only assign handler on escalated cases (Critical) reported by Ethics Office
 export const CEO_STATUSES = ['Assigned'];
 
 export const STATUS_LABELS = {
   New: 'New',
   Under_Review: 'Analyse the Complaint',
   Complaint_Dismissed: 'Complaint Dismissed',
-  Assigned: 'Refer to A&RC / Assign to Case Investigator',
+  Assigned: 'Refer to A&RC / Assign Case Handler',
   Investigating: 'Gather Facts and Analyze Evidence',
   Pending_Evidence: 'Pending Evidence',
   Substantiated: 'Substantiated (በማስረጃ የተረጋገጠ)',
@@ -81,17 +79,14 @@ export const getNextStatusesForRole = (role, currentStatus) => {
       CEO: ['Assigned'],
     },
     Assigned: {
-      Investigator: ['Investigating'],
       Compliance_Officer: ['New', 'Under_Review', 'Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
       CEO: ['Assigned'],
     },
     Investigating: {
-      Investigator: ['Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence'],
       Compliance_Officer: ['New', 'Under_Review', 'Assigned', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
       CEO: ['Assigned'],
     },
     Pending_Evidence: {
-      Investigator: ['Investigating', 'Substantiated', 'Dismissed_No_Evidence'],
       Compliance_Officer: ['New', 'Under_Review', 'Assigned', 'Investigating', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
       CEO: ['Assigned'],
     },

@@ -34,9 +34,7 @@ const COMPLIANCE_OFFICER_STATUSES = [
   'Complaint_Dismissed',
 ];
 
-const INVESTIGATOR_STATUSES = ['Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence'];
-
-// CEO can assign investigators on escalated/critical cases reported by Ethics Office
+// CEO can assign handler on escalated/critical cases reported by Ethics Office
 const CEO_STATUSES = ['Assigned'];
 
 const STATUS_TRANSITIONS = {
@@ -49,17 +47,14 @@ const STATUS_TRANSITIONS = {
     CEO: ['Assigned'],
   },
   Assigned: {
-    Investigator: ['Investigating'],
     Compliance_Officer: ['New', 'Under_Review', 'Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
     CEO: ['Assigned'],
   },
   Investigating: {
-    Investigator: ['Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence'],
     Compliance_Officer: ['New', 'Under_Review', 'Assigned', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
     CEO: ['Assigned'],
   },
   Pending_Evidence: {
-    Investigator: ['Investigating', 'Substantiated', 'Dismissed_No_Evidence'],
     Compliance_Officer: ['New', 'Under_Review', 'Assigned', 'Investigating', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
     CEO: ['Assigned'],
   },
@@ -80,7 +75,6 @@ const isTerminalStatus = (status) => TERMINAL_STATUSES.includes(status);
 
 const getAllowedStatusesForRole = (role) => {
   if (role === 'Compliance_Officer') return COMPLIANCE_OFFICER_STATUSES;
-  if (role === 'Investigator') return INVESTIGATOR_STATUSES;
   if (role === 'CEO') return CEO_STATUSES;
   return [];
 };
@@ -88,12 +82,10 @@ const getAllowedStatusesForRole = (role) => {
 const validateStatusTransition = (role, currentStatus, newStatus) => {
   if (currentStatus === newStatus) return null;
 
-  // Terminal statuses block everyone except Compliance_Officer who can reopen/override
   if (isTerminalStatus(currentStatus) && role !== 'Compliance_Officer') {
     return `Case is closed (${STATUS_LABELS[currentStatus]}). No further status changes are permitted.`;
   }
 
-  // For terminal → any transition by Compliance_Officer, allow all EAAC target statuses
   if (isTerminalStatus(currentStatus) && role === 'Compliance_Officer') {
     const allowed = COMPLIANCE_OFFICER_STATUSES.filter(s => s !== currentStatus);
     if (!allowed.includes(newStatus)) {
@@ -111,7 +103,6 @@ const validateStatusTransition = (role, currentStatus, newStatus) => {
 };
 
 const getNextStatusesForRole = (role, currentStatus) => {
-  // Compliance_Officer can transition out of terminal statuses (reopen/override)
   if (isTerminalStatus(currentStatus)) {
     if (role === 'Compliance_Officer') {
       return COMPLIANCE_OFFICER_STATUSES.filter(s => s !== currentStatus);
@@ -121,12 +112,10 @@ const getNextStatusesForRole = (role, currentStatus) => {
   return STATUS_TRANSITIONS[currentStatus]?.[role] || [];
 };
 
-
 module.exports = {
   CASE_STATUSES,
   TERMINAL_STATUSES,
   COMPLIANCE_OFFICER_STATUSES,
-  INVESTIGATOR_STATUSES,
   CEO_STATUSES,
   STATUS_TRANSITIONS,
   STATUS_LABELS,

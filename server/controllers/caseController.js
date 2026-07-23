@@ -164,11 +164,8 @@ const listCases = async (req, res) => {
     let whereConditions = ['c.deleted_at IS NULL'];
     let params = [];
 
-    // Role-based filtering — per spec: Investigators see ONLY cases assigned to them
-    if (user.role === 'Investigator') {
-      whereConditions.push('c.assigned_investigator = ?');
-      params.push(user.userId);
-    } else if (user.role === 'Employee' || user.role === 'Branch_Manager') {
+    // Role-based filtering — Employees/Branch_Managers see only their own cases
+    if (user.role === 'Employee' || user.role === 'Branch_Manager') {
       whereConditions.push('c.user_id = ?');
       params.push(user.userId);
     }
@@ -296,12 +293,6 @@ const getCaseById = async (req, res) => {
         return res.status(403).json({ error: 'Access denied' });
       }
     }
-    if (user.role === 'Investigator') {
-      // Investigators can ONLY open cases assigned directly to them
-      if (caseData.assigned_investigator !== user.userId) {
-        return res.status(403).json({ error: 'Access denied. This case is not assigned to you.' });
-      }
-    }
 
     // Map to client format
     const formattedCase = {
@@ -324,9 +315,8 @@ const getCaseById = async (req, res) => {
       is_escalated: caseData.is_escalated === 1 || caseData.is_escalated === true,
     };
 
-    // Allow request owners, assigned Investigators, and Compliance Officers to view full description.
-    const isAssignedInvestigator = user.role === 'Investigator' && caseData.assigned_investigator === user.userId;
-    const canViewDescription = user.role === 'Compliance_Officer' || isAssignedInvestigator || caseData.user_id === user.userId;
+    // Allow request owners and Compliance Officers to view full description.
+    const canViewDescription = user.role === 'Compliance_Officer' || user.role === 'CEO' || caseData.user_id === user.userId;
     if (!canViewDescription) {
       delete formattedCase.description;
     }
@@ -381,15 +371,10 @@ const editCase = async (req, res) => {
 
     const caseData = rows[0];
     const isCompliance = user.role === 'Compliance_Officer';
-    const isInvestigator = user.role === 'Investigator';
     const isOwner = caseData.user_id === user.userId;
 
-    if (!isCompliance && !isInvestigator && !isOwner) {
+    if (!isCompliance && !isOwner) {
       return res.status(403).json({ error: 'You can only edit your own requests.' });
-    }
-
-    if (isInvestigator && caseData.assigned_investigator !== user.userId) {
-      return res.status(403).json({ error: 'You can only update cases assigned to you.' });
     }
 
     const updates = [];
@@ -421,15 +406,12 @@ const editCase = async (req, res) => {
     }
     const effectiveStatus = status ?? newStatus;
     if (effectiveStatus !== undefined) {
-      if (!isInvestigator && !isCompliance) {
-        return res.status(403).json({ error: 'Only investigators and compliance officers can update case status.' });
+      if (!isCompliance) {
+        return res.status(403).json({ error: 'Only the Ethics & Anti-Corruption Office can update case status.' });
       }
       if (effectiveStatus !== caseData.status) {
-        if (isInvestigator && !INVESTIGATOR_STATUSES.includes(effectiveStatus)) {
-          return res.status(403).json({ error: 'Investigators may only update status within their allowed workflow.' });
-        }
         if (isCompliance && !COMPLIANCE_OFFICER_STATUSES.includes(effectiveStatus)) {
-          return res.status(403).json({ error: 'Compliance Officers may only update status during assignment and review stages.' });
+          return res.status(403).json({ error: 'Invalid status transition for your role.' });
         }
       }
       updates.push('status = ?');
@@ -438,9 +420,8 @@ const editCase = async (req, res) => {
     const effectiveAssignment = assigned_to ?? assigned_investigator;
     if (effectiveAssignment !== undefined) {
       const isCEO = user.role === 'CEO';
-      // CEO can only assign on escalated cases (cases reported to them by Ethics Office)
       if (!isCompliance && !(isCEO && caseData.is_escalated)) {
-        return res.status(403).json({ error: 'Only Compliance Officers may assign or reassign cases. The CEO may assign investigators on escalated cases.' });
+        return res.status(403).json({ error: 'Only the Ethics & Anti-Corruption Office may assign cases. The CEO may assign handlers on escalated cases.' });
       }
       updates.push('assigned_investigator = ?');
       params.push(effectiveAssignment);

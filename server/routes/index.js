@@ -88,21 +88,21 @@ router.post('/cases',
 // List cases (staff only, role-filtered)
 router.get('/cases',
   authenticateStaff,
-  requireRole('Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO'),
+  requireRole('Employee', 'Branch_Manager', 'Compliance_Officer', 'CEO'),
   caseController.listCases
 );
 
 // Get single case
 router.get('/cases/:id',
   authenticateStaff,
-  requireRole('Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO'),
+  requireRole('Employee', 'Branch_Manager', 'Compliance_Officer', 'CEO'),
   caseController.getCaseById
 );
 
 // Update authenticated staff request details
 router.patch('/cases/:id',
   authenticateStaff,
-  requireRole('Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO'),
+  requireRole('Employee', 'Branch_Manager', 'Compliance_Officer', 'CEO'),
   sanitizeRequestBody,
   caseController.editCase
 );
@@ -110,16 +110,15 @@ router.patch('/cases/:id',
 // Soft delete authenticated staff request
 router.delete('/cases/:id',
   authenticateStaff,
-  requireRole('Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO'),
+  requireRole('Employee', 'Branch_Manager', 'Compliance_Officer', 'CEO'),
   sanitizeRequestBody,
   caseController.deleteCase
 );
 
 // Update case status/assignment
-// CEO is included so they can assign investigators on escalated cases
 router.patch('/cases/:id/status',
   authenticateStaff,
-  requireRole('Investigator', 'Compliance_Officer', 'CEO'),
+  requireRole('Compliance_Officer', 'CEO'),
   sanitizeRequestBody,
   validateStatusUpdate,
   handleValidationErrors,
@@ -257,10 +256,10 @@ router.post('/cases/:id/reports',
   }
 );
 
-// Request Branch Manager Help (Investigator or Compliance Officer)
+// Request Branch Manager Help (Compliance Officer only)
 router.post('/cases/:id/request-manager-help',
   authenticateStaff,
-  requireRole('Investigator', 'Compliance_Officer'),
+  requireRole('Compliance_Officer'),
   sanitizeRequestBody,
   caseController.requestManagerHelp
 );
@@ -289,7 +288,7 @@ router.delete('/cases/anonymous/evidence/:fileId',
 
 router.post('/cases/:id/evidence',
   authenticateStaff,
-  requireRole('Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO'),
+  requireRole('Employee', 'Branch_Manager', 'Compliance_Officer', 'CEO'),
   upload.single('file'),
   handleUploadErrors,
   processAndSaveFile,
@@ -298,13 +297,13 @@ router.post('/cases/:id/evidence',
 
 router.get('/cases/:id/evidence',
   authenticateStaff,
-  requireRole('Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO'),
+  requireRole('Employee', 'Branch_Manager', 'Compliance_Officer', 'CEO'),
   evidenceController.listEvidence
 );
 
 router.get('/cases/:id/evidence/:fileId/download',
   authenticateStaff,
-  requireRole('Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO'),
+  requireRole('Employee', 'Branch_Manager', 'Compliance_Officer', 'CEO'),
   evidenceController.downloadEvidence
 );
 
@@ -322,28 +321,28 @@ router.post('/cases/:id/notes',
   validateCreateNote,
   handleValidationErrors,
   authenticateStaff,
-  requireRole('Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO'),
+  requireRole('Employee', 'Branch_Manager', 'Compliance_Officer', 'CEO'),
   noteController.createNote
 );
 
 router.get('/cases/:id/notes',
   authenticateStaff,
-  requireRole('Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO'),
+  requireRole('Employee', 'Branch_Manager', 'Compliance_Officer', 'CEO'),
   noteController.getNotes
 );
 
-// Edit own note (CEO, Investigator, Compliance_Officer only)
+// Edit own note (CEO, Compliance_Officer only)
 router.patch('/cases/:id/notes/:noteId',
   authenticateStaff,
-  requireRole('Investigator', 'Compliance_Officer', 'CEO'),
+  requireRole('Compliance_Officer', 'CEO'),
   sanitizeRequestBody,
   noteController.updateNote
 );
 
-// Delete own note (CEO, Investigator, Compliance_Officer only)
+// Delete own note (CEO, Compliance_Officer only)
 router.delete('/cases/:id/notes/:noteId',
   authenticateStaff,
-  requireRole('Investigator', 'Compliance_Officer', 'CEO'),
+  requireRole('Compliance_Officer', 'CEO'),
   noteController.deleteNote
 );
 
@@ -377,7 +376,7 @@ router.patch('/users/:id/role',
   async (req, res) => {
     const { pool } = require('../config/db');
     const { role } = req.body;
-    const validRoles = ['Employee', 'Branch_Manager', 'Investigator', 'Compliance_Officer', 'CEO', 'System_Admin', 'Auditor'];
+    const validRoles = ['Employee', 'Branch_Manager', 'Compliance_Officer', 'CEO', 'System_Admin', 'Auditor'];
     if (!validRoles.includes(role)) {
       return res.status(422).json({ error: 'Invalid role' });
     }

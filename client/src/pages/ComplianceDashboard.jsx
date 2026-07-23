@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -9,6 +9,7 @@ import {
   AlertTriangle, CheckCircle, Clock, FileText,
   TrendingUp, Users, ChevronRight, X, Filter,
   Briefcase, BarChart3, MessageSquare, Send, Shield, Zap,
+  Paperclip, Trash2, Bold, Italic, List, Type,
 } from 'lucide-react';
 import { CASE_STATUSES, STATUS_BADGE, formatStatus } from '../constants/caseWorkflow';
 import {
@@ -48,6 +49,15 @@ export default function EthicsDashboard() {
   const [escalateModal, setEscalateModal] = useState(null);
   const [escalationNote, setEscalationNote] = useState('');
   const [escalating, setEscalating] = useState(false);
+
+  // Gmail-style compose state
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [composeCase, setComposeCase] = useState(null);
+  const [composeSubject, setComposeSubject] = useState('');
+  const [composeBody, setComposeBody] = useState('');
+  const [composeFile, setComposeFile] = useState(null);
+  const [composeSending, setComposeSending] = useState(false);
+  const composeFileRef = useRef(null);
 
   // CEO chat state
   const [ceoChatCases, setCeoChatCases] = useState([]);
@@ -211,6 +221,41 @@ export default function EthicsDashboard() {
       toast.error(err.response?.data?.error || 'Escalation failed');
     }
     setEscalating(false);
+  };
+
+  // ── Open Gmail compose for a case ──────────────────────────
+  const openCompose = (c) => {
+    setComposeCase(c);
+    setComposeSubject(`[${c.reference_id}] ${c.category?.replace(/_/g, ' ')} — Escalation Report`);
+    setComposeBody('');
+    setComposeFile(null);
+    setComposeOpen(true);
+  };
+
+  // ── Send report to CEO ─────────────────────────────────────
+  const sendReport = async () => {
+    if (!composeSubject.trim()) { toast.error('Subject is required'); return; }
+    if (!composeBody.trim()) { toast.error('Report body is required'); return; }
+    setComposeSending(true);
+    try {
+      const formData = new FormData();
+      formData.append('subject', composeSubject.trim());
+      formData.append('body', composeBody.trim());
+      if (composeFile) formData.append('file', composeFile);
+      await api.post(`/cases/${composeCase.id}/reports`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      toast.success('Report sent to CEO successfully');
+      setComposeOpen(false);
+      setComposeCase(null);
+      setComposeSubject('');
+      setComposeBody('');
+      setComposeFile(null);
+      loadAll();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to send report');
+    }
+    setComposeSending(false);
   };
 
   // ── Workload: count cases per investigator ─────────────────
@@ -396,9 +441,9 @@ export default function EthicsDashboard() {
                               <TrendingUp size={12} />
                             </button>
                             <button
-                              onClick={() => { setEscalateModal(c); setEscalationNote(''); }}
+                              onClick={() => openCompose(c)}
                               className="btn btn-ghost text-xs py-1 px-2 text-red-600 hover:bg-red-50"
-                              title="Escalate to CEO with Report">
+                              title="Send Report to CEO">
                               <Zap size={13} />
                             </button>
                           </div>
@@ -930,68 +975,144 @@ export default function EthicsDashboard() {
         </div>
       )}
 
-      {/* ══════════════ ESCALATE TO CEO MODAL ══════════════ */}
-      {escalateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(10,29,55,0.5)' }}>
-          <div className="card p-0 w-full max-w-lg mx-4 fade-in-up" style={{ maxHeight: '90vh', overflow: 'auto' }}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Zap size={16} className="text-red-600" />
-                  <h3 className="text-base font-bold" style={{ color: 'var(--color-navy-900)' }}>
-                    Escalate to CEO
-                  </h3>
+      {/* ══════════════ GMAIL-STYLE COMPOSE — SEND REPORT TO CEO ══════════════ */}
+      {composeOpen && composeCase && (
+        <div className="fixed inset-0 z-50 flex items-end justify-end p-6"
+          style={{ background: 'rgba(10,29,55,0.45)', backdropFilter: 'blur(2px)' }}>
+          <div className="w-full max-w-2xl fade-in-up"
+            style={{
+              background: '#fff',
+              borderRadius: '1.25rem',
+              boxShadow: '0 32px 80px rgba(10,29,55,0.32)',
+              border: '1px solid rgba(10,29,55,0.1)',
+              overflow: 'hidden',
+            }}>
+
+            {/* ── Compose header ── */}
+            <div className="flex items-center justify-between px-5 py-3.5"
+              style={{ background: 'linear-gradient(135deg, #0A1D37 0%, #1e3a5f 100%)' }}>
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center"
+                  style={{ background: 'rgba(249,168,38,0.2)' }}>
+                  <Zap size={14} style={{ color: '#F9A826' }} />
                 </div>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Case: <span className="font-mono font-bold">{escalateModal.reference_id}</span>
-                </p>
+                <div>
+                  <p className="text-sm font-bold text-white">New Report to CEO</p>
+                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                    Case {composeCase.reference_id} · {composeCase.category?.replace(/_/g, ' ')}
+                  </p>
+                </div>
               </div>
-              <button onClick={() => { setEscalateModal(null); setEscalationNote(''); }}
-                className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
-                <X size={16} className="text-slate-400" />
+              <button onClick={() => { setComposeOpen(false); setComposeCase(null); }}
+                className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
+                style={{ color: 'rgba(255,255,255,0.6)' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                <X size={15} />
               </button>
             </div>
-            <div className="px-6 py-5">
-              {/* Case summary */}
-              <div className="rounded-xl p-3 mb-4" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <span className="text-slate-500">Category</span>
-                    <p className="font-semibold mt-0.5" style={{ color: 'var(--color-navy-900)' }}>{escalateModal.category?.replace(/_/g, ' ')}</p>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">Priority</span>
-                    <p className="mt-0.5"><span className={`badge ${PRIORITY_BADGE[escalateModal.priority] || 'badge-medium'}`}>{escalateModal.priority}</span></p>
-                  </div>
-                </div>
+
+            {/* ── To field ── */}
+            <div className="flex items-center gap-3 px-5 py-3"
+              style={{ borderBottom: '1px solid #f1f5f9' }}>
+              <span className="text-xs font-semibold text-slate-400 w-10">To</span>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold"
+                style={{ background: '#fee2e2', color: '#b91c1c' }}>
+                <Shield size={11} /> CEO
               </div>
+              <span className="text-xs text-slate-300">·</span>
+              <span className="text-xs text-slate-400 font-mono">{composeCase.reference_id}</span>
+            </div>
 
-              {/* Escalation note / report */}
-              <label className="form-label">
-                Critical Report to CEO <span className="text-slate-400 font-normal">(recommended)</span>
-              </label>
-              <textarea
-                className="form-textarea w-full text-sm"
-                rows={6}
-                placeholder="Describe the critical findings, evidence reviewed, and why this case requires CEO-level intervention...
-
-Example:
-- Allegations of fraud involving senior management
-- Supporting documents reviewed: [list evidence]
-- Immediate action required: suspend implicated accounts pending investigation"
-                value={escalationNote}
-                onChange={e => setEscalationNote(e.target.value)}
+            {/* ── Subject ── */}
+            <div className="flex items-center gap-3 px-5 py-3"
+              style={{ borderBottom: '1px solid #f1f5f9' }}>
+              <span className="text-xs font-semibold text-slate-400 w-10">Subject</span>
+              <input
+                className="flex-1 text-sm font-semibold focus:outline-none"
+                style={{ color: 'var(--color-navy-900)', background: 'transparent' }}
+                value={composeSubject}
+                onChange={e => setComposeSubject(e.target.value)}
+                placeholder="Report subject…"
               />
-              <p className="text-xs text-slate-400 mt-1.5">
-                This report will be sent directly to the CEO and attached to the case. If left empty, a standard escalation notice will be sent.
-              </p>
             </div>
-            <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-slate-100">
-              <button onClick={() => { setEscalateModal(null); setEscalationNote(''); }} className="btn btn-ghost text-sm">Cancel</button>
-              <button onClick={doEscalate} disabled={escalating} className="btn btn-primary text-sm"
-                style={{ background: '#dc2626', borderColor: '#dc2626' }}>
-                {escalating ? <><span className="spinner" /> Escalating...</> : <><Zap size={14} /> Escalate to CEO</>}
-              </button>
+
+            {/* ── Body ── */}
+            <textarea
+              className="w-full text-sm px-5 py-4 resize-none focus:outline-none"
+              rows={10}
+              placeholder={`Write your formal report to the CEO…\n\nExample:\n\nDear CEO,\n\nFollowing our investigation into case ${composeCase.reference_id}, we have identified the following critical findings:\n\n1. [Finding one]\n2. [Finding two]\n\nWe recommend immediate action regarding…\n\nRegards,\nEthics & Anti-Corruption Office`}
+              value={composeBody}
+              onChange={e => setComposeBody(e.target.value)}
+              style={{ background: '#fff', lineHeight: '1.7' }}
+            />
+
+            {/* ── Attachment preview ── */}
+            {composeFile && (
+              <div className="mx-5 mb-3 flex items-center gap-2.5 px-3 py-2.5 rounded-xl"
+                style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ background: '#e8edf5' }}>
+                  <Paperclip size={14} style={{ color: 'var(--color-navy-900)' }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-slate-700 truncate">{composeFile.name}</p>
+                  <p className="text-xs text-slate-400">{(composeFile.size / 1024).toFixed(1)} KB</p>
+                </div>
+                <button onClick={() => setComposeFile(null)}
+                  className="p-1 rounded-lg hover:bg-slate-200 transition-colors text-slate-400">
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            )}
+
+            {/* ── Footer toolbar ── */}
+            <div className="flex items-center justify-between px-5 py-3.5"
+              style={{ borderTop: '1px solid #f1f5f9', background: '#fafbfc' }}>
+              <div className="flex items-center gap-1">
+                {/* Attach file */}
+                <input
+                  ref={composeFileRef}
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.zip"
+                  onChange={e => setComposeFile(e.target.files[0] || null)}
+                />
+                <button
+                  onClick={() => composeFileRef.current?.click()}
+                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-colors"
+                  style={{ color: '#475569' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  title="Attach evidence file">
+                  <Paperclip size={14} />
+                  {composeFile ? 'Change file' : 'Attach evidence'}
+                </button>
+                <span className="text-xs text-slate-300 mx-1">|</span>
+                <span className="text-xs text-slate-400">
+                  PDF, Word, Excel, Images · Max 10MB
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { setComposeOpen(false); setComposeCase(null); }}
+                  className="btn btn-ghost text-sm">
+                  Discard
+                </button>
+                <button
+                  onClick={sendReport}
+                  disabled={composeSending || !composeSubject.trim() || !composeBody.trim()}
+                  className="btn btn-primary text-sm flex items-center gap-1.5"
+                  style={{
+                    background: 'linear-gradient(135deg, #0A1D37, #1e3a5f)',
+                    opacity: (!composeSubject.trim() || !composeBody.trim()) ? 0.5 : 1,
+                  }}>
+                  {composeSending
+                    ? <><span className="spinner" /> Sending…</>
+                    : <><Send size={14} /> Send Report to CEO</>}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -304,6 +304,8 @@ export default function TrackCasePage() {
       return true;
     }),
   });
+
+  const availableReplyRecipients = result?.correspondence?.reduce((roles, note) => {
     if (note.sender_role === 'Investigator' && !roles.includes('Investigator')) roles.push('Investigator');
     if (note.sender_role === 'Compliance_Officer' && !roles.includes('Compliance_Officer')) roles.push('Compliance_Officer');
     if (note.sender_role === 'CEO' && !roles.includes('CEO')) roles.push('CEO');
