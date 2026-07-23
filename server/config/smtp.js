@@ -1,43 +1,49 @@
 const nodemailer = require('nodemailer');
 require('dotenv').config();
 
-const transporter = nodemailer.createTransport({
-  host: process.env.BANK_SMTP_HOST,
-  port: parseInt(process.env.BANK_SMTP_PORT) || 587,
-  secure: false, // STARTTLS — upgrades after initial connection
-  requireTLS: true,
-  auth: {
-    user: process.env.BANK_SMTP_USER,
-    pass: process.env.BANK_SMTP_PASSWORD,
-  },
-  tls: {
-    ciphers: 'SSLv3',
-    rejectUnauthorized: process.env.NODE_ENV === 'production',
-  },
-});
-
 /**
- * Sends an email notification.
- * IMPORTANT: Never include PII, case descriptions, or reference IDs in subject/body.
- * All email content must be generic status notifications only.
- *
- * @param {Object} options - { to, subject, html, text }
+ * Creates a Gmail transporter on demand so env vars are
+ * guaranteed to be loaded before the transport is built.
  */
-const sendEmail = async ({ to, subject, html, text }) => {
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[SMTP] Dev mode — email not sent. Subject:', subject);
-    return { accepted: [to], messageId: 'dev-mock-id' };
-  }
-
-  const info = await transporter.sendMail({
-    from: process.env.BANK_SMTP_FROM,
-    to,
-    subject,
-    text,
-    html,
+const createTransporter = () =>
+  nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
   });
 
-  return info;
+/**
+ * Sends an email via Gmail SMTP (App Password auth).
+ * Never crashes the calling code — errors are logged only.
+ *
+ * @param {Object} opts - { to, subject, text, html }
+ */
+const sendEmail = async ({ to, subject, text, html }) => {
+  const gmailUser = process.env.GMAIL_USER;
+  const gmailPass = process.env.GMAIL_APP_PASSWORD;
+
+  if (!gmailUser || !gmailPass) {
+    console.error('[SMTP] GMAIL_USER or GMAIL_APP_PASSWORD not set in .env — email not sent');
+    return null;
+  }
+
+  try {
+    const transporter = createTransporter();
+    const info = await transporter.sendMail({
+      from: `"Rammis Bank DWBS" <${gmailUser}>`,
+      to,
+      subject,
+      text,
+      html,
+    });
+    console.log('[SMTP] Email sent to', to, '| MessageId:', info.messageId);
+    return info;
+  } catch (err) {
+    console.error('[SMTP] Failed to send email to', to, ':', err.message);
+    return null;
+  }
 };
 
-module.exports = { transporter, sendEmail };
+module.exports = { sendEmail };

@@ -94,10 +94,17 @@ const createCase = async (req, res) => {
       },
     });
 
-    // Always notify Ethics & Anti-Corruption Office (Compliance Officers) of new report
+    // Always notify Ethics & Anti-Corruption Office (EAAC) of every new report.
+    // The EAAC Gmail (mujuhusu@gmail.com) is always notified via EAAC_EMAIL env var.
+    // Also notify any other active Compliance Officers found in the DB.
     try {
+      // Always send to the fixed EAAC Gmail address first
+      emailService.notifyNewCaseToCompliance(process.env.EAAC_EMAIL || 'mujuhusu@gmail.com').catch(() => {});
+
+      // Also notify other active Compliance Officers in the system (if any)
       const [compRows] = await pool.execute(
-        `SELECT email FROM users WHERE role = 'Compliance_Officer' AND is_active = 1 LIMIT 3`
+        `SELECT email FROM users WHERE role = 'Compliance_Officer' AND is_active = 1 AND email != ? LIMIT 3`,
+        [process.env.EAAC_EMAIL || 'mujuhusu@gmail.com']
       );
       for (const c of compRows) {
         emailService.notifyNewCaseToCompliance(c.email).catch(() => {});

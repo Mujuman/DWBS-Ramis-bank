@@ -6,39 +6,80 @@ const { sendEmail } = require('../config/smtp');
  * PRIVACY RULE: Emails must NEVER include:
  * - Case descriptions or report content
  * - Reporter identity information
- * - Specific case reference IDs (use generic notification language)
+ * - Specific case reference IDs in body text
  * - Investigator names or contact details in reporter-facing emails
  *
  * Only generic status update messages are permitted.
  */
 
+// EAAC fixed recipient — always notified on new cases
+// Read inside functions (not at module load) so dotenv is guaranteed to be loaded
+const getEAACEmail = () => process.env.EAAC_EMAIL || 'mujahidhussen75@gmail.com';
+
 const emailService = {
   /**
-   * Notifies the compliance team that a new case has been submitted.
-   * Sent to internal staff only — never to the reporter.
+   * Notifies the Ethics & Anti-Corruption Office (EAAC) that a new case
+   * has been submitted. Always sends to the EAAC email from env.
    */
   async notifyNewCaseToCompliance(complianceEmail) {
+    const eaacEmail = getEAACEmail();
+
+    // Build recipient list — always include EAAC, add extra email if different
+    const recipients = [eaacEmail];
+    if (complianceEmail && complianceEmail !== eaacEmail) {
+      recipients.push(complianceEmail);
+    }
+
     await sendEmail({
-      to: complianceEmail,
+      to: recipients.join(', '),
       subject: '[DWBS] New Whistleblowing Report Submitted',
-      text: `A new report has been submitted to the Digital Whistleblowing System. Please log in to the DWBS portal to review and assign this case.`,
+      text: `A new report has been submitted to the Digital Whistleblowing System.\n\nPlease log in to the DWBS portal to review and assign this case to an investigator.\n\nPortal: ${process.env.CLIENT_ORIGIN}/login`,
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px;">
-          <div style="background: #0A1D37; padding: 20px; text-align: center;">
-            <h2 style="color: #F9A826; margin: 0;">Rammis Bank DWBS</h2>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+          <div style="background: #0A1D37; padding: 24px; text-align: center;">
+            <h2 style="color: #F9A826; margin: 0; font-size: 20px; letter-spacing: 1px;">
+              Rammis Bank DWBS
+            </h2>
+            <p style="color: #94a3b8; margin: 6px 0 0; font-size: 13px;">
+              Digital Whistleblowing System
+            </p>
           </div>
-          <div style="padding: 30px; background: #f8f9fa;">
-            <p>A new whistleblowing report has been submitted to the Digital Whistleblowing System.</p>
-            <p>Please log in to the DWBS portal to review and assign this case to an investigator.</p>
-            <div style="text-align: center; margin: 30px 0;">
+          <div style="padding: 32px; background: #ffffff;">
+            <div style="background: #fef3c7; border-left: 4px solid #F9A826; padding: 14px 18px; border-radius: 4px; margin-bottom: 24px;">
+              <p style="margin: 0; font-size: 14px; color: #92400e; font-weight: 600;">
+                ⚠️ Action Required — New Report Submitted
+              </p>
+            </div>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              A new whistleblowing report has been submitted to the
+              <strong>Digital Whistleblowing System</strong> and is awaiting
+              your review.
+            </p>
+            <p style="color: #374151; font-size: 15px; line-height: 1.6;">
+              Please log in to the DWBS portal to:
+            </p>
+            <ul style="color: #374151; font-size: 14px; line-height: 2;">
+              <li>Review the report details</li>
+              <li>Assess the severity and category</li>
+              <li>Assign a Case Investigator</li>
+              <li>Escalate to the CEO if critical</li>
+            </ul>
+            <div style="text-align: center; margin: 32px 0;">
               <a href="${process.env.CLIENT_ORIGIN}/login"
-                 style="background: #0A1D37; color: #F9A826; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
-                Access DWBS Portal
+                 style="background: #0A1D37; color: #F9A826; padding: 14px 32px;
+                        text-decoration: none; border-radius: 6px; font-weight: bold;
+                        font-size: 15px; display: inline-block;">
+                Open DWBS Portal
               </a>
             </div>
-            <p style="color: #999; font-size: 12px;">
-              This is an automated notification. Do not reply to this email.<br>
-              Rammis Bank — Digital Whistleblowing System
+            <p style="color: #9ca3af; font-size: 12px; border-top: 1px solid #f1f5f9; padding-top: 16px; margin-top: 24px;">
+              This is an automated notification from the Rammis Bank Digital Whistleblowing System.<br>
+              Do not reply to this email. For issues contact your System Administrator.
+            </p>
+          </div>
+          <div style="background: #0A1D37; padding: 12px; text-align: center;">
+            <p style="color: #475569; font-size: 11px; margin: 0;">
+              Rammis Bank S.C. — Confidential Internal System
             </p>
           </div>
         </div>
