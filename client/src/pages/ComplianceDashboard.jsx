@@ -35,21 +35,6 @@ export default function EthicsDashboard() {
   const [activeTab, setActiveTab] = useState('queue');
   const [filters, setFilters] = useState({ status: '', priority: '', category: '', search: '', page: 1 });
 
-  // assign modal
-  const [assignModal, setAssignModal] = useState(null);
-  const [assignTarget, setAssignTarget] = useState('');
-  const [assigning, setAssigning] = useState(false);
-
-  // severity override modal
-  const [severityModal, setSeverityModal] = useState(null);
-  const [newSeverity, setNewSeverity] = useState('');
-  const [overriding, setOverriding] = useState(false);
-
-  // escalation modal (with description)
-  const [escalateModal, setEscalateModal] = useState(null);
-  const [escalationNote, setEscalationNote] = useState('');
-  const [escalating, setEscalating] = useState(false);
-
   // Gmail-style compose state
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeCase, setComposeCase] = useState(null);
@@ -59,13 +44,10 @@ export default function EthicsDashboard() {
   const [composeSending, setComposeSending] = useState(false);
   const composeFileRef = useRef(null);
 
-  // CEO chat state
-  const [ceoChatCases, setCeoChatCases] = useState([]);
-  const [selectedChatCase, setSelectedChatCase] = useState(null);
-  const [chatNotes, setChatNotes] = useState([]);
-  const [chatMessage, setChatMessage] = useState('');
-  const [sendingChat, setSendingChat] = useState(false);
-  const [chatLoading, setChatLoading] = useState(false);
+  // Severity override modal
+  const [severityModal, setSeverityModal] = useState(null);
+  const [newSeverity, setNewSeverity] = useState('');
+  const [overriding, setOverriding] = useState(false);
 
   const loadAll = useCallback(async (f = filters) => {
     setLoading(true);
@@ -76,11 +58,9 @@ export default function EthicsDashboard() {
       if (f.category) params.category = f.category;
       if (f.search) params.search = f.search;
 
-      const [cRes, sRes, uRes, escalatedRes] = await Promise.allSettled([
+      const [cRes, sRes] = await Promise.allSettled([
         api.get('/cases', { params }),
         api.get('/cases/stats'),
-        api.get('/users'),
-        api.get('/cases', { params: { is_escalated: 1, limit: 100 } }),
       ]);
 
       if (cRes.status === 'fulfilled') {
@@ -95,19 +75,6 @@ export default function EthicsDashboard() {
         setStats(sRes.value.data);
       } else {
         console.error('[EthicsDashboard] stats fetch failed:', sRes.reason);
-      }
-
-      if (uRes.status === 'fulfilled') {
-        setHandlers((uRes.value.data.users || []).filter(u => u.role === 'Compliance_Officer' && u.is_active));
-      } else {
-        console.error('[EthicsDashboard] users fetch failed:', uRes.reason);
-      }
-
-      if (escalatedRes.status === 'fulfilled') {
-        setCeoChatCases(escalatedRes.value.data.cases || []);
-      } else {
-        console.error('[EthicsDashboard] escalated cases fetch failed:', escalatedRes.reason);
-        setCeoChatCases([]);
       }
 
     } catch (err) {
