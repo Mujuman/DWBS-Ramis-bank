@@ -230,6 +230,31 @@ h1, h2, h3, h4, h5, h6 {
   resize: vertical;
   min-height: 120px;
 }
+
+/* ── contentEditable rich-text editor (used in report forms) ── */
+[contenteditable].form-textarea {
+  resize: none;         /* divs can't use CSS resize */
+  min-height: 180px;
+  cursor: text;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-y: auto;
+}
+[contenteditable].form-textarea:focus {
+  border-color: var(--color-gold-500);
+  box-shadow: 0 0 0 3px rgba(249,168,38,0.15);
+  outline: none;
+}
+/* Placeholder via ::before when the div is empty */
+[contenteditable].form-textarea:empty::before,
+[contenteditable].form-textarea[data-placeholder]:not(:focus):empty::before {
+  content: attr(data-placeholder);
+  color: var(--color-slate-400);
+  font-style: italic;
+  pointer-events: none;
+  display: block;
+}
 .form-error {
   font-size: 0.75rem;
   color: var(--color-danger-500);

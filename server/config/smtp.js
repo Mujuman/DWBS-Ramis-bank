@@ -2,19 +2,6 @@ const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 /**
- * Creates a Gmail transporter on demand so env vars are
- * guaranteed to be loaded before the transport is built.
- */
-const createTransporter = () =>
-  nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.GMAIL_USER,
-      pass: process.env.GMAIL_APP_PASSWORD,
-    },
-  });
-
-/**
  * Sends an email via Gmail SMTP (App Password auth).
  * Never crashes the calling code — errors are logged only.
  *
@@ -22,7 +9,8 @@ const createTransporter = () =>
  */
 const sendEmail = async ({ to, subject, text, html }) => {
   const gmailUser = process.env.GMAIL_USER;
-  const gmailPass = process.env.GMAIL_APP_PASSWORD;
+  // Strip all whitespace from the app password — spaces are invalid but easy to accidentally include
+  const gmailPass = (process.env.GMAIL_APP_PASSWORD || '').replace(/\s/g, '');
 
   if (!gmailUser || !gmailPass) {
     console.error('[SMTP] GMAIL_USER or GMAIL_APP_PASSWORD not set in .env — email not sent');
@@ -30,7 +18,16 @@ const sendEmail = async ({ to, subject, text, html }) => {
   }
 
   try {
-    const transporter = createTransporter();
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 10000,
+      auth: {
+        user: gmailUser,
+        pass: gmailPass,
+      },
+    });
     const info = await transporter.sendMail({
       from: `"Rammis Bank DWBS" <${gmailUser}>`,
       to,

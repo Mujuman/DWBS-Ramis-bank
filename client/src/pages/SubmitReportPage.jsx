@@ -49,10 +49,21 @@ export default function SubmitReportPage() {
   const descriptionRef = useRef(null);
   const [descriptionLength, setDescriptionLength] = useState(0);
 
+  // Initialize editor content once on mount (avoids contentEditable re-render conflict)
+  useEffect(() => {
+    if (descriptionRef.current) {
+      const initial = getValues('description') || '';
+      if (initial) descriptionRef.current.innerHTML = initial;
+    }
+  }, []);
+
   const updateDescriptionHtml = () => {
     const html = descriptionRef.current?.innerHTML || '';
-    setValue('description', html, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
-    setDescriptionLength(descriptionRef.current?.innerText?.trim().length || 0);
+    // Treat a div with only <br> or whitespace as empty
+    const text = descriptionRef.current?.innerText?.trim() || '';
+    const isEmpty = !text || text === '\n';
+    setValue('description', isEmpty ? '' : html, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+    setDescriptionLength(isEmpty ? 0 : text.length);
   };
 
   const applyFormatting = (action) => {
@@ -426,17 +437,17 @@ export default function SubmitReportPage() {
                 <label className="form-label">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="inline-flex items-center gap-2 font-semibold text-slate-800">
-                      <Edit3 size={14} /> Misconduct Rich Text Editor *
+                      <Edit3 size={14} /> Misconduct Description *
                     </span>
                     <span className="inline-flex items-center gap-1 text-slate-400">
-                      <button type="button" aria-label="Plain text" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('type')}><Type size={14} /></button>
-                      <button type="button" aria-label="Bold" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('bold')}><Bold size={14} /></button>
-                      <button type="button" aria-label="Italic" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('italic')}><Italic size={14} /></button>
-                      <button type="button" aria-label="Underline" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('underline')}><Underline size={14} /></button>
-                      <button type="button" aria-label="Heading" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('heading')}><Heading size={14} /></button>
-                      <button type="button" aria-label="List" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('list')}><List size={14} /></button>
-                      <button type="button" aria-label="Code" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('code')}><Code size={14} /></button>
-                      <button type="button" aria-label="Strikethrough" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('strikethrough')}><Strikethrough size={14} /></button>
+                      <button type="button" aria-label="Plain text" title="Plain text" className="p-1 rounded hover:bg-slate-100 transition" onClick={() => applyFormatting('type')}><Type size={13} /></button>
+                      <button type="button" aria-label="Bold" title="Bold" className="p-1 rounded hover:bg-slate-100 transition" onClick={() => applyFormatting('bold')}><Bold size={13} /></button>
+                      <button type="button" aria-label="Italic" title="Italic" className="p-1 rounded hover:bg-slate-100 transition" onClick={() => applyFormatting('italic')}><Italic size={13} /></button>
+                      <button type="button" aria-label="Underline" title="Underline" className="p-1 rounded hover:bg-slate-100 transition" onClick={() => applyFormatting('underline')}><Underline size={13} /></button>
+                      <button type="button" aria-label="Heading" title="Heading" className="p-1 rounded hover:bg-slate-100 transition" onClick={() => applyFormatting('heading')}><Heading size={13} /></button>
+                      <button type="button" aria-label="List" title="List" className="p-1 rounded hover:bg-slate-100 transition" onClick={() => applyFormatting('list')}><List size={13} /></button>
+                      <button type="button" aria-label="Code" title="Code" className="p-1 rounded hover:bg-slate-100 transition" onClick={() => applyFormatting('code')}><Code size={13} /></button>
+                      <button type="button" aria-label="Strikethrough" title="Strikethrough" className="p-1 rounded hover:bg-slate-100 transition" onClick={() => applyFormatting('strikethrough')}><Strikethrough size={13} /></button>
                     </span>
                   </div>
                 </label>
@@ -447,19 +458,32 @@ export default function SubmitReportPage() {
                     minLength: { value: 20, message: 'Please provide at least 20 characters' },
                   })}
                 />
-
-                <div
-                  ref={descriptionRef}
-                  id="misconduct-description"
-                  className="form-textarea min-h-[150px] overflow-auto"
-                  contentEditable
-                  suppressContentEditableWarning
-                  onInput={updateDescriptionHtml}
-                  data-placeholder="Describe the incident in detail: what happened, who was involved (without revealing your own identity), where it occurred, and any other relevant information..."
-                  dangerouslySetInnerHTML={{ __html: getValues('description') || '' }}
-                />
-                {errors.description && <p className="form-error">{errors.description.message}</p>}
-                <p className="text-xs text-slate-400 mt-1">{descriptionLength} characters</p>
+                {/* Wrapper gives the resize grip on the bottom-right corner */}
+                <div style={{ position: 'relative' }}>
+                  <div
+                    ref={descriptionRef}
+                    id="misconduct-description"
+                    role="textbox"
+                    aria-label="Misconduct description"
+                    aria-multiline="true"
+                    tabIndex={0}
+                    className="form-textarea"
+                    contentEditable
+                    suppressContentEditableWarning
+                    onInput={updateDescriptionHtml}
+                    onBlur={updateDescriptionHtml}
+                    data-placeholder="Describe the incident in detail: what happened, who was involved, where it occurred, and any other relevant information. Do not include information that could identify you."
+                    style={{ minHeight: '180px', maxHeight: '420px', overflowY: 'auto', resize: 'vertical' }}
+                  />
+                </div>
+                <div className="flex items-center justify-between mt-1">
+                  {errors.description
+                    ? <p className="form-error">{errors.description.message}</p>
+                    : <p className="text-xs text-slate-400">Minimum 20 characters required</p>}
+                  <p className={`text-xs ${descriptionLength < 20 ? 'text-red-400' : 'text-green-600'}`}>
+                    {descriptionLength} chars
+                  </p>
+                </div>
               </div>
             </div>
 
