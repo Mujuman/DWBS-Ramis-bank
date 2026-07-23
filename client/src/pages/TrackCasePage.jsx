@@ -183,20 +183,7 @@ export default function TrackCasePage() {
     try {
       const res = await api.get('/cases/track', { params: { reference_id: reference_id.toUpperCase().trim() } });
       // Strip CEO↔Ethics messages — reporter must only see messages directed at them
-      const filteredData = {
-        ...res.data,
-        correspondence: (res.data.correspondence || []).filter(note => {
-          // Block CEO→Ethics and Ethics→CEO messages entirely
-          if (note.sender_role === 'CEO') return false;
-          if (note.sender_role === 'Compliance_Officer' && note.recipient_role === 'CEO') return false;
-          // Block any staff message not directed at the reporter
-          if (['Investigator','Compliance_Officer','CEO'].includes(note.sender_role)) {
-            return note.recipient_role === 'Reporter' || note.recipient_role === 'General' || !note.recipient_role;
-          }
-          return true;
-        }),
-      };
-      setResult(filteredData);
+      setResult(filterCorrespondence(res.data));
       setEvidence([]);
       setEvidenceFile(null);
       const hasInvestigatorMessage = res.data.correspondence?.some(note => note.sender_role === 'Investigator');
@@ -237,7 +224,7 @@ export default function TrackCasePage() {
       
       // Refresh tracked case info
       const res = await api.get('/cases/track', { params: { reference_id: result.case.reference_id } });
-      setResult(res.data);
+      setResult(filterCorrespondence(res.data));
       // Reset form input values
       setEditToken('');
       setEditDescription('');
@@ -297,7 +284,7 @@ export default function TrackCasePage() {
       setReplyBody('');
       setReplyToken('');
       const res = await api.get('/cases/track', { params: { reference_id: result.case.reference_id } });
-      setResult(res.data);
+      setResult(filterCorrespondence(res.data));
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to send response. Please check your token.');
     } finally {
@@ -305,7 +292,18 @@ export default function TrackCasePage() {
     }
   };
 
-  const availableReplyRecipients = result?.correspondence?.reduce((roles, note) => {
+  // ── Filter correspondence so reporter never sees CEO↔Ethics messages ─
+  const filterCorrespondence = (data) => ({
+    ...data,
+    correspondence: (data.correspondence || []).filter(note => {
+      if (note.sender_role === 'CEO') return false;
+      if (note.sender_role === 'Compliance_Officer' && note.recipient_role === 'CEO') return false;
+      if (['Investigator', 'Compliance_Officer', 'CEO'].includes(note.sender_role)) {
+        return note.recipient_role === 'Reporter' || note.recipient_role === 'General' || !note.recipient_role;
+      }
+      return true;
+    }),
+  });
     if (note.sender_role === 'Investigator' && !roles.includes('Investigator')) roles.push('Investigator');
     if (note.sender_role === 'Compliance_Officer' && !roles.includes('Compliance_Officer')) roles.push('Compliance_Officer');
     if (note.sender_role === 'CEO' && !roles.includes('CEO')) roles.push('CEO');

@@ -133,6 +133,130 @@ router.post('/cases/:id/escalate',
   caseController.escalateCase
 );
 
+// ── EAAC Report to CEO ────────────────────────────────────────
+// POST /api/cases/:id/reports
+// Ethics & Anti-Corruption sends a formal report (subject + body + optional file) to CEO.
+router.post('/cases/:id/reports',
+  authenticateStaff,
+  requireRole('Compliance_Officer'),
+  upload.single('file'),
+  handleUploadErrors,
+  processAndSaveFile,
+  async (req, res) => {
+    const { pool } = require('../config/db');
+    const { writeAuditLog } = require('../services/auditService');
+    const { createNotification } = require('../controllers/notificationController');
+    const emailService = require('../services/emailService');
+    const caseId = parseInt(req.params.id);
+    const { subject, body } = req.body;
+
+    if (!subject || !subject.trim()) {
+      return res.status(400).json({ error: 'Report subject is required' });
+    }
+    if (!body || !body.trim()) {
+      return res.status(400).json({ error: 'Report body is required' });
+    }
+
+    try {
+      // Verify case exists
+      const [caseRows] = await pool.execute(
+        `SELECT case_id, reference_id, category, is_escalated FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
+        [caseId]
+      );
+      if (caseRows.length === 0) {
+        return res.status(404).json({ error: 'Case not found' });
+      }
+      const caseData = caseRows[0];
+
+      // Save attached file as evidence if provided
+      let attachedFile = null;
+      if (req.file) {
+        const fileName = req.processedFile?.originalFilename || req.file.originalname;
+        const filePath = req.processedFile?.storedFilename || req.file.filename;
+        const encryptionIv = req.processedFile?.encryptionIv || null;
+        const mimeType = req.processedFile?.mimeType || req.file.mimetype || 'application/octet-stream';
+
+        // Check if mime_type column exists
+        const [cols] = await pool.execute("SHOW COLUMNS FROM evidencefiles LIKE 'mime_type'");
+        if (cols.length > 0) {
+          await pool.execute(
+            `INSERT INTO evidencefiles (case_id, file_name, file_path, encryption_iv, uploaded_by, mime_type)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [caseId, fileName, filePath, encryptionIv, req.user.userId, mimeType]
+          );
+        } else {
+          await pool.execute(
+            `INSERT INTO evidencefiles (case_id, file_name, file_path, encryption_iv, uploaded_by)
+             VALUES (?, ?, ?, ?, ?)`,
+            [caseId, fileName, filePath, encryptionIv, req.user.userId]
+          );
+        }
+        const [[inserted]] = await pool.execute(
+          `SELECT file_id FROM evidencefiles WHERE case_id = ? ORDER BY uploaded_at DESC LIMIT 1`,
+          [caseId]
+        );
+        attachedFile = { id: inserted.file_id, name: fileName, mime_type: mimeType };
+      }
+
+      // Save the report as a CEO-directed note with subject prefix
+      const noteBody = `**${subject.trim()}**\n\n${body.trim()}${attachedFile ? `\n\n📎 Attached: ${attachedFile.name}` : ''}`;
+      await pool.execute(
+        `INSERT INTO investigationnotes (case_id, sender_type, audience_type, note_text, is_internal_only)
+         VALUES (?, 'Compliance_Officer', 'CEO', ?, 0)`,
+        [caseId, noteBody]
+      );
+
+      // Escalate the case if not already escalated
+      if (!caseData.is_escalated) {
+        await pool.execute(
+          `UPDATE cases SET is_escalated = 1, updated_at = NOW() WHERE case_id = ?`,
+          [caseId]
+        );
+      }
+
+      // Notify CEO
+      createNotification({
+        targetRole: 'CEO',
+        type: 'new_message',
+        title: `EAAC Report: ${subject.trim()}`,
+        message: `The Ethics & Anti-Corruption Office has sent you a report on case ${caseData.reference_id}.`,
+        caseId,
+      });
+
+      // Email CEO
+      try {
+        const [ceoRows] = await pool.execute(
+          `SELECT email FROM users WHERE role = 'CEO' AND is_active = 1 LIMIT 1`
+        );
+        if (ceoRows.length > 0) {
+          emailService.notifyCEOEscalation(ceoRows[0].email, {
+            reference_id: caseData.reference_id,
+            category: caseData.category,
+            subject: subject.trim(),
+          }).catch(() => {});
+        }
+      } catch (_) {}
+
+      await writeAuditLog({
+        userId: req.user.userId,
+        caseId,
+        action: 'EAAC_REPORT_SENT',
+        performedBy: req.user.username,
+        performedByType: 'staff',
+        metadata: { subject: subject.trim(), has_attachment: !!attachedFile, reference_id: caseData.reference_id },
+      });
+
+      return res.status(201).json({
+        message: 'Report sent to CEO successfully',
+        attached_file: attachedFile,
+      });
+    } catch (err) {
+      console.error('[REPORT] Send error:', err.message);
+      return res.status(500).json({ error: 'Failed to send report' });
+    }
+  }
+);
+
 // Request Branch Manager Help (Investigator or Compliance Officer)
 router.post('/cases/:id/request-manager-help',
   authenticateStaff,

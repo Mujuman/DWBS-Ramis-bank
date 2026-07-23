@@ -14,7 +14,6 @@ import { renderRichText } from '../utils/formatting';
 
 import {
   COMPLIANCE_OFFICER_STATUSES,
-  INVESTIGATOR_STATUSES,
   CEO_STATUSES,
   STATUS_BADGE,
   formatStatus,
@@ -42,7 +41,7 @@ export default function CaseDetailPage() {
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState(null);
   const [noteBody,    setNoteBody]    = useState('');
-  const [replyRecipient, setReplyRecipient] = useState('Investigator');
+  const [replyRecipient, setReplyRecipient] = useState('Compliance_Officer');
   const [requestDescription, setRequestDescription] = useState('');
   const requestDescriptionRef = useRef(null);
   const noteRef = useRef(null);
@@ -196,35 +195,23 @@ export default function CaseDetailPage() {
   const [deletingNoteId,  setDeletingNoteId]  = useState(null);
 
   // ── Per-spec permission flags ───────────────────────────────
-  // JWT payload uses `userId` (not `id`)
   const myUserId       = user?.userId ?? user?.id;
-  const isInvestigator = user?.role === 'Investigator';
   const isSenior       = user?.role === 'Compliance_Officer';
   const isCEO          = user?.role === 'CEO';
   const isOwner        = Boolean(caseData && caseData.owner_id === myUserId);
   const canManageOwnRequest = ['Employee', 'Branch_Manager'].includes(user?.role) && isOwner && caseData?.submitted_by_type !== 'anonymous';
-  const canViewEvidence = ['Investigator', 'Compliance_Officer', 'CEO'].includes(user?.role) || canManageOwnRequest;
-  // Ethics & Anti-Corruption Officer can always assign. CEO can only assign on escalated (Critical) cases.
+  const canViewEvidence = ['Compliance_Officer', 'CEO'].includes(user?.role) || canManageOwnRequest;
   const canAssign      = isSenior || (isCEO && Boolean(caseData?.is_escalated));
-
-  // Investigators can ONLY edit cases explicitly assigned to them (assigned_to = their userId)
-  const isAssignedToMe = caseData ? (caseData.assigned_to === myUserId) : false;
-  // CEO can edit (assign) escalated cases; Ethics Office can always edit; Investigator only their own
-  const canEditNow     = isSenior || (isInvestigator && isAssignedToMe) || canManageOwnRequest || (isCEO && Boolean(caseData?.is_escalated));
-  // CEO can also send notes on escalated cases (for CEO ↔ Ethics chat)
+  const canEditNow     = isSenior || canManageOwnRequest || (isCEO && Boolean(caseData?.is_escalated));
   const canSendNote    = canEditNow || (isCEO && Boolean(caseData?.is_escalated));
-
-  // Build status options from the actual transition map for the current case status.
-  // Always include the current status so the dropdown never shows a blank/invalid selection.
-  const role = isSenior ? 'Compliance_Officer' : isCEO ? 'CEO' : 'Investigator';
+  const role = isSenior ? 'Compliance_Officer' : isCEO ? 'CEO' : 'Compliance_Officer';
   const allowedStatusOptions = caseData
     ? [...new Set([caseData.status, ...getNextStatusesForRole(role, caseData.status)])].filter(Boolean)
-    : (isSenior ? COMPLIANCE_OFFICER_STATUSES : isCEO ? CEO_STATUSES : INVESTIGATOR_STATUSES);
+    : (isSenior ? COMPLIANCE_OFFICER_STATUSES : CEO_STATUSES);
 
   const getNoteAuthorLabel = (note) => {
     if (note.author_type === 'Compliance_Officer') return 'Ethics & Anti-Corruption Office';
     if (note.author_type === 'CEO') return 'CEO';
-    if (note.author_type === 'Investigator') return 'Case Investigator';
     if (note.author_type === 'Reporter') {
       return caseData?.submitted_by_type === 'anonymous' ? 'Anonymous Reporter' : 'Staff Reporter';
     }
@@ -236,10 +223,7 @@ export default function CaseDetailPage() {
       return note.author_type === 'Compliance_Officer' ? 'To: CEO' : 'CEO Thread';
     }
     if (note.audience_type === 'Compliance_Officer') {
-      return note.author_type === 'Investigator' ? 'To: Ethics & Anti-Corruption' : 'Ethics & Anti-Corruption Thread';
-    }
-    if (note.audience_type === 'Investigator') {
-      return note.author_type === 'Compliance_Officer' ? 'To: Investigator' : 'Investigator Thread';
+      return 'Ethics & Anti-Corruption Thread';
     }
     if (note.audience_type === 'Reporter') {
       return 'To: Reporter';
@@ -264,7 +248,7 @@ export default function CaseDetailPage() {
         icon: 'staff',
       };
     }
-    if (note.author_type === 'Investigator') {
+    if (note.author_type === 'CEO') {
       return {
         background: 'rgba(10,29,55,0.05)',
         borderColor: 'rgba(10,29,55,0.1)',
@@ -296,7 +280,7 @@ export default function CaseDetailPage() {
       try {
         const nRes = await api.get(`/cases/${id}/notes`);
         const isStaffReporter = ['Employee', 'Branch_Manager'].includes(user?.role);
-        const isPrivilegedStaff = ['CEO', 'Investigator', 'Compliance_Officer'].includes(user?.role);
+        const isPrivilegedStaff = ['CEO', 'Compliance_Officer'].includes(user?.role);
         const allNotes = nRes.data.notes || [];
         const sessionStart = sessionStartRef.current;
 

@@ -209,15 +209,16 @@ const listEvidence = async (req, res) => {
     }
 
     const [caseCheck] = await pool.execute(
-      `SELECT assigned_investigator, user_id FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
+      `SELECT assigned_investigator, user_id, is_escalated FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
       [caseId]
     );
     const c = caseCheck[0];
     const isOwner = user && c && c.user_id === user.userId;
     const isAssignedInv = user && c && c.assigned_investigator === user.userId;
     const isComp = user && user.role === 'Compliance_Officer';
+    const isCEOEscalated = user && user.role === 'CEO' && c && c.is_escalated;
 
-    if (!isComp && !isAssignedInv && !isOwner) {
+    if (!isComp && !isAssignedInv && !isOwner && !isCEOEscalated) {
       return res.status(403).json({ error: 'Access denied to evidence for this case.' });
     }
 
@@ -252,9 +253,17 @@ const downloadEvidence = async (req, res) => {
     const isOwner = caseData.user_id === user.userId;
     const isAssignedInv = caseData.assigned_investigator === user.userId;
     const isCompliance = user.role === 'Compliance_Officer';
+    const isCEO = user.role === 'CEO';
 
-    // Allow access only to owner, assigned Investigator, or Compliance Officer. CEO and System_Admin cannot download evidence.
-    if (!isOwner && !isAssignedInv && !isCompliance) {
+    // CEO can only download evidence on escalated cases reported to them by EAAC
+    if (isCEO) {
+      const [escalated] = await pool.execute(
+        `SELECT is_escalated FROM cases WHERE case_id = ? AND is_escalated = 1`, [caseId]
+      );
+      if (escalated.length === 0) {
+        return res.status(403).json({ error: 'CEO can only access evidence on escalated cases.' });
+      }
+    } else if (!isOwner && !isAssignedInv && !isCompliance) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
