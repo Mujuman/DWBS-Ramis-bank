@@ -5,11 +5,11 @@ import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import {
-  RefreshCw, Search, UserCheck, ArrowUpCircle,
+  RefreshCw, Search, ArrowUpCircle,
   AlertTriangle, CheckCircle, Clock, FileText,
   TrendingUp, Users, ChevronRight, X, Filter,
-  Briefcase, BarChart3, MessageSquare, Send, Shield, Zap,
-  Paperclip, Trash2, Bold, Italic, List, Type,
+  BarChart3, Send, Shield, Zap,
+  Paperclip, Trash2,
 } from 'lucide-react';
 import { CASE_STATUSES, STATUS_BADGE, formatStatus } from '../constants/caseWorkflow';
 import {
@@ -171,21 +171,6 @@ export default function EthicsDashboard() {
     { label: 'Critical', value: ov.critical || 0, icon: TrendingUp, color: '#dc2626', bg: '#fee2e2' },
     { label: 'Unassigned', value: cases.filter(c => !c.assigned_handler && !c.assigned_investigator).length, icon: Users, color: '#7c3aed', bg: '#ede9fe' },
   ];
-
-  const maxWorkload = Math.max(1, ...workload.map(w => w.count));
-
-  const getNoteLabel = (note) => {
-    if (note.author_type === 'Compliance_Officer') return 'Ethics & Anti-Corruption Office (You)';
-    if (note.author_type === 'CEO') return 'CEO';
-    return 'Staff';
-  };
-
-  const getNoteTone = (note) => {
-    if (note.author_type === 'CEO') {
-      return { bg: 'rgba(249,168,38,0.08)', border: 'rgba(249,168,38,0.25)', label: '#92400e' };
-    }
-    return { bg: 'rgba(37,99,235,0.06)', border: 'rgba(37,99,235,0.18)', label: '#1d4ed8' };
-  };
 
   return (
     <div className="p-6 max-w-7xl mx-auto fade-in-up">
@@ -366,78 +351,6 @@ export default function EthicsDashboard() {
         </>
       )}
 
-      {/* ══════════════ COMPLIANCE WORKLOAD TAB ══════════════ */}
-      {activeTab === 'workload' && (
-        <div className="card overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <BarChart3 size={18} style={{ color: 'var(--color-navy-900)' }} />
-              <h2 className="text-base font-bold" style={{ color: 'var(--color-navy-900)' }}>
-                Compliance Staff Workload
-              </h2>
-            </div>
-            <span className="text-xs text-slate-400">{handlers.length} active compliance staff</span>
-          </div>
-
-          {loading ? (
-            <div className="py-16 text-center"><span className="spinner spinner-navy mx-auto" /></div>
-          ) : handlers.length === 0 ? (
-            <div className="py-16 text-center">
-              <Users size={32} className="mx-auto mb-3 text-slate-300" />
-              <p className="text-slate-400">No active compliance staff found.</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-100">
-              {workload.map(inv => (
-                <div key={inv.id} className="px-6 py-4 flex items-center gap-4 hover:bg-slate-50 transition-colors">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
-                    style={{ background: 'var(--color-navy-900)', color: 'var(--color-gold-500)' }}>
-                    {inv.username?.charAt(0).toUpperCase() || '?'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-semibold truncate" style={{ color: 'var(--color-navy-900)' }}>
-                        {inv.username}
-                      </span>
-                      {inv.department && <span className="text-xs text-slate-400 truncate">· {inv.department}</span>}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: '#e8edf5' }}>
-                        <div className="h-full rounded-full transition-all duration-500"
-                          style={{
-                            width: `${Math.max(2, (inv.count / maxWorkload) * 100)}%`,
-                            background: inv.count >= 5 ? '#dc2626' : inv.count >= 3 ? '#f59e0b' : '#16a34a',
-                          }} />
-                      </div>
-                      <span className="text-xs font-bold w-16 text-right" style={{
-                        color: inv.count >= 5 ? '#dc2626' : inv.count >= 3 ? '#f59e0b' : '#16a34a',
-                      }}>
-                        {inv.count} {inv.count === 1 ? 'case' : 'cases'}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      const unassigned = cases.filter(c => !c.assigned_handler && !c.assigned_investigator);
-                      if (unassigned.length > 0) {
-                        setAssignModal(unassigned[0]);
-                        setAssignTarget(String(inv.id));
-                      } else {
-                        toast('No unassigned cases available', { icon: 'ℹ️' });
-                      }
-                    }}
-                    className="btn btn-outline text-xs py-1.5 px-3 flex-shrink-0"
-                    title={`Assign a case to ${inv.username}`}
-                  >
-                    <Briefcase size={12} /> Assign Case
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* ══════════════ ANALYTICS TAB ══════════════ */}
       {activeTab === 'analytics' && (() => {
         const CATEGORY_COLORS = {
@@ -610,203 +523,6 @@ export default function EthicsDashboard() {
           </div>
         );
       })()}
-
-      {/* ══════════════ CEO MESSAGES TAB ══════════════ */}
-      {activeTab === 'ceo_chat' && (
-        <div className="grid lg:grid-cols-5 gap-5">
-          {/* Case List */}
-          <div className="lg:col-span-2 card overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <MessageSquare size={16} style={{ color: 'var(--color-navy-900)' }} />
-                <h2 className="text-sm font-bold" style={{ color: 'var(--color-navy-900)' }}>
-                  Escalated Cases
-                </h2>
-              </div>
-              <p className="text-xs text-slate-400 mt-1">Select a case to chat with the CEO</p>
-            </div>
-            {ceoChatCases.length === 0 ? (
-              <div className="py-12 text-center">
-                <Shield size={28} className="mx-auto mb-3 text-slate-300" />
-                <p className="text-slate-400 text-sm">No escalated cases yet.</p>
-                <p className="text-xs text-slate-300 mt-1">Escalate a critical case to start a CEO conversation.</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100 overflow-y-auto" style={{ maxHeight: '520px' }}>
-                {ceoChatCases.map(c => (
-                  <button
-                    key={c.id}
-                    onClick={() => selectChatCase(c)}
-                    className={`w-full text-left px-5 py-3.5 hover:bg-slate-50 transition-colors ${selectedChatCase?.id === c.id ? 'bg-blue-50' : ''}`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-xs font-mono font-bold" style={{ color: 'var(--color-navy-900)' }}>
-                          {c.reference_id}
-                        </p>
-                        <p className="text-xs text-slate-500 mt-0.5">{c.category?.replace(/_/g, ' ')}</p>
-                      </div>
-                      <span className={`badge badge-${c.priority?.toLowerCase()} text-xs flex-shrink-0`}>{c.priority}</span>
-                    </div>
-                    <div className="mt-1.5">
-                      <span className={`badge ${STATUS_BADGE[c.status] || 'badge-review'} text-xs`}>
-                        {formatStatus(c.status)}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Chat Window */}
-          <div className="lg:col-span-3 card overflow-hidden flex flex-col" style={{ minHeight: '520px' }}>
-            {!selectedChatCase ? (
-              <div className="flex-1 flex flex-col items-center justify-center py-16 text-center">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
-                  style={{ background: '#e8edf5' }}>
-                  <MessageSquare size={24} style={{ color: 'var(--color-navy-900)' }} />
-                </div>
-                <p className="text-slate-500 font-medium">Select a case to view the CEO conversation</p>
-                <p className="text-xs text-slate-400 mt-1">Messages between you and the CEO appear here</p>
-              </div>
-            ) : (
-              <>
-                {/* Chat header */}
-                <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-bold" style={{ color: 'var(--color-navy-900)' }}>
-                      Case {selectedChatCase.reference_id}
-                    </p>
-                    <p className="text-xs text-slate-400">{selectedChatCase.category?.replace(/_/g, ' ')} · CEO Conversation</p>
-                  </div>
-                  <Link to={`/cases/${selectedChatCase.id}`} className="btn btn-ghost text-xs py-1 px-2">
-                    Open Case <ChevronRight size={11} />
-                  </Link>
-                </div>
-
-                {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-5 space-y-3" style={{ maxHeight: '340px' }}>
-                  {chatLoading ? (
-                    <div className="text-center py-8"><span className="spinner spinner-navy mx-auto" /></div>
-                  ) : chatNotes.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-slate-400 text-sm">No messages yet. Start the conversation with the CEO.</p>
-                    </div>
-                  ) : (
-                    chatNotes.map((note, i) => {
-                      const isMe = note.author_type === 'Compliance_Officer';
-                      const tone = getNoteTone(note);
-                      return (
-                        <div key={i} className={`p-3 rounded-xl ${isMe ? 'ml-8' : 'mr-8'}`}
-                          style={{ background: tone.bg, border: `1px solid ${tone.border}` }}>
-                          <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-xs font-bold" style={{ color: tone.label }}>
-                              {getNoteLabel(note)}
-                            </span>
-                            <span className="text-xs text-slate-400">
-                              {format(new Date(note.created_at), 'MMM d, HH:mm')}
-                            </span>
-                          </div>
-                          <p className="text-sm text-slate-700 whitespace-pre-wrap">{note.body}</p>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-
-                {/* Message input */}
-                <div className="px-5 py-4 border-t border-slate-100">
-                  <div className="flex gap-2">
-                    <textarea
-                      className="form-textarea flex-1 text-sm resize-none"
-                      rows={2}
-                      placeholder="Type a message to the CEO..."
-                      value={chatMessage}
-                      onChange={e => setChatMessage(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          sendChatMessage();
-                        }
-                      }}
-                    />
-                    <button
-                      onClick={sendChatMessage}
-                      disabled={sendingChat || !chatMessage.trim()}
-                      className="btn btn-primary px-4 flex-shrink-0"
-                      title="Send message to CEO"
-                    >
-                      {sendingChat ? <span className="spinner" /> : <Send size={16} />}
-                    </button>
-                  </div>
-                  <p className="text-xs text-slate-400 mt-1.5">Press Enter to send · Shift+Enter for new line</p>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ══════════════ ASSIGN MODAL ══════════════ */}
-      {assignModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(10,29,55,0.5)' }}>
-          <div className="card p-0 w-full max-w-md mx-4 fade-in-up" style={{ maxHeight: '90vh', overflow: 'auto' }}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-              <div>
-                <h3 className="text-base font-bold" style={{ color: 'var(--color-navy-900)' }}>Assign Case Handler</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Case: <span className="font-mono font-bold">{assignModal.reference_id}</span></p>
-              </div>
-              <button onClick={() => { setAssignModal(null); setAssignTarget(''); }}
-                className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
-                <X size={16} className="text-slate-400" />
-              </button>
-            </div>
-            <div className="px-6 py-5">
-              <div className="rounded-xl p-3 mb-4" style={{ background: 'rgba(10,29,55,0.03)' }}>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-500">Current Status</span>
-                  <span className={`badge ${STATUS_BADGE[assignModal.status] || 'badge-review'}`}>{formatStatus(assignModal.status)}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs mt-2">
-                  <span className="text-slate-500">Currently Assigned</span>
-                  <span className="font-medium" style={{ color: 'var(--color-navy-900)' }}>
-                    {assignModal.assigned_handler || assignModal.assigned_investigator || 'Unassigned'}
-                  </span>
-                </div>
-              </div>
-              <label className="form-label">Select Case Handler</label>
-              <select className="form-select text-sm w-full" value={assignTarget} onChange={e => setAssignTarget(e.target.value)}>
-                <option value="">— Choose a case handler —</option>
-                {handlers.map(inv => (
-                  <option key={inv.id} value={inv.id}>
-                    {inv.username} {inv.department ? `(${inv.department})` : ''}
-                  </option>
-                ))}
-              </select>
-              {assignTarget && (() => {
-                const sel = handlers.find(i => String(i.id) === String(assignTarget));
-                const cnt = sel ? cases.filter(c => (c.assigned_handler || c.assigned_investigator) === sel.username).length : 0;
-                return (
-                  <div className="mt-3 flex items-center gap-2 text-xs">
-                    <Briefcase size={12} className="text-slate-400" />
-                    <span className="text-slate-500">Current workload:</span>
-                    <span className="font-bold" style={{ color: cnt >= 5 ? '#dc2626' : cnt >= 3 ? '#f59e0b' : '#16a34a' }}>
-                      {cnt} active {cnt === 1 ? 'case' : 'cases'}
-                    </span>
-                  </div>
-                );
-              })()}
-            </div>
-            <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-slate-100">
-              <button onClick={() => { setAssignModal(null); setAssignTarget(''); }} className="btn btn-ghost text-sm">Cancel</button>
-              <button onClick={doAssign} disabled={assigning || !assignTarget} className="btn btn-primary text-sm">
-                {assigning ? <><span className="spinner" /> Assigning...</> : <><UserCheck size={14} /> Assign Case</>}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ══════════════ SEVERITY OVERRIDE MODAL ══════════════ */}
       {severityModal && (

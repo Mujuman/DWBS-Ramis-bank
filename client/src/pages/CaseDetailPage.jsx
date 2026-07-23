@@ -6,8 +6,7 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import {
   ArrowLeft, FileText, Lock, Send, User,
-  Paperclip, Download, Edit3, Shield, AlertTriangle, Info, Zap, Upload,
-  Type, Bold, Italic, Underline, Heading, List, Code, Strikethrough,
+  Paperclip, Download, Shield, AlertTriangle, Zap, Upload,
   Trash2, Check, XCircle
 } from 'lucide-react';
 import { renderRichText } from '../utils/formatting';
@@ -872,191 +871,32 @@ export default function CaseDetailPage() {
         {/* ── Sidebar ──────────────────────────────────────── */}
         <div className="space-y-5">
 
-          {/* Case Actions */}
-          {canEditNow && (
+          {/* Case Info */}
+          {(isSenior || isCEO) && (
             <div className="card p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-bold" style={{ color: 'var(--color-navy-900)' }}>
-                  Case Actions
-                </h3>
-                <button
-                  onClick={() => setEditMode(e => !e)}
-                  className="btn btn-ghost text-xs py-1 px-2"
-                >
-                  <Edit3 size={12} /> {editMode ? 'Cancel' : 'Edit'}
-                </button>
+              <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--color-navy-900)' }}>
+                Case Info
+              </h3>
+              <div className="space-y-2 text-sm">
+                {caseData.is_escalated && (
+                  <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded-md mb-2">
+                    <Zap size={14} className="text-red-600" />
+                    <span className="text-xs font-semibold text-red-700">Escalated to CEO</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Status</span>
+                  <span className={`badge ${STATUS_BADGE[caseData.status] || 'badge-review'}`}>
+                    {formatStatus(caseData.status)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Priority</span>
+                  <span className={`font-semibold text-sm ${PRIORITY_COLOR[caseData.priority]}`}>
+                    {caseData.priority}
+                  </span>
+                </div>
               </div>
-
-              {editMode ? (
-                <div className="space-y-3">
-                  {canManageOwnRequest ? (
-                    <>
-                      <div>
-                        <label className="form-label text-xs">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="inline-flex items-center gap-2 text-slate-700">
-                              <Edit3 size={12} /> Description Rich Text Editor
-                            </span>
-                            <span className="inline-flex items-center gap-1 text-slate-400">
-                              <button type="button" aria-label="Plain text" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('type')}><Type size={12} /></button>
-                              <button type="button" aria-label="Bold" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('bold')}><Bold size={12} /></button>
-                              <button type="button" aria-label="Italic" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('italic')}><Italic size={12} /></button>
-                              <button type="button" aria-label="Underline" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('underline')}><Underline size={12} /></button>
-                              <button type="button" aria-label="Heading" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('heading')}><Heading size={12} /></button>
-                              <button type="button" aria-label="List" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('list')}><List size={12} /></button>
-                              <button type="button" aria-label="Code" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('code')}><Code size={12} /></button>
-                              <button type="button" aria-label="Strikethrough" className="text-slate-400 hover:text-slate-900 transition" onClick={() => applyFormatting('strikethrough')}><Strikethrough size={12} /></button>
-                            </span>
-                          </div>
-                        </label>
-                        <textarea
-                          id="request-description"
-                          className="form-textarea text-sm"
-                          rows={4}
-                          value={requestDescription}
-                          onChange={e => setRequestDescription(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <label className="form-label text-xs">Branch / Department</label>
-                        <input
-                          type="text"
-                          className="form-input text-sm"
-                          value={requestBranch}
-                          onChange={e => setRequestBranch(e.target.value)}
-                        />
-                      </div>
-                    </>
-                  ) : isCEO ? (
-                    <>
-                      {/* CEO: only allowed to assign a case handler on escalated cases */}
-                      <div className="rounded-xl p-3 mb-3 flex items-start gap-2"
-                        style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)' }}>
-                        <Zap size={14} className="text-red-600 flex-shrink-0 mt-0.5" />
-                        <p className="text-xs text-red-800">
-                          This case was escalated by the <strong>Ethics & Anti-Corruption Office</strong>.
-                          Please assign a case handler below.
-                        </p>
-                      </div>
-                      {canAssign && (
-                        <div>
-                          <label className="form-label text-xs">Assign Case Handler *</label>
-                          <select
-                            className="form-select text-sm"
-                            value={assignTo}
-                            onChange={e => setAssignTo(e.target.value)}
-                          >
-                            <option value="">{caseData.assigned_handler || caseData.assigned_investigator ? 'Reassign...' : 'Select handler'}</option>
-                            {handlers.length > 0 ? handlers.map(u => (
-                              <option key={u.id} value={u.id}>
-                                {u.username}
-                              </option>
-                            )) : (
-                              <option disabled>No case handlers available</option>
-                            )}
-                          </select>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <div>
-                        <label className="form-label text-xs">Status</label>
-                        <select
-                          className="form-select text-sm"
-                          value={newStatus}
-                          onChange={e => setNewStatus(e.target.value)}
-                        >
-                          {allowedStatusOptions.map(s => (
-                            <option key={s} value={s}>{formatStatus(s)}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="form-label text-xs">Severity / Priority</label>
-                          <span className="text-xs text-slate-400">(Ethics &amp; Anti-Corruption Office only)</span>
-                        </div>
-                        {isSenior ? (
-                          <>
-                            <select
-                              className="form-select text-sm"
-                              value={newPriority}
-                              onChange={e => setNewPriority(e.target.value)}
-                            >
-                              {PRIORITIES.map(p => (
-                                <option key={p} value={p}>{p}</option>
-                              ))}
-                            </select>
-                            {newPriority === 'Critical' && !caseData.is_escalated && (
-                              <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                                <Zap size={12} /> Setting to Critical will report this case to the CEO for handler assignment
-                              </p>
-                            )}
-                          </>
-                        ) : (
-                          <div className="text-sm font-semibold">{caseData.priority}</div>
-                        )}
-                      </div>
-                      {canAssign && (
-                        <div>
-                          <label className="form-label text-xs">Assign To</label>
-                          <select
-                            className="form-select text-sm"
-                            value={assignTo}
-                            onChange={e => setAssignTo(e.target.value)}
-                          >
-                            <option value="">{caseData.assigned_handler || caseData.assigned_investigator ? 'Reassign...' : 'Assign handler'}</option>
-                            {handlers.length > 0 ? handlers.map(u => (
-                              <option key={u.id} value={u.id}>
-                                {u.username}
-                              </option>
-                            )) : (
-                              <option disabled>No case handlers</option>
-                            )}
-                          </select>
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  <button
-                    onClick={updateCase}
-                    disabled={updating}
-                    className="btn btn-gold w-full text-sm"
-                  >
-                    {updating ? <span className="spinner spinner-navy" /> : null}
-                    Save Changes
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-2 text-sm">
-                  {caseData.is_escalated && (
-                    <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded-md mb-2">
-                      <Zap size={14} className="text-red-600" />
-                      <span className="text-xs font-semibold text-red-700">Escalated to CEO</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500">Status</span>
-                    <span className={`badge ${STATUS_BADGE[caseData.status] || 'badge-review'}`}>
-                      {formatStatus(caseData.status)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500">Priority</span>
-                    <span className={`font-semibold text-sm ${PRIORITY_COLOR[caseData.priority]}`}>
-                      {caseData.priority}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500">Assigned To</span>
-                    <span className="font-semibold text-slate-700 text-xs text-right">
-                      {caseData.assigned_handler || caseData.assigned_investigator || 'Unassigned'}
-                    </span>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 

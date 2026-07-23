@@ -109,7 +109,6 @@ export default function DashboardPage() {
                   <th>Priority</th>
                   <th>Status</th>
                   <th>Submitted</th>
-                  <th>Assigned To</th>
                   <th></th>
                 </tr>
               </thead>
@@ -132,9 +131,6 @@ export default function DashboardPage() {
                     </td>
                     <td className="text-slate-500 text-xs">
                       {format(new Date(c.created_at), 'MMM d, yyyy')}
-                    </td>
-                    <td className="text-slate-600 text-xs">
-                      {c.assigned_handler || c.assigned_investigator || <span className="text-slate-300">Unassigned</span>}
                     </td>
                     <td>
                       <Link to={`/cases/${c.id}`} className="btn btn-ghost text-xs py-1 px-2">
