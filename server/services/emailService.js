@@ -19,19 +19,17 @@ const getEAACEmail = () => process.env.EAAC_EMAIL || 'mujahidhussen75@gmail.com'
 const emailService = {
   /**
    * Notifies the Ethics & Anti-Corruption Office (EAAC) that a new case
-   * has been submitted. Always sends to the EAAC email from env.
+   * has been submitted.
+   * @param {string|string[]} recipients - single email or array of emails from DB
    */
-  async notifyNewCaseToCompliance(complianceEmail) {
-    const eaacEmail = getEAACEmail();
+  async notifyNewCaseToCompliance(recipients) {
+    // Accept either a string or an array of emails
+    const to = Array.isArray(recipients)
+      ? recipients.join(', ')
+      : (recipients || getEAACEmail());
 
-    // Build recipient list — always include EAAC, add extra email if different
-    const recipients = [eaacEmail];
-    if (complianceEmail && complianceEmail !== eaacEmail) {
-      recipients.push(complianceEmail);
-    }
-
-    await sendEmail({
-      to: recipients.join(', '),
+    return sendEmail({
+      to,
       subject: '[DWBS] New Whistleblowing Report Submitted',
       text: `A new report has been submitted to the Digital Whistleblowing System.\n\nPlease log in to the DWBS portal to review and assign this case to an investigator.\n\nPortal: ${process.env.CLIENT_ORIGIN}/login`,
       html: `

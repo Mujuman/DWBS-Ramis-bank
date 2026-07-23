@@ -94,22 +94,31 @@ const createCase = async (req, res) => {
       },
     });
 
-    // Always notify Ethics & Anti-Corruption Office (EAAC) of every new report.
-    // The EAAC Gmail (mujuhusu@gmail.com) is always notified via EAAC_EMAIL env var.
-    // Also notify any other active Compliance Officers found in the DB.
+    // Notify all active EAAC (Compliance_Officer) users using their registered DB email.
+    // No hardcoded email — always uses whoever is registered as Compliance_Officer in the system.
     try {
-      // Always send to the fixed EAAC Gmail address first
-      emailService.notifyNewCaseToCompliance(process.env.EAAC_EMAIL || 'mujuhusu@gmail.com').catch(() => {});
-
-      // Also notify other active Compliance Officers in the system (if any)
-      const [compRows] = await pool.execute(
-        `SELECT email FROM users WHERE role = 'Compliance_Officer' AND is_active = 1 AND email != ? LIMIT 3`,
-        [process.env.EAAC_EMAIL || 'mujuhusu@gmail.com']
+      const [eaacUsers] = await pool.execute(
+        `SELECT email FROM users WHERE role = 'Compliance_Officer' AND is_active = 1 AND email IS NOT NULL AND email != ''`
       );
-      for (const c of compRows) {
-        emailService.notifyNewCaseToCompliance(c.email).catch(() => {});
+
+      if (eaacUsers.length > 0) {
+        const recipients = eaacUsers.map(u => u.email);
+        console.log('[CASE] Notifying EAAC users:', recipients.join(', '));
+
+        Promise.race([
+          emailService.notifyNewCaseToCompliance(recipients),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Email timeout')), 15000)),
+        ]).then(() => {
+          console.log('[CASE] EAAC notification sent for case', referenceId);
+        }).catch(err => {
+          console.error('[CASE] EAAC notification failed for case', referenceId, ':', err.message);
+        });
+      } else {
+        console.warn('[CASE] No active Compliance_Officer users found in DB — email not sent for case', referenceId);
       }
-    } catch (_) {}
+    } catch (emailErr) {
+      console.error('[CASE] Failed to fetch EAAC emails from DB:', emailErr.message);
+    }
 
     // NOTE: CEO is NOT notified at submission time.
     // The Ethics & Anti-Corruption Office must review the case first.
