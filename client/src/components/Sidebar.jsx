@@ -43,12 +43,6 @@ const navItems = [
     roles: ['CEO'],
   },
   {
-    path: '/cases',
-    label: 'Case Management',
-    icon: FileText,
-    roles: ['CEO'],
-  },
-  {
     path: '/audit',
     label: 'Audit Logs',
     icon: ClipboardList,
