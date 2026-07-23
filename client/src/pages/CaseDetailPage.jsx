@@ -205,9 +205,6 @@ export default function CaseDetailPage() {
   const canEditNow     = isSenior || canManageOwnRequest || (isCEO && Boolean(caseData?.is_escalated));
   const canSendNote    = canEditNow || (isCEO && Boolean(caseData?.is_escalated));
   const role = isSenior ? 'Compliance_Officer' : isCEO ? 'CEO' : 'Compliance_Officer';
-  const allowedStatusOptions = caseData
-    ? [...new Set([caseData.status, ...getNextStatusesForRole(role, caseData.status)])].filter(Boolean)
-    : (isSenior ? COMPLIANCE_OFFICER_STATUSES : CEO_STATUSES);
 
   const getNoteAuthorLabel = (note) => {
     if (note.author_type === 'Compliance_Officer') return 'Ethics & Anti-Corruption Office';

@@ -17,7 +17,6 @@ const CATEGORY_SEVERITY_MAP = {
 
 const {
   COMPLIANCE_OFFICER_STATUSES,
-  INVESTIGATOR_STATUSES,
   CEO_STATUSES,
   validateStatusTransition,
 } = require('../constants/caseWorkflow');
