@@ -62,9 +62,11 @@ export default function ExecutiveDashboard() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [statsRes, usersRes] = await Promise.allSettled([
+      const [statsRes, usersRes, reportsRes] = await Promise.allSettled([
         api.get('/cases/stats'),
         api.get('/users'),
+        // Only load cases where EAAC has written and sent a formal report to CEO
+        api.get('/cases/ceo-reports'),
       ]);
       if (statsRes.status === 'fulfilled') setStats(statsRes.value.data);
       if (usersRes.status === 'fulfilled') {
@@ -74,9 +76,12 @@ export default function ExecutiveDashboard() {
             .sort((a, b) => a.username.localeCompare(b.username))
         );
       }
-      // Load escalated cases
-      const escRes = await api.get('/cases', { params: { is_escalated: 1, limit: 100 } });
-      setEscalatedCases(escRes.data.cases || []);
+      if (reportsRes.status === 'fulfilled') {
+        setEscalatedCases(reportsRes.value.data.cases || []);
+      } else {
+        console.error('[CEO] ceo-reports fetch failed:', reportsRes.reason);
+        setEscalatedCases([]);
+      }
     } catch (err) {
       console.error('[CEO] loadData error:', err);
     }
@@ -190,7 +195,7 @@ export default function ExecutiveDashboard() {
   const o = stats?.overview || {};
 
   const kpiCards = [
-    { label: 'Escalated to You', value: escalatedCases.length, icon: Inbox, color: '#b91c1c', bg: '#fee2e2' },
+    { label: 'Reports Received', value: escalatedCases.length, icon: Inbox, color: '#b91c1c', bg: '#fee2e2' },
     { label: 'Total Cases', value: o.total || 0, icon: FileText, color: '#0A1D37', bg: '#e8edf5' },
     { label: 'Critical', value: o.critical || 0, icon: AlertTriangle, color: '#ef4444', bg: '#fef2f2' },
     { label: 'In Progress', value: o.in_progress || 0, icon: Activity, color: '#3b82f6', bg: '#dbeafe' },
@@ -269,7 +274,7 @@ export default function ExecutiveDashboard() {
                 </div>
                 <p className="text-slate-400 font-semibold text-sm">No reports yet</p>
                 <p className="text-xs text-slate-300 mt-1">
-                  Reports appear here when the Ethics & Anti-Corruption Office escalates a case to you.
+                  Reports appear here only when the Ethics & Anti-Corruption Office writes and sends a formal report to you.
                 </p>
               </div>
             ) : (

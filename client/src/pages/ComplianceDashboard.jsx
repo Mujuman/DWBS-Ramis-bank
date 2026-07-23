@@ -29,7 +29,7 @@ export default function EthicsDashboard() {
 
   const [cases, setCases] = useState([]);
   const [stats, setStats] = useState(null);
-  const [investigators, setInvestigators] = useState([]);
+  const [handlers, setHandlers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ total: 0, page: 1, total_pages: 1 });
   const [activeTab, setActiveTab] = useState('queue');
@@ -98,7 +98,7 @@ export default function EthicsDashboard() {
       }
 
       if (uRes.status === 'fulfilled') {
-        setInvestigators((uRes.value.data.users || []).filter(u => u.role === 'Compliance_Officer' && u.is_active));
+        setHandlers((uRes.value.data.users || []).filter(u => u.role === 'Compliance_Officer' && u.is_active));
       } else {
         console.error('[EthicsDashboard] users fetch failed:', uRes.reason);
       }
@@ -259,7 +259,7 @@ export default function EthicsDashboard() {
   };
 
   // ── Workload: count cases per handler ─────────────────
-  const workload = investigators.map(inv => ({
+  const workload = handlers.map(inv => ({
     ...inv,
     count: cases.filter(c => (c.assigned_handler || c.assigned_investigator) === inv.username).length,
   })).sort((a, b) => b.count - a.count);
@@ -332,7 +332,7 @@ export default function EthicsDashboard() {
       <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background: 'var(--color-slate-100)' }}>
         {[
           ['queue', 'Case Queue'],
-          ['workload', 'Investigator Workload'],
+          ['workload', 'Case Handler Workload'],
           ['ceo_chat', 'CEO Messages'],
           ['analytics', '📊 Analytics'],
         ].map(([key, label]) => (
@@ -420,7 +420,7 @@ export default function EthicsDashboard() {
                           </span>
                         </td>
                         <td className="text-xs text-slate-500">
-                          {c.assigned_investigator || <span className="text-red-400 font-medium italic">Unassigned</span>}
+                          {c.assigned_handler || c.assigned_investigator || <span className="text-red-400 font-medium italic">Unassigned</span>}
                         </td>
                         <td className="text-xs text-slate-400">{format(new Date(c.created_at), 'MMM d, yyyy')}</td>
                         <td>
@@ -486,12 +486,12 @@ export default function EthicsDashboard() {
                 Compliance Staff Workload
               </h2>
             </div>
-            <span className="text-xs text-slate-400">{investigators.length} active compliance staff</span>
+            <span className="text-xs text-slate-400">{handlers.length} active compliance staff</span>
           </div>
 
           {loading ? (
             <div className="py-16 text-center"><span className="spinner spinner-navy mx-auto" /></div>
-          ) : investigators.length === 0 ? (
+          ) : handlers.length === 0 ? (
             <div className="py-16 text-center">
               <Users size={32} className="mx-auto mb-3 text-slate-300" />
               <p className="text-slate-400">No active compliance staff found.</p>
@@ -888,14 +888,14 @@ export default function EthicsDashboard() {
               <label className="form-label">Select Case Handler</label>
               <select className="form-select text-sm w-full" value={assignTarget} onChange={e => setAssignTarget(e.target.value)}>
                 <option value="">— Choose a case handler —</option>
-                {investigators.map(inv => (
+                {handlers.map(inv => (
                   <option key={inv.id} value={inv.id}>
                     {inv.username} {inv.department ? `(${inv.department})` : ''}
                   </option>
                 ))}
               </select>
               {assignTarget && (() => {
-                const sel = investigators.find(i => String(i.id) === String(assignTarget));
+                const sel = handlers.find(i => String(i.id) === String(assignTarget));
                 const cnt = sel ? cases.filter(c => (c.assigned_handler || c.assigned_investigator) === sel.username).length : 0;
                 return (
                   <div className="mt-3 flex items-center gap-2 text-xs">

@@ -1160,7 +1160,7 @@ const deleteCaseAnonymous = async (req, res) => {
 
 /**
  * POST /api/cases/:id/request-manager-help
- * Allows an Investigator or Compliance Officer to request help from the Branch Manager.
+ * Allows a Compliance Officer to request help from the Branch Manager.
  */
 const requestManagerHelp = async (req, res) => {
   const caseId = parseInt(req.params.id);

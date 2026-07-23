@@ -76,6 +76,61 @@ router.get('/cases/stats',
   caseController.getCaseStats
 );
 
+// CEO inbox: only cases where EAAC has sent a written report (note) to CEO
+router.get('/cases/ceo-reports',
+  authenticateStaff,
+  requireRole('CEO'),
+  async (req, res) => {
+    const { pool } = require('../config/db');
+    try {
+      // A case appears in CEO inbox only if Compliance_Officer sent at least one note to CEO
+      const [rows] = await pool.execute(
+        `SELECT DISTINCT
+           c.case_id        AS id,
+           c.reference_id,
+           c.category,
+           c.status,
+           c.severity_level AS priority,
+           c.is_escalated,
+           c.created_at,
+           c.updated_at,
+           c.reporter_type,
+           (SELECT n.note_text
+            FROM investigationnotes n
+            WHERE n.case_id = c.case_id
+              AND n.sender_type = 'Compliance_Officer'
+              AND n.audience_type = 'CEO'
+            ORDER BY n.created_at DESC
+            LIMIT 1
+           ) AS latest_report_preview,
+           (SELECT n.created_at
+            FROM investigationnotes n
+            WHERE n.case_id = c.case_id
+              AND n.sender_type = 'Compliance_Officer'
+              AND n.audience_type = 'CEO'
+            ORDER BY n.created_at DESC
+            LIMIT 1
+           ) AS last_report_at,
+           u.username AS assigned_handler
+         FROM cases c
+         LEFT JOIN users u ON c.assigned_investigator = u.user_id
+         WHERE c.deleted_at IS NULL
+           AND EXISTS (
+             SELECT 1 FROM investigationnotes n
+             WHERE n.case_id = c.case_id
+               AND n.sender_type = 'Compliance_Officer'
+               AND n.audience_type = 'CEO'
+           )
+         ORDER BY last_report_at DESC`
+      );
+      return res.json({ cases: rows });
+    } catch (err) {
+      console.error('[CEO] reports fetch error:', err.message);
+      return res.status(500).json({ error: 'Failed to fetch CEO reports' });
+    }
+  }
+);
+
 // Create case (anonymous OR staff)
 router.post('/cases',
   sanitizeRequestBody,

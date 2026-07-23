@@ -46,7 +46,7 @@ export default function CaseDetailPage() {
   const requestDescriptionRef = useRef(null);
   const noteRef = useRef(null);
   // Records the moment this case detail page was opened — notes older than this
-  // are hidden for staff chat roles (CEO, Investigator, Compliance_Officer).
+  // are hidden for staff chat roles (CEO, Compliance_Officer), Compliance_Officer).
   const sessionStartRef = useRef(new Date());
   
 
@@ -183,7 +183,7 @@ export default function CaseDetailPage() {
   const [newPriority, setNewPriority] = useState('');
   const [requestBranch, setRequestBranch] = useState('');
   const [requestSeverity, setRequestSeverity] = useState('Medium');
-  const [investigators, setInvestigators] = useState([]);
+  const [handlers,    setHandlers]    = useState([]);
   const [assignTo,    setAssignTo]    = useState('');
   const [updating,    setUpdating]    = useState(false);
   const [uploadingEvidence, setUploadingEvidence] = useState(false);
@@ -328,10 +328,10 @@ export default function CaseDetailPage() {
           const inv = (uRes.data.users || [])
             .filter(u => u.role === 'Compliance_Officer')
             .sort((a, b) => (a.username || '').localeCompare(b.username || ''));
-          setInvestigators(inv);
+          setHandlers(inv);
         } catch (err) {
           console.warn('Failed to load compliance staff:', err.message);
-          setInvestigators([]);
+          setHandlers([]);
         }
       }
     } catch (err) {
@@ -355,10 +355,7 @@ export default function CaseDetailPage() {
       if (isCEO) {
         recipientRole = 'Compliance_Officer';
       } else if (canManageOwnRequest) {
-        // Staff reporter always picks their recipient explicitly
         recipientRole = replyRecipient;
-      } else if (isInvestigator) {
-        recipientRole = isInternal ? replyRecipient : 'Reporter';
       } else if (isSenior) {
         recipientRole = isInternal ? replyRecipient : 'Reporter';
       } else {
@@ -674,18 +671,6 @@ export default function CaseDetailPage() {
                 </div>
               </div>
             )}
-
-            {/* Investigator restriction notice */}
-            {isInvestigator && !isAssignedToMe && (
-              <div className="mt-4 p-3 rounded-lg flex items-start gap-2 bg-amber-50 border border-amber-200">
-                <Info size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-amber-800">
-                  {caseData.assigned_to === null
-                    ? 'This case is unassigned. An Ethics & Anticorruption Officer must assign it to you before you can make changes.'
-                    : 'This case belongs to another investigator. You can view it but cannot make changes.'}
-                </p>
-              </div>
-            )}
           </div>
 
           {/* Correspondence */}
@@ -705,7 +690,7 @@ export default function CaseDetailPage() {
                 <p className="text-sm text-slate-400 text-center py-6">No notes yet.</p>
               ) : notes.map((n, i) => {
                 const tone = getNoteTone(n);
-                const isMyNote = (isSenior || isInvestigator || isCEO) && n.sender_user_id === myUserId;
+                const isMyNote = (isSenior || isCEO) && n.sender_user_id === myUserId;
                 const isEditing = editingNoteId === n.id;
                 return (
                 <div key={n.id || i}
@@ -796,10 +781,8 @@ export default function CaseDetailPage() {
                 <textarea
                   className="form-textarea mb-3"
                   rows={3}
-                  placeholder={isInvestigator
-                    ? 'Add a note or send a message to the reporter or Ethics office...'
-                    : isSenior
-                    ? 'Add a note or send a message to the reporter or investigator...'
+                  placeholder={isSenior
+                    ? 'Add a note or send a message to the reporter...'
                     : 'Add a note...'}
                   value={noteBody}
                   onChange={e => setNoteBody(e.target.value)}
@@ -825,30 +808,6 @@ export default function CaseDetailPage() {
                   <div className="mb-3 rounded-lg px-3 py-2 text-xs text-slate-500"
                     style={{ background: 'rgba(37,99,235,0.06)', border: '1px solid rgba(37,99,235,0.15)' }}>
                     💬 This message will be sent to the <strong>Ethics & Anti-Corruption Office</strong>.
-                  </div>
-                )}
-
-                {/* ── Investigator: recipient depends on internal flag ── */}
-                {isInvestigator && (
-                  <div className="mb-3">
-                    <label className="form-label text-xs">
-                      {isInternal ? 'Internal Note Recipient' : 'Sending public message to'}
-                    </label>
-                    {isInternal ? (
-                      <select
-                        className="form-select text-sm"
-                        value={replyRecipient}
-                        onChange={e => setReplyRecipient(e.target.value)}
-                      >
-                        <option value="General">General / All Staff</option>
-                        <option value="Compliance_Officer">Ethics & Anti-Corruption Office</option>
-                      </select>
-                    ) : (
-                      <div className="rounded-lg px-3 py-2 text-xs text-slate-500"
-                        style={{ background: 'rgba(249,168,38,0.06)', border: '1px solid rgba(249,168,38,0.18)' }}>
-                        Reporter (public — visible to the case submitter)
-                      </div>
-                    )}
                   </div>
                 )}
 
@@ -988,7 +947,7 @@ export default function CaseDetailPage() {
                             onChange={e => setAssignTo(e.target.value)}
                           >
                             <option value="">{caseData.assigned_handler || caseData.assigned_investigator ? 'Reassign...' : 'Select handler'}</option>
-                            {investigators.length > 0 ? investigators.map(u => (
+                            {handlers.length > 0 ? handlers.map(u => (
                               <option key={u.id} value={u.id}>
                                 {u.username}
                               </option>
@@ -1048,7 +1007,7 @@ export default function CaseDetailPage() {
                             onChange={e => setAssignTo(e.target.value)}
                           >
                             <option value="">{caseData.assigned_handler || caseData.assigned_investigator ? 'Reassign...' : 'Assign handler'}</option>
-                            {investigators.length > 0 ? investigators.map(u => (
+                            {handlers.length > 0 ? handlers.map(u => (
                               <option key={u.id} value={u.id}>
                                 {u.username}
                               </option>
@@ -1119,7 +1078,7 @@ export default function CaseDetailPage() {
                 style={{ color: 'var(--color-navy-900)' }}>
                 <Paperclip size={14} /> Evidence Files ({evidence.length})
               </h3>
-              {(canManageOwnRequest || isAssignedToMe || isSenior) && (
+              {(canManageOwnRequest || isSenior) && (
                 <label className="btn btn-outline w-full text-xs mb-3 cursor-pointer">
                   {uploadingEvidence ? <span className="spinner" /> : <Upload size={13} />}
                   {uploadingEvidence ? 'Uploading...' : 'Add Evidence'}
@@ -1183,16 +1142,6 @@ export default function CaseDetailPage() {
             </div>
           </div>
 
-          {/* Investigator restriction note */}
-          {isInvestigator && (
-            <div className="rounded-xl p-3 flex items-start gap-2"
-              style={{ background: 'rgba(6,15,30,0.04)', border: '1px solid rgba(6,15,30,0.1)' }}>
-              <Shield size={13} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--color-navy-900)' }} />
-              <p className="text-xs text-slate-500 leading-relaxed">
-                You cannot edit, delete, or alter original report content. All your actions are permanently logged.
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </div>

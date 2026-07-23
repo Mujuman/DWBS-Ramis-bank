@@ -296,7 +296,7 @@ export default function TrackCasePage() {
     correspondence: (data.correspondence || []).filter(note => {
       if (note.sender_role === 'CEO') return false;
       if (note.sender_role === 'Compliance_Officer' && note.recipient_role === 'CEO') return false;
-      if (['Investigator', 'Compliance_Officer', 'CEO'].includes(note.sender_role)) {
+      if (['Compliance_Officer', 'CEO'].includes(note.sender_role)) {
         return note.recipient_role === 'Reporter' || note.recipient_role === 'General' || !note.recipient_role;
       }
       return true;

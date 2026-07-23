@@ -152,7 +152,7 @@ const createNote = async (req, res) => {
     // Anonymous reporters cannot post internal notes
     const isInternal = identity.type === 'staff' ? (is_internal_only === true || is_internal_only === 'true') : false;
 
-    // Determine sender_type — no Investigator role exists anymore
+    // Determine sender_type — Reporter or staff (Compliance_Officer / CEO)
     const isStaffReporter = identity.type === 'staff' && ['Employee', 'Branch_Manager'].includes(req.user?.role);
     let senderType;
     if (identity.type === 'staff' && !isStaffReporter) {

@@ -178,7 +178,7 @@ const listAnonymousEvidence = async (req, res) => {
 /**
  * GET /api/cases/:id/evidence
  * Lists evidence files for a case (metadata only).
- * Requires Investigator or Compliance_Officer role.
+ * Requires Compliance_Officer role for upload/view access.
  */
 const listEvidence = async (req, res) => {
   const caseId = parseInt(req.params.id);
