@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 import {
   ArrowLeft, FileText, Lock, Send, User,
   Paperclip, Download, Shield, AlertTriangle, Zap, Upload,
-  Trash2, Check, XCircle
+  Trash2, Check, XCircle, Edit3
 } from 'lucide-react';
 import { renderRichText } from '../utils/formatting';
 
@@ -874,27 +874,62 @@ export default function CaseDetailPage() {
           {(isSenior || isCEO) && (
             <div className="card p-5">
               <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--color-navy-900)' }}>
-                Case Info
+                Case Management
               </h3>
-              <div className="space-y-2 text-sm">
-                {caseData.is_escalated && (
-                  <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded-md mb-2">
-                    <Zap size={14} className="text-red-600" />
-                    <span className="text-xs font-semibold text-red-700">Escalated to CEO</span>
+              <div className="space-y-3 text-sm">
+                {/* Status display and update for EAAC */}
+                {isSenior && (
+                  <div>
+                    <label className="form-label text-xs">Case Status</label>
+                    <select
+                      className="form-select text-sm w-full"
+                      value={newStatus}
+                      onChange={(e) => setNewStatus(e.target.value)}
+                      disabled={updating}
+                    >
+                      {getNextStatusesForRole('Compliance_Officer', caseData.status).map(status => (
+                        <option key={status} value={status}>
+                          {formatStatus(status)}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 )}
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500">Status</span>
-                  <span className={`badge ${STATUS_BADGE[caseData.status] || 'badge-review'}`}>
-                    {formatStatus(caseData.status)}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500">Priority</span>
-                  <span className={`font-semibold text-sm ${PRIORITY_COLOR[caseData.priority]}`}>
-                    {caseData.priority}
-                  </span>
-                </div>
+
+                {/* CEO view - read only */}
+                {isCEO && (
+                  <>
+                    {caseData.is_escalated && (
+                      <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded-md mb-2">
+                        <Zap size={14} className="text-red-600" />
+                        <span className="text-xs font-semibold text-red-700">Escalated to CEO</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">Status</span>
+                      <span className={`badge ${STATUS_BADGE[caseData.status] || 'badge-review'}`}>
+                        {formatStatus(caseData.status)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">Priority</span>
+                      <span className={`font-semibold text-sm ${PRIORITY_COLOR[caseData.priority]}`}>
+                        {caseData.priority}
+                      </span>
+                    </div>
+                  </>
+                )}
+
+                {/* Update button for EAAC */}
+                {isSenior && (
+                  <button
+                    onClick={updateCase}
+                    disabled={updating}
+                    className="btn btn-primary w-full text-sm mt-2"
+                  >
+                    {updating ? <><span className="spinner" /> Updating...</> : 'Update Status'}
+                  </button>
+                )}
               </div>
             </div>
           )}
