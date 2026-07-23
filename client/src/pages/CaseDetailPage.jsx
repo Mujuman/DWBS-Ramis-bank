@@ -444,19 +444,14 @@ export default function CaseDetailPage() {
         body.branch_or_dept = requestBranch;
         // Note: Severity changes are disabled per security policy
       } else if (isCEO) {
-        // CEO can only assign an investigator on escalated cases
-        if (!assignTo) {
-          toast.error('Please select an investigator to assign.');
-          setUpdating(false);
-          return;
-        }
-        body.status = 'Assigned';
-        body.assigned_to = parseInt(assignTo, 10);
+        // CEO has read-only access to case details
+        toast.error('CEO role has read-only access to cases.');
+        setUpdating(false);
+        return;
       } else {
         // Only send status if it's a non-empty value different from current
         if (newStatus && newStatus.trim()) body.status = newStatus;
-        // Note: Severity override has been disabled per security policy
-        if (assignTo && parseInt(assignTo, 10) > 0) body.assigned_to = parseInt(assignTo, 10);
+        // Note: Severity override and handler assignment disabled per security policy
       }
 
       await api.patch(`/cases/${id}/status`, body);
