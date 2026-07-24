@@ -5,7 +5,7 @@ import {
   TrendingUp, AlertTriangle, Clock, CheckCircle, FileText,
   Activity, UserCheck, X, RefreshCw, Shield, ChevronRight,
   Inbox, Paperclip, Download, Eye, Send, MessageSquare,
-  Zap, Star, Circle, CheckCircle2, Calendar, Tag,
+  Zap, Star, Circle, CheckCircle2, Calendar, Tag, Pencil, Trash2, Check,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -59,6 +59,11 @@ export default function ExecutiveDashboard() {
   const [searchParams] = useSearchParams();
   const targetCaseId = searchParams.get('case_id') || searchParams.get('report_id');
   const bottomRef = useRef(null);
+
+  // note editing state
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [editText, setEditText]           = useState('');
+  const [savingEdit, setSavingEdit]       = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -125,6 +130,37 @@ export default function ExecutiveDashboard() {
     } catch { setReports([]); setEvidence([]); }
     setReportsLoading(false);
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+  };
+
+  // ── edit & delete note handlers ─────────────────────────────
+  const handleStartEdit = (note) => {
+    setEditingNoteId(note.id);
+    setEditText(note.body || '');
+  };
+
+  const handleSaveEdit = async (note) => {
+    if (!editText.trim()) { toast.error('Message body cannot be empty'); return; }
+    setSavingEdit(true);
+    try {
+      await api.patch(`/cases/${selectedCase.id}/notes/${note.id}`, { body: editText.trim() });
+      toast.success('Message updated successfully');
+      setEditingNoteId(null);
+      await openCase(selectedCase);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to update message');
+    }
+    setSavingEdit(false);
+  };
+
+  const handleDeleteNote = async (note) => {
+    if (!window.confirm('Are you sure you want to delete this message?')) return;
+    try {
+      await api.delete(`/cases/${selectedCase.id}/notes/${note.id}`);
+      toast.success('Message deleted successfully');
+      await openCase(selectedCase);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to delete message');
+    }
   };
 
   // ── send reply from CEO to EAAC ─────────────────────────────
@@ -198,55 +234,16 @@ export default function ExecutiveDashboard() {
     return !readIds.has(`case_${c.id}`) ? 1 : 0;
   };
 
-  const o = stats?.overview || {};
-
-  const kpiCards = [
-    { label: 'Reports Received', value: escalatedCases.length, icon: Inbox, color: '#b91c1c', bg: '#fee2e2' },
-    { label: 'In Progress', value: o.in_progress || 0, icon: Activity, color: '#3b82f6', bg: '#dbeafe' },
-  ];
-
-  if (loading) return (
-    <div className="flex items-center justify-center h-96">
-      <span className="spinner spinner-navy" />
-    </div>
-  );
-
-  return (
-    <div className="p-6 max-w-7xl mx-auto fade-in-up">
-
-      {/* ── Header ── */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: 'var(--color-navy-900)' }}>
-            <TrendingUp size={20} style={{ color: 'var(--color-gold-500)' }} />
+      {/* ── KPI Cards (In Progress card removed as requested) ── */}
+      <div className="grid grid-cols-1 max-w-sm mb-8">
+        <div className="card p-4">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3"
+            style={{ background: '#fee2e2' }}>
+            <Inbox size={18} style={{ color: '#b91c1c' }} />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold" style={{ color: 'var(--color-navy-900)' }}>
-              Executive Dashboard
-            </h1>
-            <p className="text-slate-500 text-sm mt-0.5">
-              {format(new Date(), 'EEEE, MMMM d, yyyy')}
-            </p>
-          </div>
+          <p className="text-2xl font-extrabold mb-0.5" style={{ color: 'var(--color-navy-900)' }}>{escalatedCases.length}</p>
+          <p className="text-xs font-semibold text-slate-500">Reports Received from EAAC</p>
         </div>
-        <button onClick={loadData} className="btn btn-ghost">
-          <RefreshCw size={15} /> Refresh
-        </button>
-      </div>
-
-      {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-        {kpiCards.map(k => (
-          <div key={k.label} className="card p-4">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3"
-              style={{ background: k.bg }}>
-              <k.icon size={18} style={{ color: k.color }} />
-            </div>
-            <p className="text-2xl font-extrabold mb-0.5" style={{ color: 'var(--color-navy-900)' }}>{k.value}</p>
-            <p className="text-xs font-semibold text-slate-500">{k.label}</p>
-          </div>
-        ))}
       </div>
 
       {/* ── Gmail-style Inbox ── */}
@@ -445,9 +442,25 @@ export default function ExecutiveDashboard() {
                                 )}
                               </div>
                             </div>
-                            <span className="text-xs text-slate-400">
-                              {format(new Date(note.created_at), 'MMM d, HH:mm')}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-slate-400">
+                                {format(new Date(note.created_at), 'MMM d, HH:mm')}
+                              </span>
+                              <button
+                                onClick={() => handleStartEdit(note)}
+                                className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-blue-600 transition"
+                                title="Edit message"
+                              >
+                                <Pencil size={12} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteNote(note)}
+                                className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600 transition"
+                                title="Delete message"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
                           </div>
                           {/* subject line for EAAC reports */}
                           {!isCEO && subject !== 'EAAC Report' && (
@@ -458,10 +471,37 @@ export default function ExecutiveDashboard() {
                             </div>
                           )}
                           {/* body */}
-                          <div
-                            className="text-sm text-slate-800 leading-relaxed space-y-2.5 overflow-x-auto"
-                            dangerouslySetInnerHTML={{ __html: renderRichText(content) }}
-                          />
+                          {editingNoteId === note.id ? (
+                            <div className="mt-2 space-y-2">
+                              <textarea
+                                className="w-full text-sm p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                rows={4}
+                                value={editText}
+                                onChange={(e) => setEditText(e.target.value)}
+                              />
+                              <div className="flex items-center gap-2 justify-end">
+                                <button
+                                  onClick={() => setEditingNoteId(null)}
+                                  className="btn btn-ghost text-xs py-1 px-3"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={() => handleSaveEdit(note)}
+                                  disabled={savingEdit}
+                                  className="btn btn-primary text-xs py-1 px-3 flex items-center gap-1"
+                                >
+                                  {savingEdit ? <span className="spinner" /> : <Check size={12} />}
+                                  Save Update
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div
+                              className="text-sm text-slate-800 leading-relaxed space-y-2.5 overflow-x-auto"
+                              dangerouslySetInnerHTML={{ __html: renderRichText(content) }}
+                            />
+                          )}
                         </div>
                       );
                     })
@@ -501,8 +541,7 @@ export default function ExecutiveDashboard() {
                   </div>
                 )}
 
-                {/* Reply box - DISABLED: CEO cannot send messages to EAAC */}
-                {/* 
+                {/* Reply box for CEO */}
                 <div className="px-6 py-4 border-t border-slate-100">
                   <div className="rounded-2xl overflow-hidden"
                     style={{ border: '1.5px solid #e2e8f0', boxShadow: '0 2px 8px rgba(10,29,55,0.06)' }}>
@@ -535,7 +574,6 @@ export default function ExecutiveDashboard() {
                     </div>
                   </div>
                 </div>
-                */}
               </div>
             )}
           </div>
