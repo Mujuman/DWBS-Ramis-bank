@@ -662,20 +662,9 @@ export default function TrackCasePage() {
                       placeholder="Enter your secret token"
                     />
                   </div>
-                  <div>
-                    <label className="form-label font-semibold">Reply To</label>
-                    <select
-                      value={replyRecipient}
-                      onChange={(e) => setReplyRecipient(e.target.value)}
-                      className="form-select"
-                    >
-                      {availableReplyRecipients.includes('Compliance_Officer') && (
-                        <option value="Compliance_Officer">Ethics & Anti-Corruption Office</option>
-                      )}
-                      {availableReplyRecipients.includes('CEO') && (
-                        <option value="CEO">CEO</option>
-                      )}
-                    </select>
+                  <div className="rounded-lg px-3 py-2 text-xs text-slate-700"
+                    style={{ background: 'rgba(10,29,55,0.04)', border: '1px solid rgba(10,29,55,0.12)' }}>
+                    💬 Your message will be sent directly to the <strong>Ethics & Anti-Corruption Office</strong>.
                   </div>
                   <div>
                     <label className="form-label font-semibold">Your Response</label>

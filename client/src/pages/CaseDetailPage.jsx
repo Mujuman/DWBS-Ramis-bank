@@ -355,7 +355,7 @@ export default function CaseDetailPage() {
       } else if (canManageOwnRequest) {
         recipientRole = replyRecipient;
       } else if (isSenior) {
-        recipientRole = isInternal ? replyRecipient : 'Reporter';
+        recipientRole = isInternal ? 'General' : 'Reporter';
       } else {
         recipientRole = replyRecipient;
       }
