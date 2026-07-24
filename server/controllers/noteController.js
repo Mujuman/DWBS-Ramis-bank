@@ -174,10 +174,45 @@ const createNote = async (req, res) => {
         : senderType;
     }
 
+    // Save attached files if provided with note
+    const processedList = req.processedFiles || (req.processedFile ? [req.processedFile] : []);
+    const attachedFiles = [];
+    if (processedList.length > 0) {
+      const [cols] = await pool.execute("SHOW COLUMNS FROM evidencefiles LIKE 'mime_type'");
+      const hasMimeCol = cols.length > 0;
+
+      for (const pf of processedList) {
+        const fileName = pf.originalFilename;
+        const filePath = pf.storedFilename;
+        const encryptionIv = pf.encryptionIv || null;
+        const mimeType = pf.mimeType || 'application/octet-stream';
+
+        if (hasMimeCol) {
+          await pool.execute(
+            `INSERT INTO evidencefiles (case_id, file_name, file_path, encryption_iv, uploaded_by, mime_type)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [caseId, fileName, filePath, encryptionIv, identity.type === 'staff' ? (req.user?.userId ?? null) : null, mimeType]
+          );
+        } else {
+          await pool.execute(
+            `INSERT INTO evidencefiles (case_id, file_name, file_path, encryption_iv, uploaded_by)
+             VALUES (?, ?, ?, ?, ?)`,
+            [caseId, fileName, filePath, encryptionIv, identity.type === 'staff' ? (req.user?.userId ?? null) : null]
+          );
+        }
+        attachedFiles.push(fileName);
+      }
+    }
+
+    const attachmentSuffix = attachedFiles.length > 0
+      ? `\n\n📎 Attached Files (${attachedFiles.length}):\n` + attachedFiles.map(f => `- ${f}`).join('\n')
+      : '';
+    const noteBody = body + attachmentSuffix;
+
     await pool.execute(
       `INSERT INTO investigationnotes (case_id, sender_type, audience_type, note_text, is_internal_only, sender_user_id)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [caseId, senderType, audienceType, body, isInternal ? 1 : 0, identity.type === 'staff' ? (req.user?.userId ?? null) : null]
+      [caseId, senderType, audienceType, noteBody, isInternal ? 1 : 0, identity.type === 'staff' ? (req.user?.userId ?? null) : null]
     );
 
     // Update case status when reporter replies during active investigation

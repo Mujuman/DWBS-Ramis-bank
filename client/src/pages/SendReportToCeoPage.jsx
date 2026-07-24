@@ -30,6 +30,7 @@ export default function SendReportToCeoPage() {
   const [ceoNotes, setCeoNotes]             = useState([]);
   const [loadingNotes, setLoadingNotes]     = useState(false);
   const [replyMessage, setReplyMessage]     = useState('');
+  const [replyFiles, setReplyFiles]         = useState([]);
   const [sendingReply, setSendingReply]     = useState(false);
   const [editingNoteId, setEditingNoteId]   = useState(null);
   const [editText, setEditText]             = useState('');
@@ -94,16 +95,19 @@ export default function SendReportToCeoPage() {
 
   const handleSendQuickReply = async (e) => {
     e.preventDefault();
-    if (!replyMessage.trim() || !selectedCase) return;
+    if ((!replyMessage.trim() && replyFiles.length === 0) || !selectedCase) return;
     setSendingReply(true);
     try {
-      await api.post(`/cases/${selectedCase.id}/notes`, {
-        body: replyMessage.trim(),
-        recipient_role: 'CEO',
-        is_internal_only: false,
-      });
+      const formData = new FormData();
+      formData.append('body', replyMessage.trim() || 'Attached evidence files.');
+      formData.append('recipient_role', 'CEO');
+      formData.append('is_internal_only', 'false');
+      replyFiles.forEach(f => formData.append('files', f));
+
+      await api.post(`/cases/${selectedCase.id}/notes`, formData);
       setReplyMessage('');
-      toast.success('Reply sent directly to the CEO');
+      setReplyFiles([]);
+      toast.success('Reply and attached files sent directly to the CEO');
       await fetchCeoNotes(selectedCase.id);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to send reply to CEO');
@@ -111,9 +115,25 @@ export default function SendReportToCeoPage() {
     setSendingReply(false);
   };
 
+  const stripHtmlTags = (str = '') => {
+    if (!str) return '';
+    const { content } = parseReport(str);
+    const formatted = content
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<\/li>/gi, '\n')
+      .replace(/<h[1-6]>/gi, '\n# ')
+      .replace(/<\/h[1-6]>/gi, '\n');
+    
+    const doc = new DOMParser().parseFromString(formatted, 'text/html');
+    return (doc.body.textContent || doc.body.innerText || '').trim();
+  };
+
   const handleStartEdit = (note) => {
     setEditingNoteId(note.id);
-    setEditText(note.body || '');
+    const { subject: noteSub } = parseReport(note.body || '');
+    const cleanText = stripHtmlTags(note.body || '');
+    setEditText(noteSub ? `**${noteSub}**\n\n${cleanText}` : cleanText);
   };
 
   const handleSaveEdit = async (note) => {
@@ -430,22 +450,26 @@ export default function SendReportToCeoPage() {
                               <span className="text-[11px]">
                                 {format(new Date(note.created_at), 'MMM d, HH:mm')}
                               </span>
-                              <button
-                                type="button"
-                                onClick={() => handleStartEdit(note)}
-                                className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-blue-600 transition ml-1"
-                                title="Edit message"
-                              >
-                                <Pencil size={11} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteNote(note)}
-                                className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600 transition"
-                                title="Delete message"
-                              >
-                                <Trash2 size={11} />
-                              </button>
+                              {!isCEO && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStartEdit(note)}
+                                    className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-blue-600 transition ml-1"
+                                    title="Edit message"
+                                  >
+                                    <Pencil size={11} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteNote(note)}
+                                    className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600 transition"
+                                    title="Delete message"
+                                  >
+                                    <Trash2 size={11} />
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </div>
 
@@ -488,9 +512,39 @@ export default function SendReportToCeoPage() {
                   )}
                 </div>
 
-                {/* Quick Reply Box to CEO */}
-                <div className="p-3 border-t border-slate-200 bg-white">
+                {/* Quick Reply Box to CEO with Multi-File Attachment Support */}
+                <div className="p-3 border-t border-slate-200 bg-white space-y-2">
+                  {replyFiles.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pb-1">
+                      {replyFiles.map((rf, idx) => (
+                        <span key={idx} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-amber-50 text-amber-900 border border-amber-200">
+                          <FileText size={10} className="text-amber-600" />
+                          <span className="truncate max-w-32">{rf.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setReplyFiles(prev => prev.filter((_, i) => i !== idx))}
+                            className="text-slate-400 hover:text-red-600"
+                          >
+                            <X size={10} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-2">
+                    <label className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 cursor-pointer transition shrink-0" title="Attach multiple evidence files">
+                      <Paperclip size={14} />
+                      <input
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => {
+                          const selected = Array.from(e.target.files || []);
+                          setReplyFiles(prev => [...prev, ...selected].slice(0, 10));
+                        }}
+                      />
+                    </label>
                     <input
                       type="text"
                       className="form-input text-xs flex-1 py-2"
@@ -502,7 +556,7 @@ export default function SendReportToCeoPage() {
                     <button
                       type="button"
                       onClick={handleSendQuickReply}
-                      disabled={sendingReply || !replyMessage.trim()}
+                      disabled={sendingReply || (!replyMessage.trim() && replyFiles.length === 0)}
                       className="btn btn-primary text-xs py-2 px-4 flex items-center gap-1.5 shrink-0"
                       style={{ background: 'var(--color-navy-900)' }}
                     >

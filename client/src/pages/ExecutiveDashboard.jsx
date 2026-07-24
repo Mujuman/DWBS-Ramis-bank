@@ -132,10 +132,26 @@ export default function ExecutiveDashboard() {
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
   };
 
+  const stripHtmlTags = (str = '') => {
+    if (!str) return '';
+    const { content } = parseReport(str);
+    const formatted = content
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<\/li>/gi, '\n')
+      .replace(/<h[1-6]>/gi, '\n# ')
+      .replace(/<\/h[1-6]>/gi, '\n');
+    
+    const doc = new DOMParser().parseFromString(formatted, 'text/html');
+    return (doc.body.textContent || doc.body.innerText || '').trim();
+  };
+
   // ── edit & delete note handlers ─────────────────────────────
   const handleStartEdit = (note) => {
     setEditingNoteId(note.id);
-    setEditText(note.body || '');
+    const { subject: noteSub } = parseReport(note.body || '');
+    const cleanText = stripHtmlTags(note.body || '');
+    setEditText(noteSub ? `**${noteSub}**\n\n${cleanText}` : cleanText);
   };
 
   const handleSaveEdit = async (note) => {
@@ -470,20 +486,24 @@ export default function ExecutiveDashboard() {
                               <span className="text-xs text-slate-400">
                                 {format(new Date(note.created_at), 'MMM d, HH:mm')}
                               </span>
-                              <button
-                                onClick={() => handleStartEdit(note)}
-                                className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-blue-600 transition"
-                                title="Edit message"
-                              >
-                                <Pencil size={12} />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteNote(note)}
-                                className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600 transition"
-                                title="Delete message"
-                              >
-                                <Trash2 size={12} />
-                              </button>
+                              {!isCEO && (
+                                <>
+                                  <button
+                                    onClick={() => handleStartEdit(note)}
+                                    className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-blue-600 transition"
+                                    title="Edit message"
+                                  >
+                                    <Pencil size={12} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteNote(note)}
+                                    className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600 transition"
+                                    title="Delete message"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </div>
                           {/* subject line for EAAC reports */}

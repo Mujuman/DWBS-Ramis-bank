@@ -383,6 +383,9 @@ router.post('/cases/anonymous/notes',
 );
 
 router.post('/cases/:id/notes',
+  upload.fields([{ name: 'files', maxCount: 10 }, { name: 'file', maxCount: 1 }]),
+  handleUploadErrors,
+  processAndSaveFile,
   sanitizeRequestBody,
   validateCreateNote,
   handleValidationErrors,
