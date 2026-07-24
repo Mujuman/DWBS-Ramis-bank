@@ -318,7 +318,7 @@ export default function ExecutiveDashboard() {
                         <div className="flex items-center gap-1.5 mt-1.5">
                           <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
                             style={{ background: `${catColor}18`, color: catColor }}>
-                            {c.priority}
+                            {c.severity_level}
                           </span>
                           <span className={`badge ${STATUS_BADGE[c.status] || 'badge-review'} text-xs`}>
                             {formatStatus(c.status)}
@@ -365,7 +365,7 @@ export default function ExecutiveDashboard() {
                             background: `${CATEGORY_COLORS[selectedCase.category] || '#64748b'}18`,
                             color: CATEGORY_COLORS[selectedCase.category] || '#64748b',
                           }}>
-                          {selectedCase.priority}
+                          {selectedCase.severity_level}
                         </span>
                       </div>
                       <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap">

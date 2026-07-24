@@ -18,9 +18,7 @@ const STATUS_LABELS = {
   Dismissed_No_Evidence: { label: 'Dismissed due to Lack of Evidence', class: STATUS_BADGE.Dismissed_No_Evidence },
 };
 
-const PRIORITY_LABELS = {
-  Low: 'badge-low', Medium: 'badge-medium', High: 'badge-high', Critical: 'badge-critical'
-};
+
 
 export default function TrackCasePage() {
   const [result, setResult] = useState(null);

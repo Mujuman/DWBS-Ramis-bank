@@ -121,7 +121,7 @@ Official compliance team members assigned to investigate and resolve reported ca
 | View case evidence files | ✅ Yes | Download and review |
 | Download evidence | ✅ Yes | |
 | Update case status | ✅ Yes | New → Under Review → Investigating → Resolved → Closed |
-| Change severity level | ✅ Yes | Low, Medium, High, Critical |
+| Change severity level | ✅ Yes | Low, Medium, High |
 | Add internal investigation notes | ✅ Yes | Marked as internal-only |
 | Message reporters | ✅ Yes | Request additional information |
 | Assign cases to self | ✅ Yes | |
@@ -176,11 +176,11 @@ Senior compliance role with oversight of all investigations and access to execut
 **Authentication:** Active Directory (LDAP) or local password
 
 ### Description
-Highest executive with read-only access to all statistics and critical cases.
+Highest executive with read-only access to all statistics and escalated cases.
 
 ### Key Features
 - Executive dashboard with charts and KPIs
-- Automatic alerts for Critical cases
+- Automatic alerts for escalated cases
 - Read-only access to protect investigation integrity
 - Audit log visibility
 
@@ -189,7 +189,7 @@ Highest executive with read-only access to all statistics and critical cases.
 |--------|--------|-------|
 | View executive dashboard | ✅ Yes | Charts, statistics, trends |
 | View all case statistics | ✅ Yes | Aggregated data |
-| View critical cases | ✅ Yes | Auto-notified for Critical severity |
+| View escalated cases | ✅ Yes | Auto-notified for escalated cases |
 | View audit logs | ✅ Yes | Oversight and accountability |
 | View case details | ✅ Yes | Read-only |
 | Modify cases | ❌ No | Read-only to prevent interference |
@@ -200,7 +200,7 @@ Highest executive with read-only access to all statistics and critical cases.
 ### Technical Details
 - **Default Landing Page:** `/executive`
 - **Access Level:** High (read-only dashboard)
-- **Notifications:** Automatic for `severity_level = 'Critical'`
+- **Notifications:** Automatic for escalated cases
 - **Routes:** `/executive`, `/cases` (read-only), `/audit`
 
 ---
@@ -416,7 +416,7 @@ Independent internal or external auditor responsible for compliance oversight.
 3. Use Active Directory for all staff accounts except System Admin and Auditor
 4. Regularly review audit logs for suspicious activity
 5. Implement LDAPS with valid TLS certificates
-6. Set up automated alerts for Critical cases
+6. Set up automated alerts for escalated cases
 7. Configure proper database backups
 
 ---

@@ -106,7 +106,7 @@ export default function DashboardPage() {
                 <tr>
                   <th>Reference</th>
                   <th>Category</th>
-                  <th>Priority</th>
+                  <th>Severity</th>
                   <th>Status</th>
                   <th>Submitted</th>
                   <th></th>
@@ -122,7 +122,7 @@ export default function DashboardPage() {
                     </td>
                     <td className="text-slate-600">{c.category?.replace(/_/g, ' ')}</td>
                     <td>
-                      <span className={`badge badge-${c.priority?.toLowerCase()}`}>{c.priority}</span>
+                      <span className={`badge badge-${c.severity_level?.toLowerCase()}`}>{c.severity_level}</span>
                     </td>
                     <td>
                       <span className={`badge ${STATUS_BADGE[c.status] || 'badge-review'}`}>
