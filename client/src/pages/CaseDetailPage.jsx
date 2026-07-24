@@ -801,26 +801,19 @@ export default function CaseDetailPage() {
                   </div>
                 )}
 
-                {/* ── Ethics (Compliance_Officer): recipient depends on internal flag ── */}
+                {/* ── Ethics (Compliance_Officer): simple status notice (no recipient form) ── */}
                 {isSenior && (
                   <div className="mb-3">
-                    <label className="form-label text-xs">
-                      {isInternal ? 'Internal Note Recipient' : 'Sending public message to'}
-                    </label>
                     {isInternal ? (
-                      <select
-                        className="form-select text-sm"
-                        value={replyRecipient}
-                        onChange={e => setReplyRecipient(e.target.value)}
-                      >
-                        <option value="General">General / All Staff</option>
-                        <option value="Investigator">Case Investigator</option>
-                        <option value="CEO">CEO</option>
-                      </select>
+                      <div className="rounded-lg px-3 py-2 text-xs text-slate-600 flex items-center gap-1.5"
+                        style={{ background: 'rgba(100,116,139,0.08)', border: '1px solid rgba(100,116,139,0.18)' }}>
+                        <Lock size={12} className="text-slate-500" />
+                        <span><strong>Internal Note:</strong> Saved to case file (hidden from reporter).</span>
+                      </div>
                     ) : (
-                      <div className="rounded-lg px-3 py-2 text-xs text-slate-500"
-                        style={{ background: 'rgba(249,168,38,0.06)', border: '1px solid rgba(249,168,38,0.18)' }}>
-                        Reporter (public — visible to the case submitter)
+                      <div className="rounded-lg px-3 py-2 text-xs text-slate-700 flex items-center gap-1.5"
+                        style={{ background: 'rgba(249,168,38,0.08)', border: '1px solid rgba(249,168,38,0.22)' }}>
+                        <span>💬 <strong>Message to Reporter:</strong> Direct message to case submitter (anonymous or staff).</span>
                       </div>
                     )}
                   </div>
@@ -831,14 +824,7 @@ export default function CaseDetailPage() {
                     <input
                       type="checkbox"
                       checked={isInternal}
-                      onChange={e => {
-                        setIsInternal(e.target.checked);
-                        if (!e.target.checked) {
-                          setReplyRecipient('Investigator');
-                        } else {
-                          setReplyRecipient('General');
-                        }
-                      }}
+                      onChange={e => setIsInternal(e.target.checked)}
                       className="w-4 h-4 rounded"
                     />
                     <span className="text-xs text-slate-500 flex items-center gap-1">
