@@ -211,6 +211,12 @@ const listEvidence = async (req, res) => {
       `SELECT assigned_handler, user_id, is_escalated FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
       [caseId]
     );
+    
+    if (caseCheck.length === 0) {
+      return res.status(404).json({ error: 'Case not found' });
+    }
+    
+    const c = caseCheck[0];
     const isOwner = user && c && c.user_id === user.userId;
     const isComp = user && user.role === 'Compliance_Officer';
     const isCEOEscalated = user && user.role === 'CEO' && c && c.is_escalated;

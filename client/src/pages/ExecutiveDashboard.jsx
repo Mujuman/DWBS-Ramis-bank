@@ -196,11 +196,7 @@ export default function ExecutiveDashboard() {
 
   const kpiCards = [
     { label: 'Reports Received', value: escalatedCases.length, icon: Inbox, color: '#b91c1c', bg: '#fee2e2' },
-    { label: 'Total Cases', value: o.total || 0, icon: FileText, color: '#0A1D37', bg: '#e8edf5' },
-    { label: 'Critical', value: o.critical || 0, icon: AlertTriangle, color: '#ef4444', bg: '#fef2f2' },
     { label: 'In Progress', value: o.in_progress || 0, icon: Activity, color: '#3b82f6', bg: '#dbeafe' },
-    { label: 'Substantiated', value: o.substantiated || 0, icon: CheckCircle, color: '#16a34a', bg: '#dcfce7' },
-    { label: 'Avg Resolution', value: stats?.avg_resolution_hours ? `${stats.avg_resolution_hours}h` : '—', icon: Clock, color: '#8b5cf6', bg: '#ede9fe' },
   ];
 
   if (loading) return (
@@ -234,7 +230,7 @@ export default function ExecutiveDashboard() {
       </div>
 
       {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
         {kpiCards.map(k => (
           <div key={k.label} className="card p-4">
             <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3"

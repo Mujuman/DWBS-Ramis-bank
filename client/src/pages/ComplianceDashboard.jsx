@@ -9,7 +9,7 @@ import {
   AlertTriangle, CheckCircle, Clock, FileText,
   TrendingUp, Users, ChevronRight, X, Filter,
   BarChart3, Send, Shield, Zap,
-  Paperclip, Trash2,
+  Paperclip, Trash2, XCircle,
 } from 'lucide-react';
 import { CASE_STATUSES, STATUS_BADGE, formatStatus } from '../constants/caseWorkflow';
 import {
@@ -145,11 +145,11 @@ export default function EthicsDashboard() {
   const ov = stats?.overview || {};
   const statCards = [
     { label: 'Total Cases', value: ov.total || 0, icon: FileText, color: 'var(--color-navy-900)', bg: '#e8edf5' },
-    { label: 'New', value: ov.new_cases || 0, icon: AlertTriangle, color: 'var(--color-gold-600)', bg: '#fef3c7' },
+    { label: 'New Cases', value: ov.new_cases || 0, icon: AlertTriangle, color: 'var(--color-gold-600)', bg: '#fef3c7' },
+    { label: 'Under Review', value: ov.under_review || 0, icon: Search, color: '#0891b2', bg: '#cffafe' },
     { label: 'In Progress', value: ov.in_progress || 0, icon: Clock, color: '#3b82f6', bg: '#dbeafe' },
     { label: 'Substantiated', value: ov.substantiated || 0, icon: CheckCircle, color: '#16a34a', bg: '#dcfce7' },
-    { label: 'Critical', value: ov.critical || 0, icon: TrendingUp, color: '#dc2626', bg: '#fee2e2' },
-    { label: 'Unassigned', value: cases.filter(c => !c.assigned_handler && !c.assigned_investigator).length, icon: Users, color: '#7c3aed', bg: '#ede9fe' },
+    { label: 'Dismissed', value: (ov.complaint_dismissed || 0) + (ov.dismissed_no_evidence || 0), icon: XCircle, color: '#64748b', bg: '#f1f5f9' },
   ];
 
   return (
@@ -177,7 +177,7 @@ export default function EthicsDashboard() {
       </div>
 
       {/* ── Stat Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
         {statCards.map(s => (
           <div key={s.label} className="card p-4">
             <div className="flex items-center justify-between mb-2">
