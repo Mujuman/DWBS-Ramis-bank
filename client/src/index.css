@@ -491,7 +491,6 @@ h1, h2, h3, h4, h5, h6 {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(10,29,55,0.12);
 }
-.kanban-card.critical { border-left-color: var(--color-danger-500); }
 .kanban-card.high     { border-left-color: var(--color-gold-500); }
 .kanban-card.medium   { border-left-color: var(--color-info-500); }
 .kanban-card.low      { border-left-color: var(--color-success-500); }
