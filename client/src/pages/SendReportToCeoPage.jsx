@@ -5,8 +5,10 @@ import toast from 'react-hot-toast';
 import {
   Send, Shield, Upload, X, FileText, CheckCircle2,
   Type, Bold, Italic, Underline, Heading, List, Code,
-  Paperclip, ArrowLeft, RefreshCw, Eye, Sparkles
+  Paperclip, ArrowLeft, RefreshCw, Eye, Sparkles,
+  MessageSquare, Pencil, Trash2, Check, MessageCircle, Clock, Calendar
 } from 'lucide-react';
+import { format } from 'date-fns';
 import { renderRichText } from '../utils/formatting';
 import { useDropzone } from 'react-dropzone';
 
@@ -23,6 +25,15 @@ export default function SendReportToCeoPage() {
   const [files, setFiles] = useState([]);
   const [sending, setSending] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+
+  // CEO Chat thread state
+  const [ceoNotes, setCeoNotes]             = useState([]);
+  const [loadingNotes, setLoadingNotes]     = useState(false);
+  const [replyMessage, setReplyMessage]     = useState('');
+  const [sendingReply, setSendingReply]     = useState(false);
+  const [editingNoteId, setEditingNoteId]   = useState(null);
+  const [editText, setEditText]             = useState('');
+  const [savingEdit, setSavingEdit]         = useState(false);
 
   const editorRef = useRef(null);
 
@@ -50,10 +61,83 @@ export default function SendReportToCeoPage() {
     fetchCases();
   }, []);
 
+  const fetchCeoNotes = async (caseId) => {
+    if (!caseId) return;
+    setLoadingNotes(true);
+    try {
+      const res = await api.get(`/cases/${caseId}/notes`);
+      const notes = (res.data.notes || []).filter(n =>
+        n.author_type === 'CEO' ||
+        (n.author_type === 'Compliance_Officer' && n.audience_type === 'CEO') ||
+        n.audience_type === 'CEO'
+      );
+      setCeoNotes(notes);
+    } catch (_) {
+      setCeoNotes([]);
+    }
+    setLoadingNotes(false);
+  };
+
   const selectCase = (c) => {
     setSelectedCase(c);
     if (!subject || subject.includes('Case ')) {
       setSubject(`[EAAC Executive Report] Case ${c.reference_id}: Investigation Findings & Recommendations`);
+    }
+    fetchCeoNotes(c.id);
+  };
+
+  const parseReport = (body = '') => {
+    const match = body.match(/^\*\*(.+?)\*\*\n\n([\s\S]*)$/);
+    if (match) return { subject: match[1], content: match[2] };
+    return { subject: '', content: body };
+  };
+
+  const handleSendQuickReply = async (e) => {
+    e.preventDefault();
+    if (!replyMessage.trim() || !selectedCase) return;
+    setSendingReply(true);
+    try {
+      await api.post(`/cases/${selectedCase.id}/notes`, {
+        body: replyMessage.trim(),
+        recipient_role: 'CEO',
+        is_internal_only: false,
+      });
+      setReplyMessage('');
+      toast.success('Reply sent directly to the CEO');
+      await fetchCeoNotes(selectedCase.id);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to send reply to CEO');
+    }
+    setSendingReply(false);
+  };
+
+  const handleStartEdit = (note) => {
+    setEditingNoteId(note.id);
+    setEditText(note.body || '');
+  };
+
+  const handleSaveEdit = async (note) => {
+    if (!editText.trim() || !selectedCase) return;
+    setSavingEdit(true);
+    try {
+      await api.patch(`/cases/${selectedCase.id}/notes/${note.id}`, { body: editText.trim() });
+      toast.success('Message updated');
+      setEditingNoteId(null);
+      await fetchCeoNotes(selectedCase.id);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to update message');
+    }
+    setSavingEdit(false);
+  };
+
+  const handleDeleteNote = async (note) => {
+    if (!selectedCase || !window.confirm('Delete this message?')) return;
+    try {
+      await api.delete(`/cases/${selectedCase.id}/notes/${note.id}`);
+      toast.success('Message deleted');
+      await fetchCeoNotes(selectedCase.id);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to delete message');
     }
   };
 
@@ -279,6 +363,156 @@ export default function SendReportToCeoPage() {
                 </div>
               )}
             </div>
+
+            {/* CEO Correspondence & Reply Thread (Chat Box) */}
+            {selectedCase && (
+              <div className="border border-slate-200 rounded-2xl overflow-hidden bg-slate-50/50">
+                <div className="px-4 py-3 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare size={16} className="text-amber-400" />
+                    <span className="text-xs font-bold tracking-wide">CEO Correspondence & Reply Thread</span>
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">
+                      {ceoNotes.length} message{ceoNotes.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fetchCeoNotes(selectedCase.id)}
+                    className="text-slate-300 hover:text-white text-xs flex items-center gap-1 transition"
+                  >
+                    <RefreshCw size={12} className={loadingNotes ? 'spin' : ''} /> Refresh Chat
+                  </button>
+                </div>
+
+                <div className="p-4 space-y-3 max-h-72 overflow-y-auto">
+                  {loadingNotes ? (
+                    <div className="text-center py-6 text-slate-400 text-xs flex items-center justify-center gap-2">
+                      <RefreshCw size={14} className="spin text-amber-500" /> Loading CEO chat history...
+                    </div>
+                  ) : ceoNotes.length === 0 ? (
+                    <div className="text-center py-6 px-4 bg-white rounded-xl border border-slate-100 text-slate-400 text-xs">
+                      <MessageCircle size={24} className="mx-auto mb-1.5 opacity-40 text-slate-400" />
+                      No previous correspondence with the CEO for this case. Fill out the formal report form below to send the first report.
+                    </div>
+                  ) : (
+                    ceoNotes.map((note) => {
+                      const isCEO = note.author_type === 'CEO';
+                      const { subject: noteSub, content: noteBody } = parseReport(note.body);
+                      return (
+                        <div
+                          key={note.id}
+                          className={`p-3.5 rounded-xl border text-xs ${
+                            isCEO
+                              ? 'bg-amber-50/70 border-amber-200 text-slate-900 ml-6'
+                              : 'bg-white border-slate-200 text-slate-800 mr-6'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1.5">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                                  isCEO ? 'bg-amber-500 text-slate-900' : 'bg-slate-900 text-amber-400'
+                                }`}
+                              >
+                                {isCEO ? 'C' : 'E'}
+                              </span>
+                              <span className="font-bold text-slate-900">
+                                {isCEO ? 'CEO Reply' : 'EAAC Report / Message'}
+                              </span>
+                              {noteSub && (
+                                <span className="text-[11px] font-semibold text-slate-500 truncate max-w-48">
+                                  — {noteSub}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 text-slate-400">
+                              <Clock size={11} />
+                              <span className="text-[11px]">
+                                {format(new Date(note.created_at), 'MMM d, HH:mm')}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleStartEdit(note)}
+                                className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-blue-600 transition ml-1"
+                                title="Edit message"
+                              >
+                                <Pencil size={11} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteNote(note)}
+                                className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600 transition"
+                                title="Delete message"
+                              >
+                                <Trash2 size={11} />
+                              </button>
+                            </div>
+                          </div>
+
+                          {editingNoteId === note.id ? (
+                            <div className="mt-2 space-y-2">
+                              <textarea
+                                className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white"
+                                rows={3}
+                                value={editText}
+                                onChange={(e) => setEditText(e.target.value)}
+                              />
+                              <div className="flex items-center gap-2 justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingNoteId(null)}
+                                  className="btn btn-ghost text-[11px] py-1 px-2.5"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveEdit(note)}
+                                  disabled={savingEdit}
+                                  className="btn btn-primary text-[11px] py-1 px-2.5 flex items-center gap-1"
+                                >
+                                  {savingEdit ? <span className="spinner" /> : <Check size={11} />}
+                                  Save Update
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div
+                              className="leading-relaxed space-y-1 overflow-x-auto"
+                              dangerouslySetInnerHTML={{ __html: renderRichText(noteBody || note.body) }}
+                            />
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Quick Reply Box to CEO */}
+                <div className="p-3 border-t border-slate-200 bg-white">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      className="form-input text-xs flex-1 py-2"
+                      placeholder="Write a reply message directly to the CEO..."
+                      value={replyMessage}
+                      onChange={(e) => setReplyMessage(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendQuickReply(e); } }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSendQuickReply}
+                      disabled={sendingReply || !replyMessage.trim()}
+                      className="btn btn-primary text-xs py-2 px-4 flex items-center gap-1.5 shrink-0"
+                      style={{ background: 'var(--color-navy-900)' }}
+                    >
+                      {sendingReply ? <span className="spinner" /> : <Send size={13} />}
+                      Reply CEO
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Subject Line */}
             <div>

@@ -228,11 +228,35 @@ export default function ExecutiveDashboard() {
     } catch { toast.error('Failed to preview file'); }
   };
 
-  // ── unread count per case ────────────────────────────────────
-  const getUnreadCount = (c) => {
-    // We don't have per-case note data in the list — use is_escalated as proxy for "new"
-    return !readIds.has(`case_${c.id}`) ? 1 : 0;
-  };
+  if (loading) return (
+    <div className="flex items-center justify-center h-96">
+      <span className="spinner spinner-navy" />
+    </div>
+  );
+
+  return (
+    <div className="p-6 max-w-7xl mx-auto fade-in-up">
+
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+            style={{ background: 'var(--color-navy-900)' }}>
+            <TrendingUp size={20} style={{ color: 'var(--color-gold-500)' }} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold" style={{ color: 'var(--color-navy-900)' }}>
+              Executive Dashboard
+            </h1>
+            <p className="text-slate-500 text-sm mt-0.5">
+              {format(new Date(), 'EEEE, MMMM d, yyyy')}
+            </p>
+          </div>
+        </div>
+        <button onClick={loadData} className="btn btn-ghost">
+          <RefreshCw size={15} /> Refresh
+        </button>
+      </div>
 
       {/* ── KPI Cards (In Progress card removed as requested) ── */}
       <div className="grid grid-cols-1 max-w-sm mb-8">
