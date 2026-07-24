@@ -121,7 +121,7 @@ const createCase = async (req, res) => {
 
     // NOTE: CEO is NOT notified at submission time.
     // The Ethics & Anti-Corruption Office must review the case first.
-    // If they determine it is Critical, they escalate it to the CEO manually.
+    // If they determine escalation is needed, they escalate it to the CEO manually.
 
     // In-app notification for compliance officers
     createNotification({
@@ -1033,7 +1033,7 @@ const escalateCase = async (req, res) => {
     createNotification({
       targetRole: 'CEO',
       type: 'case_escalated',
-      title: 'Critical Case Escalated by Ethics & Anti-Corruption Office',
+      title: 'Case Escalated by Ethics & Anti-Corruption Office',
       message: `The Ethics & Anti-Corruption Office has escalated Case ${caseData.reference_id} (${caseData.category?.replace(/_/g, ' ')}) to you. ${escalation_note?.trim() ? 'A detailed report has been attached.' : 'Please review and assign a case handler.'}`,
       caseId,
     });

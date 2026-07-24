@@ -420,7 +420,7 @@ export default function EthicsDashboard() {
               </div>
             </div>
 
-            {/* Row 2: Category + Priority */}
+            {/* Row 2: Category + Severity */}
             <div className="grid lg:grid-cols-2 gap-6">
               <div className="card p-6">
                 <h2 className="text-sm font-bold mb-4" style={{ color: 'var(--color-navy-900)' }}>Cases by Category</h2>
