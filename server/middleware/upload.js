@@ -63,39 +63,58 @@ const decryptBuffer = (encryptedBuffer, ivHex) => {
 
 // ── EXIF Strip + Encrypt + Persist Middleware ─────────────────
 const processAndSaveFile = async (req, res, next) => {
-  if (!req.file) return next();
+  let rawFiles = [];
+  if (Array.isArray(req.files)) {
+    rawFiles = req.files;
+  } else if (req.files && typeof req.files === 'object') {
+    Object.values(req.files).forEach(arr => {
+      if (Array.isArray(arr)) rawFiles.push(...arr);
+    });
+  } else if (req.file) {
+    rawFiles = [req.file];
+  }
+
+  if (rawFiles.length === 0) return next();
 
   try {
-    let fileBuffer = req.file.buffer;
-    let exifStripped = false;
+    const processedList = [];
 
-    // Strip EXIF metadata from images
-    const isImage = ['image/jpeg', 'image/png'].includes(req.file.mimetype);
-    if (isImage) {
-      fileBuffer = await sharp(fileBuffer)
-        .withMetadata({ exif: {} }) // clear all EXIF
-        .toBuffer();
-      exifStripped = true;
+    for (const f of rawFiles) {
+      let fileBuffer = f.buffer;
+      let exifStripped = false;
+
+      // Strip EXIF metadata from images
+      const isImage = ['image/jpeg', 'image/png'].includes(f.mimetype);
+      if (isImage) {
+        fileBuffer = await sharp(fileBuffer)
+          .withMetadata({ exif: {} }) // clear all EXIF
+          .toBuffer();
+        exifStripped = true;
+      }
+
+      // Encrypt the (possibly EXIF-stripped) buffer
+      const { encrypted, iv } = encryptBuffer(fileBuffer);
+
+      // Write to disk with UUID filename (no original name in path)
+      const storedFilename = `${uuidv4()}${path.extname(f.originalname).toLowerCase()}`;
+      const encPath = path.join(UPLOAD_DIR, storedFilename);
+      fs.writeFileSync(encPath, encrypted);
+
+      processedList.push({
+        originalFilename: path.basename(f.originalname).replace(/[^a-zA-Z0-9._-]/g, '_'),
+        storedFilename,
+        encryptedPath: path.relative(process.cwd(), encPath).replace(/\\/g, '/'),
+        encryptionIv: iv,
+        mimeType: f.mimetype,
+        fileSizeBytes: fileBuffer.length,
+        exifStripped,
+      });
     }
 
-    // Encrypt the (possibly EXIF-stripped) buffer
-    const { encrypted, iv } = encryptBuffer(fileBuffer);
-
-    // Write to disk with UUID filename (no original name in path)
-    const storedFilename = `${uuidv4()}${path.extname(req.file.originalname).toLowerCase()}`;
-    const encPath = path.join(UPLOAD_DIR, storedFilename);
-    fs.writeFileSync(encPath, encrypted);
-
-    // Attach processed file metadata to req for the controller
-    req.processedFile = {
-      originalFilename: path.basename(req.file.originalname).replace(/[^a-zA-Z0-9._-]/g, '_'),
-      storedFilename,
-      encryptedPath: path.relative(process.cwd(), encPath).replace(/\\/g, '/'),
-      encryptionIv: iv,
-      mimeType: req.file.mimetype,
-      fileSizeBytes: fileBuffer.length,
-      exifStripped,
-    };
+    req.processedFiles = processedList;
+    if (processedList.length > 0) {
+      req.processedFile = processedList[0];
+    }
 
     next();
   } catch (err) {

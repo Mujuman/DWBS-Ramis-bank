@@ -193,7 +193,7 @@ router.post('/cases/:id/escalate',
 router.post('/cases/:id/reports',
   authenticateStaff,
   requireRole('Compliance_Officer'),
-  upload.single('file'),
+  upload.fields([{ name: 'files', maxCount: 10 }, { name: 'file', maxCount: 1 }]),
   handleUploadErrors,
   processAndSaveFile,
   async (req, res) => {
@@ -222,38 +222,46 @@ router.post('/cases/:id/reports',
       }
       const caseData = caseRows[0];
 
-      // Save attached file as evidence if provided
-      let attachedFile = null;
-      if (req.file) {
-        const fileName = req.processedFile?.originalFilename || req.file.originalname;
-        const filePath = req.processedFile?.storedFilename || req.file.filename;
-        const encryptionIv = req.processedFile?.encryptionIv || null;
-        const mimeType = req.processedFile?.mimeType || req.file.mimetype || 'application/octet-stream';
+      // Save attached files as evidence if provided
+      const attachedFiles = [];
+      const processedList = req.processedFiles || (req.processedFile ? [req.processedFile] : []);
 
-        // Check if mime_type column exists
+      if (processedList.length > 0) {
         const [cols] = await pool.execute("SHOW COLUMNS FROM evidencefiles LIKE 'mime_type'");
-        if (cols.length > 0) {
-          await pool.execute(
-            `INSERT INTO evidencefiles (case_id, file_name, file_path, encryption_iv, uploaded_by, mime_type)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [caseId, fileName, filePath, encryptionIv, req.user.userId, mimeType]
+        const hasMimeCol = cols.length > 0;
+
+        for (const pf of processedList) {
+          const fileName = pf.originalFilename;
+          const filePath = pf.storedFilename;
+          const encryptionIv = pf.encryptionIv || null;
+          const mimeType = pf.mimeType || 'application/octet-stream';
+
+          if (hasMimeCol) {
+            await pool.execute(
+              `INSERT INTO evidencefiles (case_id, file_name, file_path, encryption_iv, uploaded_by, mime_type)
+               VALUES (?, ?, ?, ?, ?, ?)`,
+              [caseId, fileName, filePath, encryptionIv, req.user.userId, mimeType]
+            );
+          } else {
+            await pool.execute(
+              `INSERT INTO evidencefiles (case_id, file_name, file_path, encryption_iv, uploaded_by)
+               VALUES (?, ?, ?, ?, ?)`,
+              [caseId, fileName, filePath, encryptionIv, req.user.userId]
+            );
+          }
+          const [[inserted]] = await pool.execute(
+            `SELECT file_id FROM evidencefiles WHERE case_id = ? ORDER BY uploaded_at DESC LIMIT 1`,
+            [caseId]
           );
-        } else {
-          await pool.execute(
-            `INSERT INTO evidencefiles (case_id, file_name, file_path, encryption_iv, uploaded_by)
-             VALUES (?, ?, ?, ?, ?)`,
-            [caseId, fileName, filePath, encryptionIv, req.user.userId]
-          );
+          attachedFiles.push({ id: inserted.file_id, name: fileName, mime_type: mimeType });
         }
-        const [[inserted]] = await pool.execute(
-          `SELECT file_id FROM evidencefiles WHERE case_id = ? ORDER BY uploaded_at DESC LIMIT 1`,
-          [caseId]
-        );
-        attachedFile = { id: inserted.file_id, name: fileName, mime_type: mimeType };
       }
 
       // Save the report as a CEO-directed note with subject prefix
-      const noteBody = `**${subject.trim()}**\n\n${body.trim()}${attachedFile ? `\n\n📎 Attached: ${attachedFile.name}` : ''}`;
+      const attachmentText = attachedFiles.length > 0
+        ? `\n\n📎 Attached Files (${attachedFiles.length}):\n` + attachedFiles.map(f => `- ${f.name}`).join('\n')
+        : '';
+      const noteBody = `**${subject.trim()}**\n\n${body.trim()}${attachmentText}`;
       await pool.execute(
         `INSERT INTO investigationnotes (case_id, sender_type, audience_type, note_text, is_internal_only)
          VALUES (?, 'Compliance_Officer', 'CEO', ?, 0)`,
