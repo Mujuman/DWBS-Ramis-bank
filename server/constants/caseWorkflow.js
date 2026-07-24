@@ -26,12 +26,10 @@ const TERMINAL_STATUSES = ['Complaint_Dismissed', 'Substantiated', 'Dismissed_No
 const COMPLIANCE_OFFICER_STATUSES = [
   'New',
   'Under_Review',
-  'Assigned',
   'Investigating',
   'Pending_Evidence',
   'Substantiated',
   'Dismissed_No_Evidence',
-  'Complaint_Dismissed',
 ];
 
 // CEO can assign handler on escalated/critical cases reported by Ethics Office
@@ -39,32 +37,34 @@ const CEO_STATUSES = ['Assigned'];
 
 const STATUS_TRANSITIONS = {
   New: {
-    Compliance_Officer: ['Under_Review', 'Assigned', 'Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
-    CEO: ['Assigned'],
+    Compliance_Officer: ['Under_Review', 'Investigating'],
+    CEO: [],
   },
   Under_Review: {
-    Compliance_Officer: ['New', 'Assigned', 'Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
-    CEO: ['Assigned'],
-  },
-  Assigned: {
-    Compliance_Officer: ['New', 'Under_Review', 'Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
-    CEO: ['Assigned'],
+    Compliance_Officer: ['Investigating', 'Pending_Evidence'],
+    CEO: [],
   },
   Investigating: {
-    Compliance_Officer: ['New', 'Under_Review', 'Assigned', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
-    CEO: ['Assigned'],
+    Compliance_Officer: ['Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence'],
+    CEO: [],
   },
   Pending_Evidence: {
-    Compliance_Officer: ['New', 'Under_Review', 'Assigned', 'Investigating', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
-    CEO: ['Assigned'],
+    Compliance_Officer: ['Investigating', 'Substantiated', 'Dismissed_No_Evidence'],
+    CEO: [],
+  },
+  Substantiated: {
+    Compliance_Officer: ['Investigating'],  // Can reopen if needed
+    CEO: [],
+  },
+  Dismissed_No_Evidence: {
+    Compliance_Officer: ['Investigating'],  // Can reopen if needed
+    CEO: [],
   },
 };
 
 const STATUS_LABELS = {
   New: 'New',
   Under_Review: 'Analyse the Complaint',
-  Complaint_Dismissed: 'Complaint Dismissed',
-  Assigned: 'Refer to A&RC / Assign to Case Handler',
   Investigating: 'Gather Facts and Analyze Evidence',
   Pending_Evidence: 'Pending Evidence',
   Substantiated: 'Substantiated (በማስረጃ የተረጋገጠ)',
@@ -114,7 +114,7 @@ const validateStatusTransition = (role, currentStatus, newStatus) => {
 const getNextStatusesForRole = (role, currentStatus) => {
   if (isTerminalStatus(currentStatus)) {
     if (role === 'Compliance_Officer') {
-      return COMPLIANCE_OFFICER_STATUSES.filter(s => s !== currentStatus);
+      return ['Investigating', 'Pending_Evidence'];  // Can only reopen to investigation
     }
     return [];
   }

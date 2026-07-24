@@ -498,7 +498,8 @@ export default function ExecutiveDashboard() {
                   </div>
                 )}
 
-                {/* Reply box */}
+                {/* Reply box - DISABLED: CEO cannot send messages to EAAC */}
+                {/* 
                 <div className="px-6 py-4 border-t border-slate-100">
                   <div className="rounded-2xl overflow-hidden"
                     style={{ border: '1.5px solid #e2e8f0', boxShadow: '0 2px 8px rgba(10,29,55,0.06)' }}>
@@ -531,6 +532,7 @@ export default function ExecutiveDashboard() {
                     </div>
                   </div>
                 </div>
+                */}
               </div>
             )}
           </div>

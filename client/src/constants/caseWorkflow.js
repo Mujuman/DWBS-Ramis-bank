@@ -25,12 +25,10 @@ export const TERMINAL_STATUSES = ['Complaint_Dismissed', 'Substantiated', 'Dismi
 export const COMPLIANCE_OFFICER_STATUSES = [
   'New',
   'Under_Review',
-  'Assigned',
   'Investigating',
   'Pending_Evidence',
   'Substantiated',
   'Dismissed_No_Evidence',
-  'Complaint_Dismissed',
 ];
 
 // CEO can only assign handler on escalated cases (Critical) reported by Ethics Office
@@ -39,8 +37,6 @@ export const CEO_STATUSES = ['Assigned'];
 export const STATUS_LABELS = {
   New: 'New',
   Under_Review: 'Analyse the Complaint',
-  Complaint_Dismissed: 'Complaint Dismissed',
-  Assigned: 'Refer to A&RC / Assign Case Handler',
   Investigating: 'Gather Facts and Analyze Evidence',
   Pending_Evidence: 'Pending Evidence',
   Substantiated: 'Substantiated (በማስረጃ የተረጋገጠ)',
@@ -78,43 +74,40 @@ export const getNextStatusesForRole = (role, currentStatus) => {
 
   const transitions = {
     New: {
-      Compliance_Officer: ['New', 'Under_Review', 'Assigned', 'Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
-      CEO: ['Assigned'],
+      Compliance_Officer: ['Under_Review', 'Investigating'],
+      CEO: [],
     },
     Under_Review: {
-      Compliance_Officer: ['New', 'Under_Review', 'Assigned', 'Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
-      CEO: ['Assigned'],
-    },
-    Assigned: {
-      Compliance_Officer: ['New', 'Under_Review', 'Assigned', 'Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
-      CEO: ['Assigned'],
+      Compliance_Officer: ['Investigating', 'Pending_Evidence'],
+      CEO: [],
     },
     Investigating: {
-      Compliance_Officer: ['New', 'Under_Review', 'Assigned', 'Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
-      CEO: ['Assigned'],
+      Compliance_Officer: ['Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence'],
+      CEO: [],
     },
     Pending_Evidence: {
-      Compliance_Officer: ['New', 'Under_Review', 'Assigned', 'Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
-      CEO: ['Assigned'],
+      Compliance_Officer: ['Investigating', 'Substantiated', 'Dismissed_No_Evidence'],
+      CEO: [],
+    },
+    Substantiated: {
+      Compliance_Officer: ['Investigating'],  // Can reopen if needed
+      CEO: [],
+    },
+    Dismissed_No_Evidence: {
+      Compliance_Officer: ['Investigating'],  // Can reopen if needed
+      CEO: [],
     },
   };
 
   // EAAC can also transition out of terminal statuses (reopen/override a closed case)
   if (isTerminalStatus(currentStatus)) {
     if (role === 'Compliance_Officer') {
-      return COMPLIANCE_OFFICER_STATUSES.filter(s => s !== currentStatus);
+      return ['Investigating', 'Pending_Evidence'];  // Can only reopen to investigation
     }
     return [];
   }
   
-  const availableStatuses = transitions[currentStatus]?.[role] || [];
-  
-  // Always include the current status if not already in the list
-  if (availableStatuses.length > 0 && !availableStatuses.includes(currentStatus)) {
-    return [currentStatus, ...availableStatuses];
-  }
-  
-  return availableStatuses;
+  return transitions[currentStatus]?.[role] || [];
 };
 
 export const formatStatus = (status) =>

@@ -202,7 +202,7 @@ export default function CaseDetailPage() {
   const canViewEvidence = ['Compliance_Officer', 'CEO'].includes(user?.role) || canManageOwnRequest;
   const canAssign      = isSenior || (isCEO && Boolean(caseData?.is_escalated));
   const canEditNow     = isSenior || canManageOwnRequest || (isCEO && Boolean(caseData?.is_escalated));
-  const canSendNote    = canEditNow || (isCEO && Boolean(caseData?.is_escalated));
+  const canSendNote    = isSenior || canManageOwnRequest;  // CEO cannot send notes/chat
   const role = isSenior ? 'Compliance_Officer' : isCEO ? 'CEO' : 'Compliance_Officer';
 
   const getNoteAuthorLabel = (note) => {

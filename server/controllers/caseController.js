@@ -740,14 +740,6 @@ const updateCaseStatus = async (req, res) => {
         if (transitionError) {
           return res.status(403).json({ error: transitionError });
         }
-        if (status === 'Assigned' && (user.role === 'Compliance_Officer' || isCEO)) {
-          const assignee = assigned_to !== undefined ? assigned_to : prev.assigned_handler;
-          if (!assignee) {
-            return res.status(400).json({
-              error: 'A case handler must be assigned when setting a case to Assigned.',
-            });
-          }
-        }
       }
       updates.push('status = ?');
       params.push(status);
