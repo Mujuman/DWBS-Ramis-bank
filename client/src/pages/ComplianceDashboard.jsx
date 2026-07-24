@@ -170,10 +170,14 @@ export default function EthicsDashboard() {
               Team Lead · {format(new Date(), 'EEEE, MMMM d, yyyy')}
             </p>
           </div>
+        <div className="flex items-center gap-2">
+          <Link to="/report-ceo" className="btn btn-primary text-xs py-2 px-3 flex items-center gap-1.5" style={{ background: 'var(--color-navy-900)' }}>
+            <FileText size={15} className="text-amber-400" /> Send Report to CEO
+          </Link>
+          <button onClick={() => loadAll()} className="btn btn-ghost">
+            <RefreshCw size={15} /> Refresh
+          </button>
         </div>
-        <button onClick={() => loadAll()} className="btn btn-ghost">
-          <RefreshCw size={15} /> Refresh
-        </button>
       </div>
 
       {/* ── Stat Cards ── */}

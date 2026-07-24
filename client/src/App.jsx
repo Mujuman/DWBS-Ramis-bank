@@ -16,6 +16,7 @@ import CaseListPage from './pages/CaseListPage';
 import CaseDetailPage from './pages/CaseDetailPage';
 import ExecutiveDashboard from './pages/ExecutiveDashboard';
 import ComplianceDashboard from './pages/ComplianceDashboard';
+import SendReportToCeoPage from './pages/SendReportToCeoPage';
 import AdminPage from './pages/AdminPage';
 import AdminCreateUserPage from './pages/AdminCreateUserPage';
 import AdminStaffAccountsPage from './pages/AdminStaffAccountsPage';
@@ -180,6 +181,13 @@ function AppRoutes() {
           <ProtectedRoute roles={['Compliance_Officer']}>
             <AppShell>
               <PageWrapper><ComplianceDashboard /></PageWrapper>
+            </AppShell>
+          </ProtectedRoute>
+        } />
+        <Route path="/report-ceo" element={
+          <ProtectedRoute roles={['Compliance_Officer']}>
+            <AppShell>
+              <PageWrapper><SendReportToCeoPage /></PageWrapper>
             </AppShell>
           </ProtectedRoute>
         } />
