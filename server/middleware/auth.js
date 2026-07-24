@@ -73,6 +73,15 @@ const requireRole = (...roles) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Authentication required' });
     }
+    
+    // Debug logging
+    console.log('[DEBUG] requireRole check:', {
+      requiredRoles: roles,
+      userRole: req.user.role,
+      username: req.user.username,
+      matches: roles.includes(req.user.role)
+    });
+    
     if (!roles.includes(req.user.role)) {
       return res.status(403).json({
         error: 'Insufficient permissions',

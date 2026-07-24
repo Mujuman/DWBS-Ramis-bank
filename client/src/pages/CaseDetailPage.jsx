@@ -449,8 +449,14 @@ export default function CaseDetailPage() {
         setUpdating(false);
         return;
       } else {
-        // Only send status if it's a non-empty value different from current
-        if (newStatus && newStatus.trim()) body.status = newStatus;
+        // Only send status if it's a non-empty value
+        if (newStatus && newStatus.trim() && newStatus !== caseData?.status) {
+          body.status = newStatus.trim();
+        } else {
+          toast.error('Please select a valid status to update.');
+          setUpdating(false);
+          return;
+        }
         // Note: Severity override and handler assignment disabled per security policy
       }
 
@@ -873,25 +879,37 @@ export default function CaseDetailPage() {
               </h3>
               <div className="space-y-3 text-sm">
                 {/* Status display and update for EAAC */}
-                {isSenior && (
+                {isSenior && caseData && (
                   <div>
                     <label className="form-label text-xs">Case Status</label>
                     <select
                       className="form-select text-sm w-full"
-                      value={newStatus}
+                      value={newStatus || caseData.status || ''}
                       onChange={(e) => setNewStatus(e.target.value)}
                       disabled={updating}
                     >
-                      {getNextStatusesForRole('Compliance_Officer', caseData.status).length === 0 ? (
-                        <option value={caseData.status}>{formatStatus(caseData.status)}</option>
-                      ) : (
-                        getNextStatusesForRole('Compliance_Officer', caseData.status).map(status => (
+                      <option value="">-- Select Status --</option>
+                      {(() => {
+                        const statuses = getNextStatusesForRole('Compliance_Officer', caseData.status || '');
+                        
+                        // Debug: log to console
+                        console.log('Current case status:', caseData.status);
+                        console.log('Available statuses:', statuses);
+                        console.log('Selected newStatus:', newStatus);
+                        
+                        // If no statuses available, show all EAAC statuses
+                        const statusList = (statuses && statuses.length > 0) ? statuses : COMPLIANCE_OFFICER_STATUSES;
+                        
+                        return statusList.map(status => (
                           <option key={status} value={status}>
                             {formatStatus(status)}
                           </option>
-                        ))
-                      )}
+                        ));
+                      })()}
                     </select>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Current: {caseData.status ? formatStatus(caseData.status) : 'Not Set'}
+                    </p>
                   </div>
                 )}
 

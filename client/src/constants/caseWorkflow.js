@@ -69,25 +69,32 @@ export const TRACK_TIMELINE = [
 export const isTerminalStatus = (status) => TERMINAL_STATUSES.includes(status);
 
 export const getNextStatusesForRole = (role, currentStatus) => {
+  // If status is empty/null (new case), return all allowed statuses for the role
+  if (!currentStatus || currentStatus.trim() === '') {
+    if (role === 'Compliance_Officer') return COMPLIANCE_OFFICER_STATUSES;
+    if (role === 'CEO') return CEO_STATUSES;
+    return [];
+  }
+
   const transitions = {
     New: {
-      Compliance_Officer: ['Under_Review', 'Assigned', 'Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
+      Compliance_Officer: ['New', 'Under_Review', 'Assigned', 'Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
       CEO: ['Assigned'],
     },
     Under_Review: {
-      Compliance_Officer: ['New', 'Assigned', 'Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
+      Compliance_Officer: ['New', 'Under_Review', 'Assigned', 'Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
       CEO: ['Assigned'],
     },
     Assigned: {
-      Compliance_Officer: ['New', 'Under_Review', 'Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
+      Compliance_Officer: ['New', 'Under_Review', 'Assigned', 'Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
       CEO: ['Assigned'],
     },
     Investigating: {
-      Compliance_Officer: ['New', 'Under_Review', 'Assigned', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
+      Compliance_Officer: ['New', 'Under_Review', 'Assigned', 'Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
       CEO: ['Assigned'],
     },
     Pending_Evidence: {
-      Compliance_Officer: ['New', 'Under_Review', 'Assigned', 'Investigating', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
+      Compliance_Officer: ['New', 'Under_Review', 'Assigned', 'Investigating', 'Pending_Evidence', 'Substantiated', 'Dismissed_No_Evidence', 'Complaint_Dismissed'],
       CEO: ['Assigned'],
     },
   };
@@ -99,7 +106,15 @@ export const getNextStatusesForRole = (role, currentStatus) => {
     }
     return [];
   }
-  return transitions[currentStatus]?.[role] || [];
+  
+  const availableStatuses = transitions[currentStatus]?.[role] || [];
+  
+  // Always include the current status if not already in the list
+  if (availableStatuses.length > 0 && !availableStatuses.includes(currentStatus)) {
+    return [currentStatus, ...availableStatuses];
+  }
+  
+  return availableStatuses;
 };
 
 export const formatStatus = (status) =>

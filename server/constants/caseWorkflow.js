@@ -82,6 +82,15 @@ const getAllowedStatusesForRole = (role) => {
 const validateStatusTransition = (role, currentStatus, newStatus) => {
   if (currentStatus === newStatus) return null;
 
+  // If status is empty/null (new case), allow Compliance Officer to set any initial status
+  if (!currentStatus || currentStatus.trim() === '') {
+    const allowedStatuses = getAllowedStatusesForRole(role);
+    if (!allowedStatuses.includes(newStatus)) {
+      return `Invalid initial status "${STATUS_LABELS[newStatus] || newStatus}" for your role.`;
+    }
+    return null;
+  }
+
   if (isTerminalStatus(currentStatus) && role !== 'Compliance_Officer') {
     return `Case is closed (${STATUS_LABELS[currentStatus]}). No further status changes are permitted.`;
   }

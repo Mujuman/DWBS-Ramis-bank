@@ -687,6 +687,15 @@ const updateCaseStatus = async (req, res) => {
   const caseId = parseInt(req.params.id);
   const { status, priority, assigned_to } = req.body;
 
+  // Debug logging
+  console.log('[DEBUG] updateCaseStatus called by:', {
+    userId: user.userId,
+    username: user.username,
+    role: user.role,
+    caseId,
+    requestBody: { status, priority, assigned_to }
+  });
+
   try {
     const [existing] = await pool.execute(
       `SELECT case_id, status, severity_level, assigned_handler, is_escalated, reference_id, category FROM cases WHERE case_id = ? AND deleted_at IS NULL`,
