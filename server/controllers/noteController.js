@@ -399,8 +399,8 @@ const updateNote = async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: 'Note not found.' });
 
     const note = rows[0];
-    // Only the original sender may edit their own note
-    if (note.sender_user_id !== user.userId) {
+    const canModify = (note.sender_user_id && note.sender_user_id === user.userId) || (note.sender_type === user.role);
+    if (!canModify) {
       return res.status(403).json({ error: 'You can only edit your own messages.' });
     }
 
@@ -435,13 +435,14 @@ const deleteNote = async (req, res) => {
 
   try {
     const [rows] = await pool.execute(
-      `SELECT note_id, sender_user_id FROM investigationnotes WHERE note_id = ? AND case_id = ?`,
+      `SELECT note_id, sender_user_id, sender_type FROM investigationnotes WHERE note_id = ? AND case_id = ?`,
       [noteId, caseId]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Note not found.' });
 
     const note = rows[0];
-    if (note.sender_user_id !== user.userId) {
+    const canModify = (note.sender_user_id && note.sender_user_id === user.userId) || (note.sender_type === user.role);
+    if (!canModify) {
       return res.status(403).json({ error: 'You can only delete your own messages.' });
     }
 
