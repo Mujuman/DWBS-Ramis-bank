@@ -83,6 +83,9 @@ router.get('/cases/ceo-reports',
   async (req, res) => {
     const { pool } = require('../config/db');
     try {
+      const [cols] = await pool.execute("SHOW COLUMNS FROM cases LIKE 'assigned_handler'");
+      const handlerCol = cols.length > 0 ? 'assigned_handler' : 'assigned_investigator';
+
       // A case appears in CEO inbox only if Compliance_Officer sent at least one note to CEO
       const [rows] = await pool.execute(
         `SELECT DISTINCT
@@ -113,7 +116,7 @@ router.get('/cases/ceo-reports',
            ) AS last_report_at,
            u.username AS assigned_handler
          FROM cases c
-         LEFT JOIN users u ON c.assigned_investigator = u.user_id
+         LEFT JOIN users u ON c.${handlerCol} = u.user_id
          WHERE c.deleted_at IS NULL
            AND EXISTS (
              SELECT 1 FROM investigationnotes n
