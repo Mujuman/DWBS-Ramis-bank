@@ -301,8 +301,8 @@ export default function CaseDetailPage() {
         isSenior ? 'Compliance_Officer' : isCEO ? 'CEO' : 'Compliance_Officer',
         c.status
       );
-      // Never set an empty status — fall back to first allowed or 'New'
-      setNewStatus(c.status || allowedStatuses[0] || 'New');
+      // Set newStatus to empty so dropdown shows current status
+      setNewStatus('');
       
       setNewPriority(c.priority || 'Medium');
       setRequestDescription(c.description || '');
@@ -436,40 +436,32 @@ export default function CaseDetailPage() {
   };
 
   const updateCase = async () => {
-    setUpdating(true);
-    try {
-      const body = {};
-      if (canManageOwnRequest) {
-        body.description = requestDescription;
-        body.branch_or_dept = requestBranch;
-        // Note: Severity changes are disabled per security policy
-      } else if (isCEO) {
-        // CEO has read-only access to case details
-        toast.error('CEO role has read-only access to cases.');
-        setUpdating(false);
-        return;
-      } else {
-        // Only send status if it's a non-empty value
-        if (newStatus && newStatus.trim() && newStatus !== caseData?.status) {
-          body.status = newStatus.trim();
-        } else {
-          toast.error('Please select a valid status to update.');
-          setUpdating(false);
-          return;
-        }
-        // Note: Severity override and handler assignment disabled per security policy
-      }
-
-      await api.patch(`/cases/${id}/status`, body);
-      await loadCase();
-      setEditMode(false);
-      toast.success('Case updated successfully');
-    } catch (err) {
-      const msg = err.response?.data?.error || err.message || 'Update failed';
-      toast.error(msg);
-      console.error('Update failed:', err);
+    if (!newStatus || !newStatus.trim()) {
+      toast.error('Please select a status to update.');
+      return;
     }
-    setUpdating(false);
+
+    if (newStatus === caseData?.status) {
+      toast.error('Status is already set to this value.');
+      return;
+    }
+
+    setUpdating(true);
+    console.log('Updating case status to:', newStatus);
+    
+    try {
+      await api.patch(`/cases/${id}/status`, { status: newStatus });
+      toast.success('Case status updated successfully');
+      
+      // Reload case data
+      await loadCase();
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || err.message || 'Failed to update status';
+      console.error('Update error:', err.response?.data || err);
+      toast.error(errorMsg);
+    } finally {
+      setUpdating(false);
+    }
   };
 
   const uploadEvidence = async (event) => {
@@ -881,34 +873,26 @@ export default function CaseDetailPage() {
                 {/* Status display and update for EAAC */}
                 {isSenior && caseData && (
                   <div>
-                    <label className="form-label text-xs">Case Status</label>
+                    <label className="form-label text-xs font-semibold mb-1 block">Case Status</label>
                     <select
                       className="form-select text-sm w-full"
-                      value={newStatus || caseData.status || ''}
-                      onChange={(e) => setNewStatus(e.target.value)}
+                      value={newStatus}
+                      onChange={(e) => {
+                        console.log('Status changed to:', e.target.value);
+                        setNewStatus(e.target.value);
+                      }}
                       disabled={updating}
                     >
-                      <option value="">-- Select Status --</option>
-                      {(() => {
-                        const statuses = getNextStatusesForRole('Compliance_Officer', caseData.status || '');
-                        
-                        // Debug: log to console
-                        console.log('Current case status:', caseData.status);
-                        console.log('Available statuses:', statuses);
-                        console.log('Selected newStatus:', newStatus);
-                        
-                        // If no statuses available, show all EAAC statuses
-                        const statusList = (statuses && statuses.length > 0) ? statuses : COMPLIANCE_OFFICER_STATUSES;
-                        
-                        return statusList.map(status => (
-                          <option key={status} value={status}>
-                            {formatStatus(status)}
-                          </option>
-                        ));
-                      })()}
+                      <option value="">-- Select New Status --</option>
+                      <option value="New">New</option>
+                      <option value="Under_Review">Analyse the Complaint</option>
+                      <option value="Investigating">Gather Facts and Analyze Evidence</option>
+                      <option value="Pending_Evidence">Pending Evidence</option>
+                      <option value="Substantiated">Substantiated (በማስረጃ የተረጋገጠ)</option>
+                      <option value="Dismissed_No_Evidence">Dismissed due to Lack of Evidence</option>
                     </select>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Current: {caseData.status ? formatStatus(caseData.status) : 'Not Set'}
+                    <p className="text-xs text-slate-500 mt-1.5">
+                      Current: <span className="font-semibold">{caseData.status ? formatStatus(caseData.status) : 'Not Set'}</span>
                     </p>
                   </div>
                 )}

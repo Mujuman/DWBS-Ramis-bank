@@ -80,35 +80,23 @@ const getAllowedStatusesForRole = (role) => {
 };
 
 const validateStatusTransition = (role, currentStatus, newStatus) => {
-  if (currentStatus === newStatus) return null;
-
-  // If status is empty/null (new case), allow Compliance Officer to set any initial status
-  if (!currentStatus || currentStatus.trim() === '') {
-    const allowedStatuses = getAllowedStatusesForRole(role);
-    if (!allowedStatuses.includes(newStatus)) {
-      return `Invalid initial status "${STATUS_LABELS[newStatus] || newStatus}" for your role.`;
-    }
+  console.log('[Workflow Validation]', { role, currentStatus, newStatus });
+  
+  // Same status - no change needed
+  if (currentStatus === newStatus) {
     return null;
   }
 
-  if (isTerminalStatus(currentStatus) && role !== 'Compliance_Officer') {
-    return `Case is closed (${STATUS_LABELS[currentStatus]}). No further status changes are permitted.`;
-  }
-
-  if (isTerminalStatus(currentStatus) && role === 'Compliance_Officer') {
-    const allowed = COMPLIANCE_OFFICER_STATUSES.filter(s => s !== currentStatus);
-    if (!allowed.includes(newStatus)) {
-      return `Invalid transition from "${STATUS_LABELS[currentStatus] || currentStatus}" to "${STATUS_LABELS[newStatus] || newStatus}" for your role.`;
+  // Compliance Officer can set any allowed status from any state (including empty)
+  if (role === 'Compliance_Officer') {
+    if (COMPLIANCE_OFFICER_STATUSES.includes(newStatus)) {
+      return null;  // Allow all valid statuses
     }
-    return null;
+    return `Invalid status "${newStatus}" for Compliance Officer.`;
   }
 
-  const allowedForRole = STATUS_TRANSITIONS[currentStatus]?.[role];
-  if (!allowedForRole || !allowedForRole.includes(newStatus)) {
-    return `Invalid transition from "${STATUS_LABELS[currentStatus] || currentStatus}" to "${STATUS_LABELS[newStatus] || newStatus}" for your role.`;
-  }
-
-  return null;
+  // CEO has no status update permissions
+  return 'Only the Ethics & Anti-Corruption Office can update case status.';
 };
 
 const getNextStatusesForRole = (role, currentStatus) => {
