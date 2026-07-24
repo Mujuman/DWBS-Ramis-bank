@@ -24,6 +24,26 @@ const SEVERITY_BADGE = {
   Low: 'badge-low', Medium: 'badge-medium', High: 'badge-high',
 };
 
+const CustomTip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{
+      background: 'rgba(10,29,55,0.97)',
+      border: '1px solid rgba(249,168,38,0.3)',
+      borderRadius: '12px',
+      padding: '10px 14px',
+      boxShadow: '0 8px 32px rgba(10,29,55,0.35)',
+    }}>
+      <p style={{ color: '#F9A826', fontWeight: 700, fontSize: 11, marginBottom: 4 }}>
+        {label || payload[0]?.name}
+      </p>
+      <p style={{ color: '#fff', fontSize: 12 }}>
+        Cases: <strong style={{ color: payload[0]?.fill || '#F9A826' }}>{payload[0]?.value}</strong>
+      </p>
+    </div>
+  );
+};
+
 export default function EthicsDashboard() {
   const { user } = useAuth();
 
@@ -33,15 +53,6 @@ export default function EthicsDashboard() {
   const [pagination, setPagination] = useState({ total: 0, page: 1, total_pages: 1 });
   const [activeTab, setActiveTab] = useState('queue');
   const [filters, setFilters] = useState({ status: '', severity_level: '', category: '', search: '', page: 1 });
-
-  // Gmail-style compose state
-  const [composeOpen, setComposeOpen] = useState(false);
-  const [composeCase, setComposeCase] = useState(null);
-  const [composeSubject, setComposeSubject] = useState('');
-  const [composeBody, setComposeBody] = useState('');
-  const [composeFile, setComposeFile] = useState(null);
-  const [composeSending, setComposeSending] = useState(false);
-  const composeFileRef = useRef(null);
 
   const loadAll = useCallback(async (f = filters) => {
     setLoading(true);
@@ -89,60 +100,36 @@ export default function EthicsDashboard() {
     setFilters(nf); loadAll(nf);
   };
 
-  // ── Escalate to CEO (with description) ────────────────────
-  const doEscalate = async () => {
-    if (!escalateModal) return;
-    setEscalating(true);
-    try {
-      await api.post(`/cases/${escalateModal.id}/escalate`, {
-        escalation_note: escalationNote,
-      });
-      toast.success('Case escalated to CEO with report');
-      setEscalateModal(null);
-      setEscalationNote('');
-      loadAll();
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Escalation failed');
-    }
-    setEscalating(false);
-  };
-
-  // ── Open Gmail compose for a case ──────────────────────────
-  const openCompose = (c) => {
-    setComposeCase(c);
-    setComposeSubject(`[${c.reference_id}] ${c.category?.replace(/_/g, ' ')} — Escalation Report`);
-    setComposeBody('');
-    setComposeFile(null);
-    setComposeOpen(true);
-  };
-
-  // ── Send report to CEO ─────────────────────────────────────
-  const sendReport = async () => {
-    if (!composeSubject.trim()) { toast.error('Subject is required'); return; }
-    if (!composeBody.trim()) { toast.error('Report body is required'); return; }
-    setComposeSending(true);
-    try {
-      const formData = new FormData();
-      formData.append('subject', composeSubject.trim());
-      formData.append('body', composeBody.trim());
-      if (composeFile) formData.append('file', composeFile);
-      await api.post(`/cases/${composeCase.id}/reports`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      toast.success('Report sent to CEO successfully');
-      setComposeOpen(false);
-      setComposeCase(null);
-      setComposeSubject('');
-      setComposeBody('');
-      setComposeFile(null);
-      loadAll();
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to send report');
-    }
-    setComposeSending(false);
-  };
 
   const ov = stats?.overview || {};
+  const CATEGORY_COLORS = {
+    Fraud:                 '#e11d48',
+    Corruption:            '#7c3aed',
+    Bribery:               '#d97706',
+    Abuse_of_Power:        '#0369a1',
+    Procurement_Violation: '#059669',
+    System_Misuse:         '#0891b2',
+  };
+  const PIE_COLORS = ['#0A1D37','#F9A826','#7c3aed','#059669','#e11d48','#0891b2'];
+  const statusData = [
+    { name: 'New',          value: ov.new_cases   || 0, fill: '#F9A826' },
+    { name: 'Under Review', value: ov.under_review || 0, fill: '#38bdf8' },
+    { name: 'Assigned',     value: ov.assigned    || 0, fill: '#818cf8' },
+    { name: 'In Progress',  value: ov.in_progress || 0, fill: '#a78bfa' },
+    { name: 'Substantiated',value: ov.substantiated||0, fill: '#34d399' },
+    { name: 'Dismissed',    value: (ov.complaint_dismissed||0)+(ov.dismissed_no_evidence||0), fill: '#94a3b8' },
+  ];
+  const severityData = [
+    { name: 'High',   value: ov.high   || 0, fill: '#d97706' },
+    { name: 'Medium', value: ov.medium || 0, fill: '#3b82f6' },
+    { name: 'Low',    value: ov.low    || 0, fill: '#10b981' },
+  ];
+  const categoryData = (stats?.by_category || []).map((c, i) => ({
+    name: c.category?.replace(/_/g, ' '),
+    value: c.total,
+    fill: CATEGORY_COLORS[c.category] || PIE_COLORS[i % PIE_COLORS.length],
+  }));
+
   const statCards = [
     { label: 'Total Cases', value: ov.total || 0, icon: FileText, color: 'var(--color-navy-900)', bg: '#e8edf5' },
     { label: 'New Cases', value: ov.new_cases || 0, icon: AlertTriangle, color: 'var(--color-gold-600)', bg: '#fef3c7' },
@@ -170,6 +157,8 @@ export default function EthicsDashboard() {
               Team Lead · {format(new Date(), 'EEEE, MMMM d, yyyy')}
             </p>
           </div>
+        </div>
+
         <div className="flex items-center gap-2">
           <Link to="/report-ceo" className="btn btn-primary text-xs py-2 px-3 flex items-center gap-1.5" style={{ background: 'var(--color-navy-900)' }}>
             <FileText size={15} className="text-amber-400" /> Send Report to CEO
@@ -293,12 +282,12 @@ export default function EthicsDashboard() {
                             <Link to={`/cases/${c.id}`} className="btn btn-ghost text-xs py-1 px-2">
                               Open <ChevronRight size={11} />
                             </Link>
-                            <button
-                              onClick={() => openCompose(c)}
-                              className="btn btn-ghost text-xs py-1 px-2 text-red-600 hover:bg-red-50"
+                            <Link
+                              to={`/report-ceo?case_id=${c.id}`}
+                              className="btn btn-ghost text-xs py-1 px-2 text-amber-700 hover:bg-amber-50 flex items-center gap-1"
                               title="Send Report to CEO">
-                              <Zap size={13} />
-                            </button>
+                              <FileText size={13} /> Report to CEO
+                            </Link>
                           </div>
                         </td>
                       </tr>
@@ -330,55 +319,8 @@ export default function EthicsDashboard() {
       )}
 
       {/* ══════════════ ANALYTICS TAB ══════════════ */}
-      {activeTab === 'analytics' && (() => {
-        const CATEGORY_COLORS = {
-          Fraud:                 '#e11d48',
-          Corruption:            '#7c3aed',
-          Bribery:               '#d97706',
-          Abuse_of_Power:        '#0369a1',
-          Procurement_Violation: '#059669',
-          System_Misuse:         '#0891b2',
-        };
-        const PIE_COLORS = ['#0A1D37','#F9A826','#7c3aed','#059669','#e11d48','#0891b2'];
-        const statusData = [
-          { name: 'New',          value: ov.new_cases   || 0, fill: '#F9A826' },
-          { name: 'Under Review', value: ov.under_review || 0, fill: '#38bdf8' },
-          { name: 'Assigned',     value: ov.assigned    || 0, fill: '#818cf8' },
-          { name: 'In Progress',  value: ov.in_progress || 0, fill: '#a78bfa' },
-          { name: 'Substantiated',value: ov.substantiated||0, fill: '#34d399' },
-          { name: 'Dismissed',    value: (ov.complaint_dismissed||0)+(ov.dismissed_no_evidence||0), fill: '#94a3b8' },
-        ];
-        const severityData = [
-          { name: 'High',   value: ov.high   || 0, fill: '#d97706' },
-          { name: 'Medium', value: ov.medium || 0, fill: '#3b82f6' },
-          { name: 'Low',    value: ov.low    || 0, fill: '#10b981' },
-        ];
-        const categoryData = (stats?.by_category || []).map((c, i) => ({
-          name: c.category?.replace(/_/g, ' '),
-          value: c.total,
-          fill: CATEGORY_COLORS[c.category] || PIE_COLORS[i % PIE_COLORS.length],
-        }));
-        const CustomTip = ({ active, payload, label }) => {
-          if (!active || !payload?.length) return null;
-          return (
-            <div style={{
-              background: 'rgba(10,29,55,0.97)',
-              border: '1px solid rgba(249,168,38,0.3)',
-              borderRadius: '12px',
-              padding: '10px 14px',
-              boxShadow: '0 8px 32px rgba(10,29,55,0.35)',
-            }}>
-              <p style={{ color: '#F9A826', fontWeight: 700, fontSize: 11, marginBottom: 4 }}>
-                {label || payload[0]?.name}
-              </p>
-              <p style={{ color: '#fff', fontSize: 12 }}>
-                Cases: <strong style={{ color: payload[0]?.fill || '#F9A826' }}>{payload[0]?.value}</strong>
-              </p>
-            </div>
-          );
-        };
-        return (
-          <div className="space-y-6">
+      {activeTab === 'analytics' && (
+        <div className="space-y-6">
             {/* Row 1: Monthly trend + Status */}
             <div className="grid lg:grid-cols-3 gap-6">
               <div className="card p-6 lg:col-span-2">
@@ -497,153 +439,10 @@ export default function EthicsDashboard() {
                   </>
                 )}
               </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* ══════════════ GMAIL-STYLE COMPOSE — SEND REPORT TO CEO ══════════════ */}
-      {composeOpen && composeCase && (
-        <div className="fixed inset-0 z-50 flex items-end justify-end p-6"
-          style={{ background: 'rgba(10,29,55,0.45)', backdropFilter: 'blur(2px)' }}>
-          <div className="w-full max-w-2xl fade-in-up"
-            style={{
-              background: '#fff',
-              borderRadius: '1.25rem',
-              boxShadow: '0 32px 80px rgba(10,29,55,0.32)',
-              border: '1px solid rgba(10,29,55,0.1)',
-              overflow: 'hidden',
-            }}>
-
-            {/* ── Compose header ── */}
-            <div className="flex items-center justify-between px-5 py-3.5"
-              style={{ background: 'linear-gradient(135deg, #0A1D37 0%, #1e3a5f 100%)' }}>
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-                  style={{ background: 'rgba(249,168,38,0.2)' }}>
-                  <Zap size={14} style={{ color: '#F9A826' }} />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-white">New Report to CEO</p>
-                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                    Case {composeCase.reference_id} · {composeCase.category?.replace(/_/g, ' ')}
-                  </p>
-                </div>
-              </div>
-              <button onClick={() => { setComposeOpen(false); setComposeCase(null); }}
-                className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
-                style={{ color: 'rgba(255,255,255,0.6)' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                <X size={15} />
-              </button>
-            </div>
-
-            {/* ── To field ── */}
-            <div className="flex items-center gap-3 px-5 py-3"
-              style={{ borderBottom: '1px solid #f1f5f9' }}>
-              <span className="text-xs font-semibold text-slate-400 w-10">To</span>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold"
-                style={{ background: '#fee2e2', color: '#b91c1c' }}>
-                <Shield size={11} /> CEO
-              </div>
-              <span className="text-xs text-slate-300">·</span>
-              <span className="text-xs text-slate-400 font-mono">{composeCase.reference_id}</span>
-            </div>
-
-            {/* ── Subject ── */}
-            <div className="flex items-center gap-3 px-5 py-3"
-              style={{ borderBottom: '1px solid #f1f5f9' }}>
-              <span className="text-xs font-semibold text-slate-400 w-10">Subject</span>
-              <input
-                className="flex-1 text-sm font-semibold focus:outline-none"
-                style={{ color: 'var(--color-navy-900)', background: 'transparent' }}
-                value={composeSubject}
-                onChange={e => setComposeSubject(e.target.value)}
-                placeholder="Report subject…"
-              />
-            </div>
-
-            {/* ── Body ── */}
-            <textarea
-              className="w-full text-sm px-5 py-4 resize-none focus:outline-none"
-              rows={10}
-              placeholder={`Write your formal report to the CEO…\n\nExample:\n\nDear CEO,\n\nFollowing our investigation into case ${composeCase.reference_id}, we have identified the following critical findings:\n\n1. [Finding one]\n2. [Finding two]\n\nWe recommend immediate action regarding…\n\nRegards,\nEthics & Anti-Corruption Office`}
-              value={composeBody}
-              onChange={e => setComposeBody(e.target.value)}
-              style={{ background: '#fff', lineHeight: '1.7' }}
-            />
-
-            {/* ── Attachment preview ── */}
-            {composeFile && (
-              <div className="mx-5 mb-3 flex items-center gap-2.5 px-3 py-2.5 rounded-xl"
-                style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                  style={{ background: '#e8edf5' }}>
-                  <Paperclip size={14} style={{ color: 'var(--color-navy-900)' }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-slate-700 truncate">{composeFile.name}</p>
-                  <p className="text-xs text-slate-400">{(composeFile.size / 1024).toFixed(1)} KB</p>
-                </div>
-                <button onClick={() => setComposeFile(null)}
-                  className="p-1 rounded-lg hover:bg-slate-200 transition-colors text-slate-400">
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            )}
-
-            {/* ── Footer toolbar ── */}
-            <div className="flex items-center justify-between px-5 py-3.5"
-              style={{ borderTop: '1px solid #f1f5f9', background: '#fafbfc' }}>
-              <div className="flex items-center gap-1">
-                {/* Attach file */}
-                <input
-                  ref={composeFileRef}
-                  type="file"
-                  className="hidden"
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.zip"
-                  onChange={e => setComposeFile(e.target.files[0] || null)}
-                />
-                <button
-                  onClick={() => composeFileRef.current?.click()}
-                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-colors"
-                  style={{ color: '#475569' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                  title="Attach evidence file">
-                  <Paperclip size={14} />
-                  {composeFile ? 'Change file' : 'Attach evidence'}
-                </button>
-                <span className="text-xs text-slate-300 mx-1">|</span>
-                <span className="text-xs text-slate-400">
-                  PDF, Word, Excel, Images · Max 10MB
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => { setComposeOpen(false); setComposeCase(null); }}
-                  className="btn btn-ghost text-sm">
-                  Discard
-                </button>
-                <button
-                  onClick={sendReport}
-                  disabled={composeSending || !composeSubject.trim() || !composeBody.trim()}
-                  className="btn btn-primary text-sm flex items-center gap-1.5"
-                  style={{
-                    background: 'linear-gradient(135deg, #0A1D37, #1e3a5f)',
-                    opacity: (!composeSubject.trim() || !composeBody.trim()) ? 0.5 : 1,
-                  }}>
-                  {composeSending
-                    ? <><span className="spinner" /> Sending…</>
-                    : <><Send size={14} /> Send Report to CEO</>}
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       )}
+
     </div>
   );
 }

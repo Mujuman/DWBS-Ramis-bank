@@ -78,7 +78,15 @@ export default function NavBar({ onMenuToggle, sidebarOpen }) {
       try {
         const res = await api.get('/notifications');
         // Only show unread notifications in the popup
-        const unread = (res.data.notifications || []).filter(n => !n.is_read);
+        let unread = (res.data.notifications || []).filter(n => !n.is_read);
+        if (user?.role === 'CEO') {
+          // CEO collects EAAC report notifications only
+          unread = unread.filter(n =>
+            n.type === 'case_escalated' ||
+            n.type === 'new_message' ||
+            (n.title && n.title.toLowerCase().includes('report'))
+          );
+        }
         setNotifications(unread);
         // Keep unreadCount in sync with what's actually shown
         setUnreadCount(unread.length);
@@ -116,7 +124,11 @@ export default function NavBar({ onMenuToggle, sidebarOpen }) {
       setUnreadCases(0);
       setUnreadMessages(0);
       setNotifications([]);
-      navigate(`/cases/${notif.case_id}`);
+      if (user?.role === 'CEO') {
+        navigate(`/executive?case_id=${notif.case_id}`);
+      } else {
+        navigate(`/cases/${notif.case_id}`);
+      }
     }
   };
 

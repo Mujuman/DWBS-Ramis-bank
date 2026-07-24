@@ -305,12 +305,12 @@ router.post('/cases/:id/reports',
         action: 'EAAC_REPORT_SENT',
         performedBy: req.user.username,
         performedByType: 'staff',
-        metadata: { subject: subject.trim(), has_attachment: !!attachedFile, reference_id: caseData.reference_id },
+        metadata: { subject: subject.trim(), has_attachment: attachedFiles.length > 0, reference_id: caseData.reference_id },
       });
 
       return res.status(201).json({
         message: 'Report sent to CEO successfully',
-        attached_file: attachedFile,
+        attached_files: attachedFiles,
       });
     } catch (err) {
       console.error('[REPORT] Send error:', err.message);

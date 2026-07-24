@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, FileText, BarChart3, Users,
-  ClipboardList, ChevronRight, UserPlus, Search
+  ClipboardList, ChevronRight, UserPlus, Search, Inbox
 } from 'lucide-react';
 
 const navItems = [
@@ -38,8 +38,8 @@ const navItems = [
   },
   {
     path: '/executive',
-    label: 'Executive Dashboard',
-    icon: BarChart3,
+    label: 'Reports from EAAC',
+    icon: Inbox,
     roles: ['CEO'],
   },
   {

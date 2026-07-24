@@ -188,9 +188,7 @@ export default function SendReportToCeoPage() {
         formData.append('files', file);
       });
 
-      await api.post(`/cases/${selectedCase.id}/reports`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      await api.post(`/cases/${selectedCase.id}/reports`, formData);
 
       toast.success(`Formal report sent successfully to the CEO!`);
       navigate(`/compliance`);

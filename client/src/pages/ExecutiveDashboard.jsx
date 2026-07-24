@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import {
   TrendingUp, AlertTriangle, Clock, CheckCircle, FileText,
@@ -10,6 +10,7 @@ import {
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { STATUS_BADGE, formatStatus } from '../constants/caseWorkflow';
+import { renderRichText } from '../utils/formatting';
 
 const CATEGORY_COLORS = {
   Fraud: '#e11d48', Corruption: '#7c3aed', Bribery: '#d97706',
@@ -55,8 +56,8 @@ export default function ExecutiveDashboard() {
   // assign modal
   const [assignModal, setAssignModal]       = useState(null);
   const [assignTarget, setAssignTarget]     = useState('');
-  const [assigning, setAssigning]           = useState(false);
-
+  const [searchParams] = useSearchParams();
+  const targetCaseId = searchParams.get('case_id') || searchParams.get('report_id');
   const bottomRef = useRef(null);
 
   const loadData = useCallback(async () => {
@@ -77,7 +78,12 @@ export default function ExecutiveDashboard() {
         );
       }
       if (reportsRes.status === 'fulfilled') {
-        setEscalatedCases(reportsRes.value.data.cases || []);
+        const fetchedCases = reportsRes.value.data.cases || [];
+        setEscalatedCases(fetchedCases);
+        if (targetCaseId) {
+          const found = fetchedCases.find(c => String(c.id) === String(targetCaseId) || String(c.case_id) === String(targetCaseId));
+          if (found) openCase(found);
+        }
       } else {
         console.error('[CEO] ceo-reports fetch failed:', reportsRes.reason);
         setEscalatedCases([]);
@@ -387,10 +393,6 @@ export default function ExecutiveDashboard() {
                         <UserCheck size={13} />
                         {selectedCase.assigned_handler || selectedCase.assigned_investigator ? 'Reassign' : 'Assign Handler'}
                       </button>
-                      <Link to={`/cases/${selectedCase.id}`}
-                        className="btn btn-ghost text-xs py-1.5 px-3">
-                        Full Case <ChevronRight size={12} />
-                      </Link>
                     </div>
                   </div>
                 </div>
@@ -456,9 +458,10 @@ export default function ExecutiveDashboard() {
                             </div>
                           )}
                           {/* body */}
-                          <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
-                            {content}
-                          </p>
+                          <div
+                            className="text-sm text-slate-800 leading-relaxed space-y-2.5 overflow-x-auto"
+                            dangerouslySetInnerHTML={{ __html: renderRichText(content) }}
+                          />
                         </div>
                       );
                     })
