@@ -31,12 +31,6 @@ const navItems = [
     roles: ['Compliance_Officer'],
   },
   {
-    path: '/cases',
-    label: 'Case Management',
-    icon: FileText,
-    roles: ['Compliance_Officer'],
-  },
-  {
     path: '/executive',
     label: 'Executive Dashboard',
     icon: BarChart3,
