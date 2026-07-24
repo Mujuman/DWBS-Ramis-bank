@@ -219,9 +219,9 @@ const listEvidence = async (req, res) => {
     const c = caseCheck[0];
     const isOwner = user && c && c.user_id === user.userId;
     const isComp = user && user.role === 'Compliance_Officer';
-    const isCEOEscalated = user && user.role === 'CEO' && c && c.is_escalated;
+    const isCEO = user && user.role === 'CEO';
 
-    if (!isComp && !isOwner && !isCEOEscalated) {
+    if (!isComp && !isOwner && !isCEO) {
       return res.status(403).json({ error: 'Access denied to evidence for this case.' });
     }
 
@@ -255,9 +255,9 @@ const downloadEvidence = async (req, res) => {
     const caseData = caseRows[0];
     const isOwner = caseData.user_id === user.userId;
     const isComp = user.role === 'Compliance_Officer';
-    const isCEOEscalated = user.role === 'CEO' && caseData.is_escalated;
+    const isCEO = user.role === 'CEO';
 
-    if (!isComp && !isOwner && !isCEOEscalated) {
+    if (!isComp && !isOwner && !isCEO) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
