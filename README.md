@@ -113,7 +113,7 @@ GET    /api/cases/stats          → Executive stats (CEO+)
 POST   /api/cases                → Submit case (anon or staff)
 GET    /api/cases                → List cases (role-filtered)
 GET    /api/cases/:id            → Case detail
-PATCH  /api/cases/:id/status     → Update status/priority/assignment
+PATCH  /api/cases/:id/status     → Update status/severity_level/assignment
 
 POST   /api/cases/:id/evidence   → Upload encrypted evidence
 GET    /api/cases/:id/evidence   → List evidence files

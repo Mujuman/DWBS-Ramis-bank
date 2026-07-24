@@ -353,7 +353,6 @@ const editCase = async (req, res) => {
     department,
     severity_level,
     status,
-    priority,
     assigned_to,
     assigned_handler,
     assigned_investigator,
@@ -674,7 +673,7 @@ const getAnonymousCaseDetails = async (req, res) => {
 
 /**
  * PATCH /api/cases/:id/status
- * Updates case status, priority, or assignment.
+ * Updates case status, severity level, or assignment.
  * Only Compliance Officers and CEO (for escalated cases) can update.
  */
 const updateCaseStatus = async (req, res) => {
