@@ -104,16 +104,13 @@ const validateCreateCase = [
     .isLength({ min: 2, max: 100 }).withMessage('Branch or department must be 2–100 characters'),
   body('severity_level')
     .optional()
-    .isIn(['Low', 'Medium', 'High', 'Critical']).withMessage('Invalid severity level'),
+    .isIn(['Low', 'Medium', 'High']).withMessage('Invalid severity level'),
   body('incident_date')
     .optional()
     .isDate().withMessage('Invalid incident date format'),
   body('incident_location')
     .optional()
     .isLength({ max: 100 }).withMessage('Location too long (max 100 characters)'),
-  body('priority')
-    .optional()
-    .isIn(['Low', 'Medium', 'High', 'Critical']).withMessage('Invalid priority'),
 ];
 
 const validateEditCaseAnonymous = [
@@ -181,10 +178,10 @@ const validateStatusUpdate = [
     .notEmpty().withMessage('Status cannot be empty')
     .isIn(CASE_STATUSES)
     .withMessage('Invalid status'),
-  body('priority')
+  body('severity_level')
     .optional()
-    .notEmpty().withMessage('Priority cannot be empty')
-    .isIn(['Low', 'Medium', 'High', 'Critical']).withMessage('Invalid priority'),
+    .notEmpty().withMessage('Severity level cannot be empty')
+    .isIn(['Low', 'Medium', 'High']).withMessage('Invalid severity level'),
   body('assigned_to')
     .optional()
     .isInt({ min: 1 }).withMessage('Invalid assignee ID'),

@@ -7,23 +7,23 @@ import { format } from 'date-fns';
 import { CASE_STATUSES, STATUS_BADGE, formatStatus } from '../constants/caseWorkflow';
 
 const STATUSES = ['', ...CASE_STATUSES];
-const PRIORITIES = ['', 'Critical', 'High', 'Medium', 'Low'];
+const SEVERITIES = ['', 'High', 'Medium', 'Low'];
 const CATEGORIES = ['', 'Fraud', 'Corruption', 'Bribery', 'Abuse_of_Power', 'Procurement_Violation', 'System_Misuse'];
-const PRIORITY_MAP = { Critical: 'badge-critical', High: 'badge-high', Medium: 'badge-medium', Low: 'badge-low' };
+const SEVERITY_MAP = { High: 'badge-high', Medium: 'badge-medium', Low: 'badge-low' };
 
 export default function CaseListPage() {
   const { user } = useAuth();
   const [cases, setCases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ total: 0, page: 1, total_pages: 1 });
-  const [filters, setFilters] = useState({ status: '', priority: '', category: '', search: '', branch_or_dept: '', case_id: '', from_date: '', to_date: '', page: 1 });
+  const [filters, setFilters] = useState({ status: '', severity_level: '', category: '', search: '', branch_or_dept: '', case_id: '', from_date: '', to_date: '', page: 1 });
 
   const fetchCases = async (f = filters) => {
     setLoading(true);
     try {
       const params = {};
       if (f.status) params.status = f.status;
-      if (f.priority) params.severity_level = f.priority;
+      if (f.severity_level) params.severity_level = f.severity_level;
       if (f.category) params.category = f.category;
       if (f.search) params.search = f.search;
       if (f.branch_or_dept) params.branch_or_dept = f.branch_or_dept;
@@ -83,9 +83,9 @@ export default function CaseListPage() {
             {STATUSES.slice(1).map(s => <option key={s} value={s}>{formatStatus(s)}</option>)}
           </select>
           <select className="form-select text-sm flex-1 min-w-32"
-            value={filters.priority} onChange={e => setFilter('priority', e.target.value)}>
-            <option value="">All Priorities</option>
-            {PRIORITIES.slice(1).map(p => <option key={p} value={p}>{p}</option>)}
+            value={filters.severity_level} onChange={e => setFilter('severity_level', e.target.value)}>
+            <option value="">All Severities</option>
+            {SEVERITIES.slice(1).map(p => <option key={p} value={p}>{p}</option>)}
           </select>
           <select className="form-select text-sm flex-1 min-w-36"
             value={filters.category} onChange={e => setFilter('category', e.target.value)}>
@@ -127,7 +127,7 @@ export default function CaseListPage() {
                 <tr>
                   <th>Reference ID</th>
                   <th>Category</th>
-                  <th>Priority</th>
+                  <th>Severity</th>
                   <th>Status</th>
                   <th>Submitted By</th>
                   <th>Assigned To</th>
@@ -145,7 +145,7 @@ export default function CaseListPage() {
                       </span>
                     </td>
                     <td className="text-slate-600 text-sm">{c.category?.replace(/_/g, ' ')}</td>
-                    <td><span className={`badge ${PRIORITY_MAP[c.priority]}`}>{c.priority}</span></td>
+                    <td><span className={`badge ${SEVERITY_MAP[c.severity_level] || 'badge-low'}`}>{c.severity_level}</span></td>
                     <td>
                       <span className={`badge ${STATUS_BADGE[c.status] || 'badge-review'}`}>
                         {formatStatus(c.status)}

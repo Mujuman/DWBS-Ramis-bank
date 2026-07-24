@@ -60,7 +60,7 @@ const emailService = {
               <li>Review the report details</li>
               <li>Assess the severity and category</li>
               <li>Assign a Case Handler</li>
-              <li>Escalate to the CEO if critical</li>
+              <li>Escalate to the CEO if required</li>
             </ul>
             <div style="text-align: center; margin: 32px 0;">
               <a href="${process.env.CLIENT_ORIGIN}/login"
@@ -120,15 +120,15 @@ const emailService = {
   async notifyCEOEscalation(ceoEmail, details = {}) {
     await sendEmail({
       to: ceoEmail,
-      subject: '[DWBS] Critical Case Escalation for CEO Review',
-      text: `A critical whistleblowing case has been escalated to executive review. Please log in to the DWBS portal to view executive dashboard details.`,
+      subject: '[DWBS] Case Escalation for CEO Review',
+      text: `A whistleblowing case has been escalated to executive review. Please log in to the DWBS portal to view executive dashboard details.`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px;">
           <div style="background: #0A1D37; padding: 20px; text-align: center;">
             <h2 style="color: #F9A826; margin: 0;">Rammis Bank DWBS</h2>
           </div>
           <div style="padding: 30px; background: #f8f9fa;">
-            <p>A case has been marked as <strong>Critical</strong> and escalated to executive review.</p>
+            <p>A case has been escalated to executive review.</p>
             ${details.reference_id ? `<p>Reference: ${details.reference_id}</p>` : ''}
             ${details.category ? `<p>Category: ${details.category.replace(/_/g, ' ')}</p>` : ''}
             <p>Please log in to the DWBS portal to view the executive dashboard.</p>

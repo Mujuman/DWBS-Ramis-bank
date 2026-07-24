@@ -79,7 +79,7 @@ CREATE TABLE `cases` (
   `user_id` int(11) DEFAULT NULL,
   `category` enum('Fraud','Corruption','Bribery','Abuse_of_Power','Procurement_Violation','System_Misuse') NOT NULL,
   `branch_or_dept` varchar(100) NOT NULL,
-  `severity_level` enum('Low','Medium','High','Critical') DEFAULT 'Low',
+  `severity_level` enum('Low','Medium','High') DEFAULT 'Low',
   `description` text NOT NULL,
   `status` enum('New','Under_Review','Complaint_Dismissed','Assigned','Investigating','Pending_Evidence','Substantiated','Dismissed_No_Evidence') DEFAULT 'New',
   `assigned_handler` int(11) DEFAULT NULL,

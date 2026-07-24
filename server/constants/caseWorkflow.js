@@ -4,9 +4,9 @@
  * Flow:
  *  User (anonymous or non-anonymous)
  *    → Ethics & Anti-Corruption Office (Compliance_Officer)
- *        → [Critical] Escalates to CEO
+ *        → Escalates to CEO
  *            → CEO assigns Case Handler
- *        → [Non-Critical] Compliance Officer handles or assigns Case Handler directly
+ *        → Compliance Officer handles or assigns Case Handler directly
  *    → Compliance Team investigates / handles case
  */
 
@@ -32,7 +32,7 @@ const COMPLIANCE_OFFICER_STATUSES = [
   'Dismissed_No_Evidence',
 ];
 
-// CEO can assign handler on escalated/critical cases reported by Ethics Office
+// CEO can assign handler on escalated cases reported by Ethics Office
 const CEO_STATUSES = ['Assigned'];
 
 const STATUS_TRANSITIONS = {

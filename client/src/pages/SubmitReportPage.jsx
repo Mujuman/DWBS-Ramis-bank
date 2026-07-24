@@ -22,7 +22,6 @@ const CATEGORIES = [
   { value: 'System_Misuse',         label: 'System Misuse',         icon: '🖥️' },
 ];
 
-const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
 const STEPS = ['Privacy Shield', 'Incident Details', 'Evidence', 'Review & Submit'];
 
 export default function SubmitReportPage() {
@@ -44,7 +43,7 @@ export default function SubmitReportPage() {
   }, [isStaffAuthenticated]);
 
   const { register, handleSubmit, watch, setValue, getValues, formState: { errors } } = useForm({
-    defaultValues: { category: '', description: '', branch_or_dept: '', severity_level: 'Medium' },
+    defaultValues: { category: '', description: '', branch_or_dept: '' },
   });
   const descriptionRef = useRef(null);
   const [descriptionLength, setDescriptionLength] = useState(0);
@@ -153,7 +152,6 @@ export default function SubmitReportPage() {
         category: data.category,
         description: data.description,
         branch_or_dept: data.branch_or_dept || 'General',
-        severity_level: data.severity_level || 'Medium',
       };
 
       const caseRes = isStaffAuthenticated
@@ -423,17 +421,6 @@ export default function SubmitReportPage() {
               </div>
 
               <div>
-                <label className="form-label">Severity Level *</label>
-                <select className="form-select" defaultValue="Medium" {...register('severity_level', { required: 'Severity is required' })}>
-                  <option value="Low">Low</option>
-                  <option value="Medium">Medium</option>
-                  <option value="High">High</option>
-                  <option value="Critical">Critical</option>
-                </select>
-                {errors.severity_level && <p className="form-error">{errors.severity_level.message}</p>}
-              </div>
-
-              <div>
                 <label className="form-label">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="inline-flex items-center gap-2 font-semibold text-slate-800">
@@ -564,10 +551,6 @@ export default function SubmitReportPage() {
                 <div className="p-4 rounded-xl" style={{ background: 'var(--color-slate-50)' }}>
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1">Branch / Department</p>
                   <p className="text-sm font-semibold text-slate-800">{getValues('branch_or_dept') || 'General'}</p>
-                </div>
-                <div className="p-4 rounded-xl" style={{ background: 'var(--color-slate-50)' }}>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1">Severity</p>
-                  <p className="text-sm font-semibold text-slate-800">{getValues('severity_level') || 'Medium'}</p>
                 </div>
                 <div className="p-4 rounded-xl" style={{ background: 'var(--color-slate-50)' }}>
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Description</p>

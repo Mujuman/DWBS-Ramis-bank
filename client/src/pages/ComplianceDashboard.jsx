@@ -18,10 +18,10 @@ import {
 } from 'recharts';
 
 const STATUSES = CASE_STATUSES;
-const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
+const SEVERITIES = ['Low', 'Medium', 'High'];
 const CATEGORIES = ['Fraud', 'Corruption', 'Bribery', 'Abuse_of_Power', 'Procurement_Violation', 'System_Misuse'];
-const PRIORITY_BADGE = {
-  Low: 'badge-low', Medium: 'badge-medium', High: 'badge-high', Critical: 'badge-critical',
+const SEVERITY_BADGE = {
+  Low: 'badge-low', Medium: 'badge-medium', High: 'badge-high',
 };
 
 export default function EthicsDashboard() {
@@ -32,7 +32,7 @@ export default function EthicsDashboard() {
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ total: 0, page: 1, total_pages: 1 });
   const [activeTab, setActiveTab] = useState('queue');
-  const [filters, setFilters] = useState({ status: '', priority: '', category: '', search: '', page: 1 });
+  const [filters, setFilters] = useState({ status: '', severity_level: '', category: '', search: '', page: 1 });
 
   // Gmail-style compose state
   const [composeOpen, setComposeOpen] = useState(false);
@@ -48,7 +48,7 @@ export default function EthicsDashboard() {
     try {
       const params = { page: f.page, limit: 20 };
       if (f.status) params.status = f.status;
-      if (f.priority) params.severity_level = f.priority;
+      if (f.severity_level) params.severity_level = f.severity_level;
       if (f.category) params.category = f.category;
       if (f.search) params.search = f.search;
 
@@ -224,9 +224,9 @@ export default function EthicsDashboard() {
                 {STATUSES.map(s => <option key={s} value={s}>{formatStatus(s)}</option>)}
               </select>
               <select className="form-select text-sm min-w-32"
-                value={filters.priority} onChange={e => applyFilter('priority', e.target.value)}>
-                <option value="">All Priorities</option>
-                {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
+                value={filters.severity_level} onChange={e => applyFilter('severity_level', e.target.value)}>
+                <option value="">All Severities</option>
+                {SEVERITIES.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
               <select className="form-select text-sm min-w-36"
                 value={filters.category} onChange={e => applyFilter('category', e.target.value)}>
@@ -252,7 +252,7 @@ export default function EthicsDashboard() {
                     <tr>
                       <th>Reference</th>
                       <th>Category</th>
-                      <th>Priority</th>
+                      <th>Severity</th>
                       <th>Status</th>
                       <th>Submitted By</th>
                       <th>Assigned To</th>
@@ -269,7 +269,7 @@ export default function EthicsDashboard() {
                           </span>
                         </td>
                         <td className="text-slate-600 text-sm">{c.category?.replace(/_/g, ' ')}</td>
-                        <td><span className={`badge ${PRIORITY_BADGE[c.priority] || 'badge-low'}`}>{c.priority}</span></td>
+                        <td><span className={`badge ${SEVERITY_BADGE[c.severity_level] || 'badge-low'}`}>{c.severity_level}</span></td>
                         <td><span className={`badge ${STATUS_BADGE[c.status] || 'badge-review'}`}>{formatStatus(c.status)}</span></td>
                         <td>
                           <span className="text-xs px-2 py-0.5 rounded-full font-medium"
@@ -344,10 +344,10 @@ export default function EthicsDashboard() {
           { name: 'Substantiated',value: ov.substantiated||0, fill: '#34d399' },
           { name: 'Dismissed',    value: (ov.complaint_dismissed||0)+(ov.dismissed_no_evidence||0), fill: '#94a3b8' },
         ];
-        const priorityData = [
-          { name: 'Critical', value: ov.critical || 0, fill: '#e11d48' },
-          { name: 'High',     value: ov.high     || 0, fill: '#d97706' },
-          { name: 'Medium',   value: Math.max(0, (ov.total||0)-(ov.critical||0)-(ov.high||0)), fill: '#3b82f6' },
+        const severityData = [
+          { name: 'High',   value: ov.high   || 0, fill: '#d97706' },
+          { name: 'Medium', value: ov.medium || 0, fill: '#3b82f6' },
+          { name: 'Low',    value: ov.low    || 0, fill: '#10b981' },
         ];
         const categoryData = (stats?.by_category || []).map((c, i) => ({
           name: c.category?.replace(/_/g, ' '),
@@ -462,27 +462,27 @@ export default function EthicsDashboard() {
               </div>
 
               <div className="card p-6">
-                <h2 className="text-sm font-bold mb-4" style={{ color: 'var(--color-navy-900)' }}>Priority Distribution</h2>
-                {priorityData.every(p => p.value <= 0) ? (
+                <h2 className="text-sm font-bold mb-4" style={{ color: 'var(--color-navy-900)' }}>Severity Distribution</h2>
+                {severityData.every(p => p.value <= 0) ? (
                   <div className="flex items-center justify-center h-52 text-slate-300 text-sm">No data yet</div>
                 ) : (
                   <>
                     <ResponsiveContainer width="100%" height={170}>
-                      <BarChart data={priorityData} margin={{ top: 8, right: 20, bottom: 5, left: 10 }} barCategoryGap="35%">
+                      <BarChart data={severityData} margin={{ top: 8, right: 20, bottom: 5, left: 10 }} barCategoryGap="35%">
                         <CartesianGrid strokeDasharray="4 4" stroke="#f1f5f9" vertical={false} />
                         <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#475569', fontWeight: 600 }} axisLine={false} tickLine={false} />
                         <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
                         <Tooltip content={<CustomTip />} cursor={{ fill: 'rgba(10,29,55,0.04)' }} />
                         <Bar dataKey="value" name="Cases" radius={[6, 6, 0, 0]}>
-                          {priorityData.map((entry, idx) => <Cell key={idx} fill={entry.fill} />)}
+                          {severityData.map((entry, idx) => <Cell key={idx} fill={entry.fill} />)}
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>
                     <div className="grid grid-cols-3 gap-3 mt-4">
                       {[
-                        { label: 'Critical', value: ov.critical||0, color: '#e11d48', bg: 'linear-gradient(135deg, #fff1f2, #fecdd3)' },
-                        { label: 'High',     value: ov.high||0,     color: '#d97706', bg: 'linear-gradient(135deg, #fffbeb, #fde68a)' },
-                        { label: 'Others',   value: Math.max(0,(ov.total||0)-(ov.critical||0)-(ov.high||0)), color: '#3b82f6', bg: 'linear-gradient(135deg, #eff6ff, #bfdbfe)' },
+                        { label: 'High',   value: ov.high||0,   color: '#d97706', bg: 'linear-gradient(135deg, #fffbeb, #fde68a)' },
+                        { label: 'Medium', value: ov.medium||0, color: '#3b82f6', bg: 'linear-gradient(135deg, #eff6ff, #bfdbfe)' },
+                        { label: 'Low',    value: ov.low||0,    color: '#10b981', bg: 'linear-gradient(135deg, #ecfdf5, #a7f3d0)' },
                       ].map(p => (
                         <div key={p.label} className="rounded-xl p-3 text-center" style={{ background: p.bg }}>
                           <p className="text-2xl font-extrabold" style={{ color: p.color }}>{p.value}</p>

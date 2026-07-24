@@ -8,8 +8,8 @@ const { createNotification } = require('./notificationController');
 // Maps case category to initial automatic severity level
 const CATEGORY_SEVERITY_MAP = {
   'Fraud': 'High',
-  'Corruption': 'Critical',
-  'Bribery': 'Critical',
+  'Corruption': 'High',
+  'Bribery': 'High',
   'Abuse_of_Power': 'High',
   'Procurement_Violation': 'Medium',
   'System_Misuse': 'Medium',
@@ -56,7 +56,7 @@ const createCase = async (req, res) => {
     
     // Automatic severity classification based on category
     const initialSeverity = getInitialSeverity(category);
-    const isEscalated = initialSeverity === 'Critical';
+    const isEscalated = false;
 
     const [result] = await pool.execute(
       `INSERT INTO cases
@@ -234,7 +234,7 @@ const listCases = async (req, res) => {
       reference_id: c.reference_id,
       category: c.category,
       status: c.status,
-      priority: c.severity_level,
+      severity_level: c.severity_level,
       submitted_by_type: c.reporter_type?.toLowerCase(),
       is_escalated: c.is_escalated === 1 || c.is_escalated === true,
       incident_date: c.created_at,
@@ -300,7 +300,7 @@ const getCaseById = async (req, res) => {
       reference_id: caseData.reference_id,
       category: caseData.category,
       status: caseData.status,
-      priority: caseData.severity_level, // priority maps to severity_level
+      severity_level: caseData.severity_level,
       submitted_by_type: caseData.reporter_type?.toLowerCase(),
       incident_date: caseData.created_at,
       incident_location: caseData.branch_or_dept,
@@ -391,19 +391,14 @@ const editCase = async (req, res) => {
       updates.push('branch_or_dept = ?');
       params.push(effectiveBranch);
     }
-    const effectiveSeverity = severity_level ?? priority ?? newPriority;
-    // Only Compliance Officers may change severity/priority per BRD
+    const effectiveSeverity = severity_level ?? newSeverity;
+    // Only Compliance Officers may change severity level per BRD
     if (effectiveSeverity !== undefined) {
       if (!isCompliance) {
-        return res.status(403).json({ error: 'Only Compliance Officers may change case severity/priority.' });
+        return res.status(403).json({ error: 'Only Compliance Officers may change case severity level.' });
       }
       updates.push('severity_level = ?');
       params.push(effectiveSeverity);
-
-      // Escalate to Critical if severity is set to Critical
-      if (effectiveSeverity === 'Critical' && !caseData.is_escalated) {
-        newEscalatedStatus = 1;
-      }
     }
     const effectiveStatus = status ?? newStatus;
     if (effectiveStatus !== undefined) {
@@ -606,7 +601,7 @@ const trackCase = async (req, res) => {
         category: caseData.category,
         branch_or_dept: caseData.branch_or_dept,
         status: caseData.status,
-        priority: caseData.severity_level,
+        severity_level: caseData.severity_level,
         description: caseData.description,
         created_at: caseData.created_at,
         updated_at: caseData.updated_at,
@@ -654,7 +649,7 @@ const getAnonymousCaseDetails = async (req, res) => {
       category: caseData.category,
       branch_or_dept: caseData.branch_or_dept,
       status: caseData.status,
-      priority: caseData.severity_level,
+      severity_level: caseData.severity_level,
       description: caseData.description,
       created_at: caseData.created_at,
       updated_at: caseData.updated_at,
@@ -685,7 +680,7 @@ const getAnonymousCaseDetails = async (req, res) => {
 const updateCaseStatus = async (req, res) => {
   const user   = req.user;
   const caseId = parseInt(req.params.id);
-  const { status, priority, assigned_to } = req.body;
+  const { status, severity_level, assigned_to } = req.body;
 
   // Debug logging
   console.log('[DEBUG] updateCaseStatus called by:', {
@@ -693,7 +688,7 @@ const updateCaseStatus = async (req, res) => {
     username: user.username,
     role: user.role,
     caseId,
-    requestBody: { status, priority, assigned_to }
+    requestBody: { status, severity_level, assigned_to }
   });
 
   try {
@@ -744,15 +739,12 @@ const updateCaseStatus = async (req, res) => {
       updates.push('status = ?');
       params.push(status);
     }
-    if (priority) {
+    if (severity_level) {
       if (user.role !== 'Compliance_Officer') {
-        return res.status(403).json({ error: 'Only the Ethics & Anti-Corruption Office may change case priority.' });
+        return res.status(403).json({ error: 'Only the Ethics & Anti-Corruption Office may change case severity level.' });
       }
       updates.push('severity_level = ?');
-      params.push(priority);
-      if (priority === 'Critical' && !prev.is_escalated) {
-        newEscalatedStatus = 1;
-      }
+      params.push(severity_level);
     }
     if (assigned_to !== undefined) {
       updates.push('assigned_handler = ?');
@@ -770,7 +762,12 @@ const updateCaseStatus = async (req, res) => {
     }
 
     params.push(caseId);
-    await pool.execute(`UPDATE cases SET ${updates.join(', ')}, updated_at = NOW() WHERE case_id = ?`, params);
+    
+    console.log('[DEBUG] Executing UPDATE with:', { updates: updates.join(', '), params });
+    
+    const [result] = await pool.execute(`UPDATE cases SET ${updates.join(', ')}, updated_at = NOW() WHERE case_id = ?`, params);
+    
+    console.log('[DEBUG] UPDATE result:', { affectedRows: result.affectedRows, changedRows: result.changedRows });
 
     // If escalated to Critical, notify CEO
     if (newEscalatedStatus === 1 && prev.is_escalated === 0) {
@@ -794,8 +791,8 @@ const updateCaseStatus = async (req, res) => {
       metadata: {
         prev_status:    prev.status,
         new_status:     status   || prev.status,
-        prev_priority:  prev.severity_level,
-        new_priority:   priority || prev.severity_level,
+        prev_severity:  prev.severity_level,
+        new_severity:   severity_level || prev.severity_level,
         assigned_handler: assigned_to,
         escalated: newEscalatedStatus === 1,
       },
@@ -891,8 +888,9 @@ const getCaseStats = async (req, res) => {
          SUM(status = 'Substantiated') AS substantiated,
          SUM(status = 'Complaint_Dismissed') AS complaint_dismissed,
          SUM(status = 'Dismissed_No_Evidence') AS dismissed_no_evidence,
-         SUM(severity_level = 'Critical') AS critical,
-         SUM(severity_level = 'High') AS high
+         SUM(severity_level = 'High') AS high,
+         SUM(severity_level = 'Medium') AS medium,
+         SUM(severity_level = 'Low') AS low
        FROM cases
        WHERE deleted_at IS NULL`
     );
@@ -922,7 +920,6 @@ const getCaseStats = async (req, res) => {
        FROM cases c
        LEFT JOIN users u ON c.assigned_handler = u.user_id
        WHERE c.is_escalated = 1
-         AND c.severity_level = 'Critical'
          AND c.deleted_at IS NULL
          AND c.status NOT IN ('Substantiated', 'Complaint_Dismissed', 'Dismissed_No_Evidence')
        ORDER BY c.created_at DESC`
@@ -933,7 +930,7 @@ const getCaseStats = async (req, res) => {
       reference_id: c.reference_id,
       category: c.category,
       status: c.status,
-      priority: c.severity_level,
+      severity_level: c.severity_level,
       submitted_by_type: c.reporter_type?.toLowerCase(),
       is_escalated: true,
       created_at: c.created_at,
@@ -954,8 +951,9 @@ const getCaseStats = async (req, res) => {
         // Legacy keys for dashboard backward compatibility
         resolved: statusCounts.substantiated || 0,
         closed: (statusCounts.complaint_dismissed || 0) + (statusCounts.dismissed_no_evidence || 0),
-        critical: statusCounts.critical || 0,
         high: statusCounts.high || 0,
+        medium: statusCounts.medium || 0,
+        low: statusCounts.low || 0,
       },
       by_category: categoryCounts,
       monthly_trend: monthlyTrend,

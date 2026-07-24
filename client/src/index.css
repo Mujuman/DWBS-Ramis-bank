@@ -122,7 +122,6 @@ h1, h2, h3, h4, h5, h6 {
 .badge-resolved  { background: var(--color-success-100); color: #166534; }
 .badge-closed    { background: var(--color-slate-200); color: var(--color-slate-600); }
 .badge-escalated { background: var(--color-danger-100); color: var(--color-danger-500); }
-.badge-critical  { background: var(--color-danger-500); color: #ffffff; }
 .badge-high      { background: #fef3c7; color: #92400e; }
 .badge-medium    { background: var(--color-info-100); color: #1d4ed8; }
 .badge-low       { background: var(--color-success-100); color: #166534; }

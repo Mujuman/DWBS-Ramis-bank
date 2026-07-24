@@ -19,13 +19,12 @@ import {
   getNextStatusesForRole,
 } from '../constants/caseWorkflow';
 
-const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
+const SEVERITIES = ['Low', 'Medium', 'High'];
 
-const PRIORITY_COLOR = {
-  Low:      'text-green-600',
-  Medium:   'text-yellow-600',
-  High:     'text-orange-600',
-  Critical: 'text-red-600',
+const SEVERITY_COLOR = {
+  Low:    'text-green-600',
+  Medium: 'text-yellow-600',
+  High:   'text-orange-600',
 };
 
 export default function CaseDetailPage() {
@@ -179,7 +178,7 @@ export default function CaseDetailPage() {
   const [sendingNote, setSendingNote] = useState(false);
   const [editMode,    setEditMode]    = useState(false);
   const [newStatus,   setNewStatus]   = useState('');
-  const [newPriority, setNewPriority] = useState('');
+  const [newSeverity, setNewSeverity] = useState('');
   const [requestBranch, setRequestBranch] = useState('');
   const [requestSeverity, setRequestSeverity] = useState('Medium');
   const [handlers,    setHandlers]    = useState([]);
@@ -304,10 +303,10 @@ export default function CaseDetailPage() {
       // Set newStatus to empty so dropdown shows current status
       setNewStatus('');
       
-      setNewPriority(c.priority || 'Medium');
+      setNewSeverity(c.severity_level || 'Medium');
       setRequestDescription(c.description || '');
       setRequestBranch(c.incident_location || '');
-      setRequestSeverity(c.priority || 'Medium');
+      setRequestSeverity(c.severity_level || 'Medium');
       setAssignTo(c.assigned_to?.toString() || '');
 
       // Evidence — only for privileged roles
@@ -616,7 +615,7 @@ export default function CaseDetailPage() {
             <div className="grid grid-cols-2 gap-3 mb-5">
               {[
                 ['Category',      caseData.category?.replace(/_/g, ' ')],
-                ['Priority',      caseData.priority],
+                ['Severity Level',caseData.severity_level],
                 ['Submitted By',  caseData.submitted_by_type === 'anonymous' ? '🔒 Anonymous' : '👤 Staff'],
                 ['Date Submitted',format(new Date(caseData.created_at), 'MMM d, yyyy HH:mm')],
                 caseData.incident_location && ['Location', caseData.incident_location],
@@ -624,7 +623,7 @@ export default function CaseDetailPage() {
               ].filter(Boolean).map(([label, value]) => (
                 <div key={label} className="p-3 rounded-lg" style={{ background: 'var(--color-slate-50)' }}>
                   <p className="text-xs text-slate-400 mb-0.5">{label}</p>
-                  <p className={`text-sm font-semibold ${label === 'Priority' ? PRIORITY_COLOR[value] : 'text-slate-700'}`}>
+                  <p className={`text-sm font-semibold ${label === 'Severity Level' ? SEVERITY_COLOR[value] : 'text-slate-700'}`}>
                     {value}
                   </p>
                 </div>
@@ -913,9 +912,9 @@ export default function CaseDetailPage() {
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-500">Priority</span>
-                      <span className={`font-semibold text-sm ${PRIORITY_COLOR[caseData.priority]}`}>
-                        {caseData.priority}
+                      <span className="text-slate-500">Severity</span>
+                      <span className={`font-semibold text-sm ${SEVERITY_COLOR[caseData.severity_level]}`}>
+                        {caseData.severity_level}
                       </span>
                     </div>
                   </>
